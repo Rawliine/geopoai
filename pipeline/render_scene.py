@@ -163,7 +163,22 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
         log.info("Map ready.")
 
         log.info("Starting scene (%.1fs)…", duration)
-        await page.evaluate("scene => window.playScene(scene)", scene)
+        camera_duration = scene.get("camera", {}).get("duration", 2.0) if isinstance(scene.get("camera"), dict) else 2.0
+        default_scene_timeout = duration + camera_duration + 20
+        scene_timeout = scene.get("_scene_timeout", default_scene_timeout)
+        try:
+            await asyncio.wait_for(
+                page.evaluate("scene => window.playScene(scene)", scene),
+                timeout=scene_timeout,
+            )
+        except asyncio.TimeoutError:
+            await context.close()
+            await browser.close()
+            raise RuntimeError(
+                f"Scene playback timed out after {scene_timeout:.1f}s while waiting "
+                "for window.playScene() to finish. Check map style/camera event "
+                "listeners in renderer/map.html."
+            )
 
         tail = scene.get("_tail_buffer", 0.8)
         await asyncio.sleep(duration + tail)

@@ -136,9 +136,20 @@
   var loadingEl    = document.getElementById('loading-screen');
   var unbindReproject = null;
   var sceneRunning = false;
+  var activeStyleKey = 'dark';
 
   /* window.sceneReady — Playwright polls this before calling playScene() */
   window.sceneReady = false;
+
+  function normalizeStyleKey(styleKeyOrUrl) {
+    if (typeof styleKeyOrUrl !== 'string' || styleKeyOrUrl.length === 0) {
+      return 'dark';
+    }
+    if (Object.prototype.hasOwnProperty.call(STYLES, styleKeyOrUrl)) {
+      return styleKeyOrUrl;
+    }
+    return styleKeyOrUrl;
+  }
 
   /* ============================================================
      MAP INIT
@@ -148,6 +159,7 @@
   function initMap(styleKey) {
     styleKey = styleKey || 'dark';
     var styleUrl = STYLES[styleKey] || styleKey; // accept raw URL too
+    activeStyleKey = normalizeStyleKey(styleKey);
 
     mapboxgl.accessToken = MAPBOX_TOKEN;
 
@@ -195,11 +207,28 @@
   function changeStyle(styleKeyOrUrl) {
     return new Promise(function (resolve) {
       var url = STYLES[styleKeyOrUrl] || styleKeyOrUrl;
+      var nextStyleKey = normalizeStyleKey(styleKeyOrUrl);
       window.sceneReady = false;
-      map.setStyle(url);
-      map.once('style.load', function () {
+      var done = false;
+
+      function finish() {
+        if (done) return;
+        done = true;
         window.sceneReady = true;
         resolve();
+      }
+
+      var timeoutMs = 12000;
+      var timeoutId = setTimeout(function () {
+        console.warn('[map.html] changeStyle timeout after ' + timeoutMs + 'ms; continuing.');
+        finish();
+      }, timeoutMs);
+
+      map.setStyle(url);
+      map.once('style.load', function () {
+        clearTimeout(timeoutId);
+        activeStyleKey = nextStyleKey;
+        finish();
       });
     });
   }
@@ -213,6 +242,13 @@
   function applyInitialCamera(cameraSpec) {
     return new Promise(function (resolve) {
       if (!cameraSpec) { resolve(); return; }
+      var done = false;
+
+      function finish() {
+        if (done) return;
+        done = true;
+        resolve();
+      }
 
       var opts = {
         center:  cameraSpec.center  || [20, 30],
@@ -227,14 +263,23 @@
 
       if (duration === 0) {
         map.jumpTo(opts);
-        resolve();
+        finish();
       } else {
+        var timeoutMs = duration + 3000;
+        var timeoutId = setTimeout(function () {
+          console.warn('[map.html] applyInitialCamera timeout after ' + timeoutMs + 'ms; continuing.');
+          finish();
+        }, timeoutMs);
+
         map.flyTo(Object.assign({}, opts, {
           duration:  duration,
           essential: true,
           easing:    easeInOutCubic,
         }));
-        map.once('moveend', resolve);
+        map.once('moveend', function () {
+          clearTimeout(timeoutId);
+          finish();
+        });
       }
     });
   }
@@ -300,10 +345,10 @@
     sceneRunning = true;
 
     var style = scene.map_style || 'dark';
-    var currentStyle = map.getStyle().name || '';
+    var requestedStyleKey = normalizeStyleKey(style);
 
     /* 1. Change style if needed */
-    if (style !== currentStyle) {
+    if (requestedStyleKey !== activeStyleKey) {
       await changeStyle(style);
     }
 
