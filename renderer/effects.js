@@ -1,0 +1,731 @@
+/**
+ * effects.js — Map Animation Effects Engine
+ * Pure JS timing engine. No Mapbox dependency in this file.
+ * map object is passed in at call time — works with any map
+ * library that exposes .project(), .on(), .addSource(),
+ * .addLayer(), .setPaintProperty() (Mapbox GL JS API).
+ *
+ * Exports (attach to window for browser, or use ES modules):
+ *   applyFill(map, fillSpec)       → country/region fill with CSS effect
+ *   drawArrow(map, overlayEl, arrowSpec) → animated SVG arrow
+ *   showLabel(map, overlayEl, labelSpec) → geo-pinned or screen-fixed label
+ *   runTimeline(map, overlayEl, scene)   → master sequencer → Promise
+ *
+ * Also exports internal utils for testing:
+ *   reproject(map, overlayEl)      → re-pin all overlay elements
+ *   clearOverlay(overlayEl)        → remove all arrows + labels
+ */
+
+'use strict';
+
+/* ============================================================
+   INTERNAL UTILS
+   ============================================================ */
+
+/**
+ * Restart a CSS animation on an element.
+ * Removes classes, forces reflow, re-adds classes.
+ * @param {Element} el
+ * @param {string[]} classes
+ */
+function restartAnimation(el, classes) {
+  classes.forEach(c => el.classList.remove(c));
+  void el.offsetWidth; // force reflow — critical trick
+  classes.forEach(c => el.classList.add(c));
+}
+
+/**
+ * Convert [lng, lat] → {x, y} pixel coords using map.project().
+ * Returns null if map is not ready.
+ * @param {object} map  - Mapbox GL JS map instance
+ * @param {[number,number]} lngLat
+ * @returns {{x:number, y:number}|null}
+ */
+function toPixel(map, lngLat) {
+  if (!map || typeof map.project !== 'function') return null;
+  const pt = map.project(lngLat);
+  return { x: Math.round(pt.x), y: Math.round(pt.y) };
+}
+
+/**
+ * Create a curved SVG cubic bezier path string between two pixel points.
+ * arc controls how far the control point bows (positive = above line).
+ * @param {{x,y}} from
+ * @param {{x,y}} to
+ * @param {number} arc  - control point offset in px (default: 80)
+ * @returns {string}    - SVG path d attribute
+ */
+function curvedPath(from, to, arc = 80) {
+  const mx = (from.x + to.x) / 2;
+  const my = (from.y + to.y) / 2 - arc;
+  return `M${from.x},${from.y} Q${mx},${my} ${to.x},${to.y}`;
+}
+
+/**
+ * Straight SVG path string between two pixel points.
+ */
+function straightPath(from, to) {
+  return `M${from.x},${from.y} L${to.x},${to.y}`;
+}
+
+/**
+ * Animate a dot traveling along an SVG path element.
+ * @param {SVGPathElement} pathEl
+ * @param {SVGCircleElement} dotEl
+ * @param {number} durationMs
+ * @param {number} delayMs
+ */
+function animateTravelDot(pathEl, dotEl, durationMs = 2000, delayMs = 0) {
+  const len = pathEl.getTotalLength();
+  let startTs = null;
+
+  function step(ts) {
+    if (!startTs) startTs = ts;
+    const elapsed = ts - startTs;
+    if (elapsed < delayMs) { requestAnimationFrame(step); return; }
+    const progress = Math.min((elapsed - delayMs) / durationMs, 1);
+    // Ease in-out cubic
+    const t = progress < 0.5
+      ? 4 * progress ** 3
+      : 1 - (-2 * progress + 2) ** 3 / 2;
+    const pt = pathEl.getPointAtLength(t * len);
+    dotEl.setAttribute('cx', pt.x);
+    dotEl.setAttribute('cy', pt.y);
+    dotEl.style.opacity = progress < 0.05 ? progress / 0.05 : // fade in
+                          progress > 0.9  ? (1 - progress) / 0.1 : 1; // fade out
+    if (progress < 1) requestAnimationFrame(step);
+  }
+
+  requestAnimationFrame(step);
+}
+
+/**
+ * Typewriter effect — splits text into spans, reveals per-character.
+ * @param {HTMLElement} el
+ * @param {string} text
+ * @param {number} charIntervalMs
+ * @param {number} delayMs
+ * @returns {Promise} resolves when typing completes
+ */
+function typewriterReveal(el, text, charIntervalMs = 70, delayMs = 0) {
+  return new Promise(resolve => {
+    el.innerHTML = '';
+    el.classList.remove('done');
+
+    [...text].forEach(ch => {
+      const span = document.createElement('span');
+      span.className = 'char';
+      span.textContent = ch === ' ' ? '\u00A0' : ch;
+      el.appendChild(span);
+    });
+
+    const chars = el.querySelectorAll('.char');
+    chars.forEach((char, i) => {
+      setTimeout(() => {
+        char.classList.add('visible');
+        if (i === chars.length - 1) {
+          el.classList.add('done');
+          resolve();
+        }
+      }, delayMs + i * charIntervalMs);
+    });
+  });
+}
+
+/**
+ * Animate a number counter from → to.
+ * @param {HTMLElement} el
+ * @param {number} from
+ * @param {number} to
+ * @param {number} durationMs
+ * @param {string} [suffix='']   - e.g. 'K', '%', ' DIV'
+ * @returns {Promise}
+ */
+function animateCounter(el, from, to, durationMs = 1500, suffix = '') {
+  return new Promise(resolve => {
+    let start = null;
+    function step(ts) {
+      if (!start) start = ts;
+      const progress = Math.min((ts - start) / durationMs, 1);
+      const eased = 1 - (1 - progress) ** 3;
+      el.textContent = Math.round(from + (to - from) * eased) + suffix;
+      el.classList.add('tick');
+      setTimeout(() => el.classList.remove('tick'), 80);
+      if (progress < 1) requestAnimationFrame(step);
+      else resolve();
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+
+/* ============================================================
+   REPROJECT — Re-pin overlay elements after camera move
+   Must be called on map 'move' and 'moveend' events.
+   Elements that need reprojecting must have data-lng / data-lat.
+   ============================================================ */
+
+/**
+ * Reproject all geo-pinned elements in the overlay.
+ * JS sets data-lng and data-lat when creating each element.
+ * @param {object} map
+ * @param {HTMLElement} overlayEl
+ */
+function reproject(map, overlayEl) {
+  // Reproject labels
+  overlayEl.querySelectorAll('[data-lng][data-lat]').forEach(el => {
+    const lng = parseFloat(el.dataset.lng);
+    const lat = parseFloat(el.dataset.lat);
+    const pt = toPixel(map, [lng, lat]);
+    if (!pt) return;
+    el.style.left = `${pt.x}px`;
+    el.style.top  = `${pt.y}px`;
+  });
+
+  // Reproject SVG arrow paths — redraw path d attribute
+  overlayEl.querySelectorAll('svg[data-from-lng]').forEach(svgEl => {
+    const fromLng = parseFloat(svgEl.dataset.fromLng);
+    const fromLat = parseFloat(svgEl.dataset.fromLat);
+    const toLng   = parseFloat(svgEl.dataset.toLng);
+    const toLat   = parseFloat(svgEl.dataset.toLat);
+    const arc     = parseFloat(svgEl.dataset.arc ?? 80);
+    const curved  = svgEl.dataset.curved !== 'false';
+
+    const from = toPixel(map, [fromLng, fromLat]);
+    const to   = toPixel(map, [toLng,   toLat]);
+    if (!from || !to) return;
+
+    // Resize SVG to full overlay size
+    const w = overlayEl.clientWidth;
+    const h = overlayEl.clientHeight;
+    svgEl.setAttribute('width', w);
+    svgEl.setAttribute('height', h);
+    svgEl.setAttribute('viewBox', `0 0 ${w} ${h}`);
+
+    const pathEl = svgEl.querySelector('path.arrow-path');
+    if (pathEl) {
+      const d = curved ? curvedPath(from, to, arc) : straightPath(from, to);
+      pathEl.setAttribute('d', d);
+      pathEl.style.setProperty('--path-length', pathEl.getTotalLength());
+    }
+  });
+}
+
+/**
+ * Remove all dynamically-created arrows and labels from overlay.
+ * Leaves the SVG defs (arrowhead markers) intact.
+ */
+function clearOverlay(overlayEl) {
+  overlayEl.querySelectorAll('.effect-arrow, .effect-label').forEach(el => el.remove());
+}
+
+
+/* ============================================================
+   applyFill(map, fillSpec)
+   Adds a GeoJSON polygon fill layer to Mapbox with CSS effect.
+
+   fillSpec shape:
+   {
+     id:        string,          // unique layer id (e.g. "ukraine-fill")
+     geojson:   GeoJSON object,  // the polygon geometry
+     color:     string,          // hex color
+     opacity:   number,          // 0–1 (default 0.6)
+     effect:    string,          // CSS class name from effects.css
+     duration:  number,          // animation duration in seconds
+     delay:     number,          // animation delay in seconds
+     // For contested effect:
+     colorB:    string,          // second color
+   }
+   ============================================================ */
+
+function applyFill(map, fillSpec) {
+  const {
+    id,
+    geojson,
+    color      = '#e74c3c',
+    opacity    = 0.6,
+    effect     = 'fill-fade',
+    duration   = 1.2,
+    delay      = 0,
+    colorB,
+  } = fillSpec;
+
+  // --- 1. Add or update GeoJSON source ---
+  const sourceId = `${id}-source`;
+  const layerId  = `${id}-layer`;
+
+  if (map.getSource(sourceId)) {
+    map.getSource(sourceId).setData(geojson);
+  } else {
+    map.addSource(sourceId, { type: 'geojson', data: geojson });
+  }
+
+  // --- 2. Add fill layer if not present ---
+  if (!map.getLayer(layerId)) {
+    map.addLayer({
+      id:     layerId,
+      type:   'fill',
+      source: sourceId,
+      paint: {
+        'fill-color':   color,
+        'fill-opacity': 0,           // start transparent — CSS animates this
+      }
+    });
+  } else {
+    map.setPaintProperty(layerId, 'fill-color', color);
+  }
+
+  // --- 3. Create overlay div for CSS animation ---
+  // We animate a transparent overlay div, then sync opacity to Mapbox layer
+  // This gives us CSS effect power + Mapbox rendering quality
+  const overlayDiv = document.createElement('div');
+  overlayDiv.id = `${id}-overlay`;
+  overlayDiv.className = `effect-fill`;
+  overlayDiv.style.cssText = `
+    position: absolute; inset: 0; pointer-events: none;
+    --fill-opacity: ${opacity};
+    --effect-duration: ${duration}s;
+    --effect-delay: ${delay}s;
+    --effect-color-a: ${color};
+    --effect-color-b: ${colorB ?? color};
+  `;
+
+  // Get the map canvas container as the parent for fill overlays
+  const mapContainer = map.getContainer();
+  overlayDiv.style.position = 'absolute';
+  overlayDiv.style.inset = '0';
+  mapContainer.appendChild(overlayDiv);
+
+  // --- 4. Apply CSS effect class ---
+  void overlayDiv.offsetWidth;
+  overlayDiv.classList.add(effect);
+
+  // --- 5. Sync final opacity to Mapbox layer after animation ---
+  const totalDuration = (duration + delay) * 1000;
+  setTimeout(() => {
+    map.setPaintProperty(layerId, 'fill-opacity', opacity);
+    overlayDiv.remove(); // CSS overlay done, Mapbox layer holds the fill
+  }, totalDuration + 100);
+
+  return { layerId, sourceId };
+}
+
+
+/* ============================================================
+   drawArrow(map, overlayEl, arrowSpec)
+   Creates animated SVG arrow between two geographic points.
+
+   arrowSpec shape:
+   {
+     id:       string,           // unique id
+     from:     [lng, lat],
+     to:       [lng, lat],
+     color:    string,           // stroke color
+     width:    number,           // stroke width px (default 2.5)
+     effect:   string,           // 'arrow-draw' | 'arrow-travel' | 'arrow-glow'
+     curved:   boolean,          // true = bezier arc (default true)
+     arc:      number,           // arc height in px (default 80)
+     headed:   boolean,          // show arrowhead marker (default true)
+     glowColor: string,          // for arrow-glow effect
+     duration: number,           // seconds
+     delay:    number,           // seconds
+   }
+   ============================================================ */
+
+function drawArrow(map, overlayEl, arrowSpec) {
+  const {
+    id       = `arrow-${Date.now()}`,
+    from,
+    to,
+    color    = '#e74c3c',
+    width    = 2.5,
+    effect   = 'arrow-draw',
+    curved   = true,
+    arc      = 80,
+    headed   = true,
+    glowColor,
+    duration = 1.8,
+    delay    = 0,
+  } = arrowSpec;
+
+  const fromPx = toPixel(map, from);
+  const toPx   = toPixel(map, to);
+  if (!fromPx || !toPx) {
+    console.warn('[effects.js] drawArrow: could not project coordinates', from, to);
+    return null;
+  }
+
+  const w = overlayEl.clientWidth;
+  const h = overlayEl.clientHeight;
+
+  // --- Build SVG ---
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('width', w);
+  svg.setAttribute('height', h);
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.classList.add('effect-arrow');
+  svg.id = id;
+
+  // Store geo coords for reprojection on camera move
+  svg.dataset.fromLng = from[0];
+  svg.dataset.fromLat = from[1];
+  svg.dataset.toLng   = to[0];
+  svg.dataset.toLat   = to[1];
+  svg.dataset.arc     = arc;
+  svg.dataset.curved  = curved;
+
+  svg.style.cssText = `
+    position: absolute; top: 0; left: 0; pointer-events: none;
+    overflow: visible;
+    --path-length: 0;
+    --effect-duration: ${duration}s;
+    --effect-delay: ${delay}s;
+    --glow-color: ${glowColor ?? color};
+  `;
+
+  // --- Arrowhead marker (defined in defs) ---
+  if (headed) {
+    const defs = document.createElementNS(svgNS, 'defs');
+    const markerId = `arrowhead-${id}`;
+    defs.innerHTML = `
+      <marker id="${markerId}" markerWidth="8" markerHeight="6"
+              refX="7" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="${color}"/>
+      </marker>`;
+    svg.appendChild(defs);
+  }
+
+  // --- Main path ---
+  const pathD = curved
+    ? curvedPath(fromPx, toPx, arc)
+    : straightPath(fromPx, toPx);
+
+  const path = document.createElementNS(svgNS, 'path');
+  path.classList.add('arrow-path');
+  path.setAttribute('d', pathD);
+  path.setAttribute('fill', 'none');
+  path.setAttribute('stroke', color);
+  path.setAttribute('stroke-width', width);
+  path.setAttribute('stroke-linecap', 'round');
+  if (headed) path.setAttribute('marker-end', `url(#arrowhead-${id})`);
+
+  svg.appendChild(path);
+
+  // Set path length BEFORE adding animation class
+  const pathLen = path.getTotalLength();
+  svg.style.setProperty('--path-length', pathLen);
+
+  // --- Apply effect ---
+  if (effect === 'arrow-travel') {
+    // Static path (faint) + animated dot
+    path.setAttribute('stroke', `${color}44`); // faint base
+    path.setAttribute('stroke-width', width * 0.7);
+
+    const dot = document.createElementNS(svgNS, 'circle');
+    dot.classList.add('travel-dot');
+    dot.setAttribute('cx', fromPx.x);
+    dot.setAttribute('cy', fromPx.y);
+    dot.style.setProperty('--glow-color', glowColor ?? color);
+    dot.style.setProperty('--dot-radius', '5px');
+    svg.appendChild(dot);
+
+    overlayEl.appendChild(svg);
+    animateTravelDot(path, dot, duration * 1000, delay * 1000);
+
+  } else {
+    // draw-on or glow
+    void path.getBoundingClientRect(); // force reflow before class add
+    if (effect === 'arrow-draw') {
+      path.classList.add('arrow-draw');
+      if (headed) path.classList.add('arrow-draw-headed');
+    } else {
+      path.classList.add('arrow-glow');
+    }
+    overlayEl.appendChild(svg);
+  }
+
+  return svg;
+}
+
+
+/* ============================================================
+   showLabel(map, overlayEl, labelSpec)
+   Creates a positioned HTML label in the overlay.
+
+   labelSpec shape:
+   {
+     id:       string,
+     text:     string,
+     position: [lng, lat] | { x: number, y: number },
+                           // [lng,lat] = geo-pinned (reprojected on move)
+                           // {x,y}    = screen-fixed px from top-left
+     anchor:   string,     // CSS transform-origin: 'center' | 'top-left' etc.
+     effect:   string,     // 'label-slam' | 'label-typewriter' | 'label-fade'
+     fontSize: string,     // CSS font-size (default '1rem')
+     color:    string,     // CSS color (default '#f0c040')
+     duration: number,     // seconds
+     delay:    number,     // seconds
+     charInterval: number, // ms per char for typewriter (default 70)
+     // For counter:
+     isCounter: boolean,
+     counterFrom: number,
+     counterTo: number,
+     counterSuffix: string,
+   }
+   ============================================================ */
+
+function showLabel(map, overlayEl, labelSpec) {
+  const {
+    id            = `label-${Date.now()}`,
+    text          = '',
+    position,
+    anchor        = 'center',
+    effect        = 'label-fade',
+    fontSize      = '1rem',
+    color         = '#f0c040',
+    duration      = 0.8,
+    delay         = 0,
+    charInterval  = 70,
+    isCounter     = false,
+    counterFrom   = 0,
+    counterTo     = 100,
+    counterSuffix = '',
+  } = labelSpec;
+
+  // --- Compute pixel position ---
+  let px;
+  let isGeoPinned = false;
+
+  if (Array.isArray(position)) {
+    // [lng, lat] — geo-pinned
+    px = toPixel(map, position);
+    isGeoPinned = true;
+  } else if (position && typeof position === 'object') {
+    // {x, y} — screen-fixed
+    px = position;
+  } else {
+    console.warn('[effects.js] showLabel: no valid position provided');
+    return null;
+  }
+
+  if (!px) return null;
+
+  // --- Create element ---
+  const el = document.createElement('div');
+  el.id = id;
+  el.classList.add('map-label', 'effect-label');
+  el.textContent = text;
+
+  el.style.cssText = `
+    position: absolute;
+    left: ${px.x}px;
+    top:  ${px.y}px;
+    color: ${color};
+    font-size: ${fontSize};
+    transform: translate(-50%, -50%);
+    transform-origin: ${anchor};
+    --effect-duration: ${duration}s;
+    --effect-delay: ${delay}s;
+  `;
+
+  // Store geo coords for reprojection
+  if (isGeoPinned) {
+    el.dataset.lng = position[0];
+    el.dataset.lat = position[1];
+  }
+
+  overlayEl.appendChild(el);
+
+  // --- Apply effect (after append so layout is available) ---
+  setTimeout(() => {
+    if (effect === 'label-typewriter') {
+      el.classList.add('label-typewriter');
+      typewriterReveal(el, text, charInterval, delay * 1000);
+    } else if (isCounter) {
+      el.classList.add('label-fade'); // fade in first
+      void el.offsetWidth;
+      setTimeout(() => {
+        animateCounter(el, counterFrom, counterTo, duration * 1000, counterSuffix);
+      }, delay * 1000);
+    } else {
+      void el.offsetWidth;
+      el.classList.add(effect);
+    }
+  }, 0);
+
+  return el;
+}
+
+
+/* ============================================================
+   runTimeline(map, overlayEl, scene)
+   Master sequencer. Fires actions at their scheduled times.
+
+   scene shape:
+   {
+     duration: number,           // total scene duration in seconds
+     map_style: string,          // Mapbox style URL (applied by map.html)
+     camera: { ... },            // applied by map.html before timeline runs
+     timeline: [
+       {
+         at:     number,         // seconds from scene start
+         action: string,         // 'applyFill' | 'drawArrow' | 'showLabel'
+                                 // | 'clearOverlay' | 'cameraShake'
+                                 // | 'removeLayer' | 'removeLabel'
+         params: { ... },        // passed directly to the action function
+       }
+     ]
+   }
+
+   Returns: Promise that resolves when scene.duration elapses.
+   ============================================================ */
+
+function runTimeline(map, overlayEl, scene) {
+  const { duration = 10, timeline = [] } = scene;
+  const timers = [];
+
+  // Register all timeline events
+  timeline.forEach(entry => {
+    const ms = (entry.at ?? 0) * 1000;
+
+    const timer = setTimeout(() => {
+      try {
+        switch (entry.action) {
+
+          case 'applyFill':
+            applyFill(map, entry.params);
+            break;
+
+          case 'drawArrow':
+            drawArrow(map, overlayEl, entry.params);
+            break;
+
+          case 'showLabel':
+            showLabel(map, overlayEl, entry.params);
+            break;
+
+          case 'clearOverlay':
+            clearOverlay(overlayEl);
+            break;
+
+          case 'removeLabel': {
+            const el = document.getElementById(entry.params.id);
+            if (el) {
+              el.classList.add('label-fade-out');
+              setTimeout(() => el.remove(), 600);
+            }
+            break;
+          }
+
+          case 'removeLayer': {
+            const { id } = entry.params;
+            if (map.getLayer(`${id}-layer`)) map.removeLayer(`${id}-layer`);
+            if (map.getSource(`${id}-source`)) map.removeSource(`${id}-source`);
+            const overlayFill = document.getElementById(`${id}-overlay`);
+            if (overlayFill) overlayFill.remove();
+            break;
+          }
+
+          case 'cameraShake': {
+            // CSS-based camera shake via map container transform
+            const { intensity = 'medium', durationMs = 400 } = entry.params ?? {};
+            const container = map.getContainer();
+            const amplitudes = { light: 3, medium: 6, heavy: 12 };
+            const amp = amplitudes[intensity] ?? 6;
+            container.style.transition = 'none';
+            let elapsed = 0;
+            const interval = 30;
+            const shakeTimer = setInterval(() => {
+              elapsed += interval;
+              const dx = (Math.random() - 0.5) * amp;
+              const dy = (Math.random() - 0.5) * amp;
+              container.style.transform = `translate(${dx}px, ${dy}px)`;
+              if (elapsed >= durationMs) {
+                clearInterval(shakeTimer);
+                container.style.transform = '';
+              }
+            }, interval);
+            break;
+          }
+
+          case 'flyTo': {
+            // Mid-timeline camera move (in addition to the initial scene camera)
+            map.flyTo({
+              center:   entry.params.center,
+              zoom:     entry.params.zoom,
+              pitch:    entry.params.pitch    ?? 0,
+              bearing:  entry.params.bearing  ?? 0,
+              duration: (entry.params.duration ?? 2) * 1000,
+              essential: true,
+            });
+            break;
+          }
+
+          default:
+            console.warn(`[effects.js] runTimeline: unknown action "${entry.action}"`);
+        }
+      } catch (err) {
+        console.error(`[effects.js] runTimeline error at t=${entry.at}s:`, err);
+      }
+    }, ms);
+
+    timers.push(timer);
+  });
+
+  // Return promise that resolves when scene ends
+  return new Promise(resolve => {
+    setTimeout(() => {
+      timers.forEach(clearTimeout); // safety cleanup
+      resolve();
+    }, duration * 1000);
+  });
+}
+
+
+/* ============================================================
+   REPROJECT LISTENER SETUP
+   Call this once after the Mapbox map loads.
+   Ensures all geo-pinned overlays stay accurate during pans/zooms.
+   ============================================================ */
+
+/**
+ * Bind reproject to map movement events.
+ * @param {object} map
+ * @param {HTMLElement} overlayEl
+ */
+function bindReproject(map, overlayEl) {
+  const handler = () => reproject(map, overlayEl);
+  map.on('move',    handler);
+  map.on('moveend', handler);
+  map.on('zoom',    handler);
+  // Return unbind function for cleanup
+  return () => {
+    map.off('move',    handler);
+    map.off('moveend', handler);
+    map.off('zoom',    handler);
+  };
+}
+
+
+/* ============================================================
+   EXPORTS
+   ============================================================ */
+
+// Browser global (for map.html script tag usage)
+window.MapEffects = {
+  applyFill,
+  drawArrow,
+  showLabel,
+  runTimeline,
+  reproject,
+  clearOverlay,
+  bindReproject,
+  // Internal utils exposed for testing
+  _curvedPath:       curvedPath,
+  _straightPath:     straightPath,
+  _toPixel:          toPixel,
+  _typewriterReveal: typewriterReveal,
+  _animateCounter:   animateCounter,
+  _animateTravelDot: animateTravelDot,
+};

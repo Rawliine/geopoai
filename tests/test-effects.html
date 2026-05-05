@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>effects.css — Visual Test Suite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../renderer/effects.css">
+<style>
+  :root { --bg: #0d1117; --surface: #161b22; --border: #30363d; --text: #e6edf3; --muted: #8b949e; }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; padding: 32px; }
+  h1 { font-size: 1.5rem; color: var(--text); margin-bottom: 8px; }
+  .subtitle { color: var(--muted); font-size: 0.875rem; margin-bottom: 40px; }
+  section { margin-bottom: 48px; }
+  h2 { font-size: 0.7rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted);
+       border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 24px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+          padding: 20px 16px; display: flex; flex-direction: column; gap: 12px; align-items: center; }
+  .card-label { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+  .demo-box { width: 120px; height: 80px; background: #e74c3c; border-radius: 4px; opacity: 0.65; }
+  .demo-svg { width: 140px; height: 80px; }
+  .demo-label-container { height: 48px; display: flex; align-items: center; justify-content: center;
+                          background: #1a2a3a; border-radius: 4px; width: 100%; padding: 8px; }
+  .demo-map-label { font-size: 1rem; color: #f0c040; }
+  button.replay { font-size: 0.7rem; padding: 4px 10px; border-radius: 4px; border: 1px solid var(--border);
+                  background: transparent; color: var(--muted); cursor: pointer; margin-top: 4px; }
+  button.replay:hover { border-color: #58a6ff; color: #58a6ff; }
+  .tip { font-size: 0.72rem; color: var(--muted); background: #1c2128; border-left: 2px solid #58a6ff;
+         padding: 10px 14px; border-radius: 0 4px 4px 0; margin-bottom: 24px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<h1>effects.css — Visual Test Suite</h1>
+<p class="subtitle">Click <strong>Replay</strong> to restart any animation. Open DevTools console to check for errors.</p>
+
+<!-- ── FILL EFFECTS ─────────────────────────────────── -->
+<section id="fills">
+  <h2>Fill Effects</h2>
+  <p class="tip">Applied to HTML divs here. In production these wrap Mapbox GeoJSON fill layers via SVG overlay.</p>
+  <div class="grid">
+
+    <div class="card">
+      <div class="card-label">.fill-fade</div>
+      <div id="ff" class="demo-box fill-fade" style="--fill-opacity:0.65; --effect-duration:1.2s;"></div>
+      <button class="replay" onclick="replay('ff','fill-fade')">↺ Replay</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">.fill-wipe (L→R)</div>
+      <div id="fw" class="demo-box fill-wipe" style="--effect-duration:1.4s;"></div>
+      <button class="replay" onclick="replay('fw','fill-wipe')">↺ Replay</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">.fill-wipe-rtl (R→L)</div>
+      <div id="fwr" class="demo-box fill-wipe-rtl" style="background:#3498db; --effect-duration:1.4s;"></div>
+      <button class="replay" onclick="replay('fwr','fill-wipe-rtl')">↺ Replay</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">.fill-ripple</div>
+      <div id="fr" class="demo-box fill-ripple" style="background:#e74c3c; border-radius:50%; width:80px; height:80px; --ripple-origin-x:50%; --ripple-origin-y:50%; --effect-duration:1.0s;"></div>
+      <button class="replay" onclick="replay('fr','fill-ripple')">↺ Replay</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">.fill-ripple-ring</div>
+      <div style="position:relative;width:120px;height:80px;display:flex;align-items:center;justify-content:center;">
+        <div id="frr" class="fill-ripple-ring" style="position:absolute;width:60px;height:60px;border:3px solid #e74c3c;border-radius:50%;--effect-duration:1.8s;"></div>
+        <div style="width:12px;height:12px;border-radius:50%;background:#e74c3c;position:relative;z-index:1;"></div>
+      </div>
+      <button class="replay" onclick="replay('frr','fill-ripple-ring')">↺ Replay</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">.fill-contested</div>
+      <svg class="demo-svg"><rect id="fc" class="fill-contested" x="10" y="10" width="120" height="60" rx="4"
+        style="--effect-color-a:#e74c3c; --effect-color-b:#3498db; --fill-opacity:0.65; --effect-duration:1.2s;"/></svg>
+      <button class="replay" onclick="replay('fc','fill-contested')">↺ Replay</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">.fill-contested-smooth</div>
+      <svg class="demo-svg"><rect id="fcs" class="fill-contested-smooth" x="10" y="10" width="120" height="60" rx="4"
+        style="--effect-color-a:#9b59b6; --effect-color-b:#f39c12; --effect-duration:2.0s;"/></svg>
+      <button class="replay" onclick="replay('fcs','fill-contested-smooth')">↺ Replay</button>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── BORDER EFFECTS ────────────────────────────────── -->
+<section id="borders">
+  <h2>Border Effects</h2>
+  <p class="tip">Applied to SVG &lt;path&gt; elements. JS must set <code>--path-length</code> to <code>el.getTotalLength()</code> before adding the class.</p>
+  <div class="grid">
+
+    <div class="card">
+      <div class="card-label">.border-trim</div>
+      <svg class="demo-svg">
+        <path id="bt" class="border-trim" d="M10,40 Q40,10 70,40 Q100,70 130,40"
+          stroke="white" stroke-width="2.5" style="--path-length:0; --effect-duration:2.0s;"/>
+      </svg>
+      <button class="replay" onclick="replayPath('bt','border-trim')">↺ Replay</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">.border-trim-erase</div>
+      <svg class="demo-svg">
+        <path id="bte" class="border-trim-erase" d="M10,40 Q40,10 70,40 Q100,70 130,40"
+          stroke="#3498db" stroke-width="2.5" style="--path-length:0; --effect-duration:1.5s;"/>
+      </svg>
+      <button class="replay" onclick="replayPath('bte','border-trim-erase')">↺ Replay</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">.border-glow</div>
+      <svg class="demo-svg">
+        <path id="bg" class="border-glow" d="M15,60 L50,15 L90,55 L125,20"
+          stroke="#ff4444" stroke-width="2" style="--glow-color:#ff4444; --effect-duration:1.8s;"/>
+      </svg>
+      <button class="replay" onclick="replay('bg','border-glow')">↺ Replay</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">.border-marching</div>
+      <svg class="demo-svg">
+        <rect id="bm" class="border-marching" x="10" y="10" width="120" height="60" rx="4"
+          fill="none" stroke="#f39c12" stroke-width="2.5" style="--effect-duration:0.9s;"/>
+      </svg>
+      <span style="font-size:0.65rem;color:var(--muted)">Infinite loop</span>
+    </div>
+
+    <div class="card">
+      <div class="card-label">.border-breathe</div>
+      <svg class="demo-svg">
+        <rect id="bb" class="border-breathe" x="10" y="10" width="120" height="60" rx="4"
+          fill="rgba(231,76,60,0.15)" stroke="#e74c3c" stroke-width="2"
+          style="--stroke-width-min:1.5px; --stroke-width-max:4px; --effect-duration:2.2s;"/>
+      </svg>
+      <span style="font-size:0.65rem;color:var(--muted)">Infinite loop</span>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── ARROW EFFECTS ─────────────────────────────────── -->
+<section id="arrows">
+  <h2>Arrow / Path Effects</h2>
+  <p class="tip">Curved paths simulate geodesic arcs. In production these are projected from [lng,lat] pairs.</p>
+  <div class="grid">
+
+    <div class="card">
+      <div class="card-label">.arrow-draw</div>
+      <svg class="demo-svg">
+        <defs>
+          <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+            <polygon points="0 0, 8 3, 0 6" fill="#e74c3c"/>
+          </marker>
+        </defs>
+        <path id="ad" class="arrow-draw arrow-draw-headed" d="M15,60 Q70,-10 125,60"
+          stroke="#e74c3c" stroke-width="2.5" style="--path-length:0; --effect-duration:1.8s;"/>
+      </svg>
+      <button class="replay" onclick="replayPath('ad','arrow-draw arrow-draw-headed')">↺ Replay</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">.arrow-travel (dot)</div>
+      <svg class="demo-svg" id="travel-svg">
+        <path id="at-path" d="M15,60 Q70,-10 125,60"
+          fill="none" stroke="rgba(52,152,219,0.3)" stroke-width="2"/>
+        <circle id="at-dot" class="travel-dot" cx="15" cy="60" r="5"
+          style="--glow-color:#3498db; --dot-radius:5px;"/>
+      </svg>
+      <button class="replay" onclick="startTravelAnim()">↺ Replay</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">.arrow-glow (static)</div>
+      <svg class="demo-svg">
+        <path id="ag" class="arrow-glow" d="M15,40 Q70,5 125,40"
+          stroke="#3498db" stroke-width="2.5" style="--glow-color:#3498db; --effect-duration:2.0s;"/>
+      </svg>
+      <span style="font-size:0.65rem;color:var(--muted)">Infinite loop</span>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── LABEL EFFECTS ─────────────────────────────────── -->
+<section id="labels">
+  <h2>Label Effects</h2>
+  <div class="grid">
+
+    <div class="card">
+      <div class="card-label">.label-slam</div>
+      <div class="demo-label-container">
+        <div id="ls" class="map-label demo-map-label label-slam"
+          style="font-size:1.1rem; --effect-duration:0.4s;">WAR DECLARED</div>
+      </div>
+      <button class="replay" onclick="replay('ls','label-slam')">↺ Replay</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">.label-typewriter</div>
+      <div class="demo-label-container">
+        <div id="ltw" class="map-label demo-map-label label-typewriter"
+          style="font-size:1rem;">INVASION ROUTE</div>
+      </div>
+      <button class="replay" onclick="startTypewriter('ltw','INVASION ROUTE')">↺ Replay</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">.label-fade</div>
+      <div class="demo-label-container">
+        <div id="lf" class="map-label demo-map-label label-fade"
+          style="font-size:1rem; color:#2ecc71; --effect-duration:0.8s;">CEASEFIRE LINE</div>
+      </div>
+      <button class="replay" onclick="replay('lf','label-fade')">↺ Replay</button>
+    </div>
+
+    <div class="card">
+      <div class="card-label">.label-counter</div>
+      <div class="demo-label-container">
+        <div class="map-label demo-map-label" style="font-size:1.4rem; color:#e74c3c;">
+          <span id="lc" class="label-counter">0</span> DIVISIONS
+        </div>
+      </div>
+      <button class="replay" onclick="startCounter('lc', 0, 24, 1800)">↺ Replay</button>
+    </div>
+
+  </div>
+</section>
+
+<script>
+  /* ── Init path lengths (CRITICAL for trim/draw effects) ── */
+  function initPathLengths() {
+    document.querySelectorAll('path[id]').forEach(path => {
+      const len = path.getTotalLength();
+      path.style.setProperty('--path-length', len);
+    });
+  }
+
+  /* ── Replay helper — removes & re-adds class to restart anim ── */
+  function replay(id, cls) {
+    const el = document.getElementById(id);
+    cls.split(' ').forEach(c => el.classList.remove(c));
+    el.classList.add('anim-reset');
+    void el.offsetWidth; // force reflow
+    el.classList.remove('anim-reset');
+    cls.split(' ').forEach(c => el.classList.add(c));
+  }
+
+  function replayPath(id, cls) {
+    const el = document.getElementById(id);
+    const len = el.getTotalLength();
+    el.style.setProperty('--path-length', len);
+    replay(id, cls);
+  }
+
+  /* ── Typewriter effect ── */
+  function startTypewriter(id, text) {
+    const el = document.getElementById(id);
+    el.innerHTML = '';
+    el.classList.remove('done');
+    [...text].forEach(ch => {
+      const span = document.createElement('span');
+      span.className = 'char';
+      span.textContent = ch === ' ' ? '\u00A0' : ch;
+      el.appendChild(span);
+    });
+    const chars = el.querySelectorAll('.char');
+    chars.forEach((char, i) => {
+      setTimeout(() => {
+        char.classList.add('visible');
+        if (i === chars.length - 1) el.classList.add('done');
+      }, i * 80 + 300);
+    });
+  }
+
+  /* ── Traveling dot animation ── */
+  function startTravelAnim() {
+    const path = document.getElementById('at-path');
+    const dot  = document.getElementById('at-dot');
+    const len  = path.getTotalLength();
+    let start  = null;
+    const DURATION = 2200; // ms
+
+    function step(ts) {
+      if (!start) start = ts;
+      const progress = Math.min((ts - start) / DURATION, 1);
+      // Ease in-out cubic
+      const t = progress < 0.5 ? 4*progress**3 : 1 - (-2*progress+2)**3/2;
+      const pt = path.getPointAtLength(t * len);
+      dot.setAttribute('cx', pt.x);
+      dot.setAttribute('cy', pt.y);
+      if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  /* ── Counter animation ── */
+  function startCounter(id, from, to, durationMs) {
+    const el = document.getElementById(id);
+    let start = null;
+    function step(ts) {
+      if (!start) start = ts;
+      const progress = Math.min((ts - start) / durationMs, 1);
+      const eased = 1 - (1 - progress) ** 3; // ease out cubic
+      const val = Math.round(from + (to - from) * eased);
+      el.textContent = val;
+      el.classList.add('tick');
+      setTimeout(() => el.classList.remove('tick'), 100);
+      if (progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+
+  /* ── Init on load ── */
+  window.addEventListener('DOMContentLoaded', () => {
+    initPathLengths();
+    startTypewriter('ltw', 'INVASION ROUTE');
+    startTravelAnim();
+    startCounter('lc', 0, 24, 1800);
+  });
+</script>
+</body>
+</html>

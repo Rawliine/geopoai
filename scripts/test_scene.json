@@ -1,0 +1,77 @@
+{
+  "duration": 12,
+  "map_style": "dark",
+  "camera": {
+    "center": [31.2, 48.4],
+    "zoom": 5.0,
+    "pitch": 30,
+    "bearing": 0,
+    "duration": 2.5
+  },
+  "timeline": [
+    {
+      "at": 0.0,
+      "action": "showLabel",
+      "params": {
+        "text": "EASTERN EUROPE",
+        "position": [31.2, 52.0],
+        "effect": "label-slam",
+        "color": "#f0c040",
+        "fontSize": "1.4rem"
+      }
+    },
+    {
+      "at": 1.0,
+      "action": "drawArrow",
+      "params": {
+        "from": [37.6, 55.7],
+        "to": [30.5, 50.4],
+        "color": "#e74c3c",
+        "effect": "arrow-draw",
+        "curved": true,
+        "arc": 120,
+        "headed": true,
+        "duration": 2.0
+      }
+    },
+    {
+      "at": 3.5,
+      "action": "showLabel",
+      "params": {
+        "text": "OFFENSIVE VECTOR",
+        "position": [34.0, 52.5],
+        "effect": "label-typewriter",
+        "color": "#e74c3c",
+        "fontSize": "1rem",
+        "charInterval": 70
+      }
+    },
+    {
+      "at": 6.0,
+      "action": "flyTo",
+      "params": {
+        "center": [34.0, 49.0],
+        "zoom": 6.5,
+        "pitch": 45,
+        "bearing": 10,
+        "duration": 2.0
+      }
+    },
+    {
+      "at": 8.5,
+      "action": "showLabel",
+      "params": {
+        "text": "CEASEFIRE LINE",
+        "position": [32.0, 48.5],
+        "effect": "label-fade",
+        "color": "#2ecc71",
+        "fontSize": "1.1rem"
+      }
+    },
+    {
+      "at": 10.0,
+      "action": "cameraShake",
+      "params": { "intensity": "medium", "durationMs": 400 }
+    }
+  ]
+}

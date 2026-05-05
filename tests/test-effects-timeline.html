@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>effects.js — Unit Test Suite (No Mapbox)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../renderer/effects.css">
+<!-- Load effects.js in <head> so functions are available when onclick fires -->
+<script src="effects.js"></script>
+<style>
+  :root { --bg:#0d1117; --surface:#161b22; --border:#30363d; --text:#e6edf3; --muted:#8b949e; --green:#3fb950; --red:#f85149; }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;padding:32px;line-height:1.5}
+  h1{font-size:1.4rem;margin-bottom:4px}
+  .subtitle{color:var(--muted);font-size:.85rem;margin-bottom:32px}
+  section{margin-bottom:48px}
+  h2{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:20px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:16px}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:20px 16px;display:flex;flex-direction:column;gap:12px;align-items:center}
+  .card-label{font-size:.68rem;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;text-align:center}
+  .demo-overlay{position:relative;width:200px;height:120px;background:#0a1628;border-radius:6px;overflow:hidden}
+  button{font-size:.72rem;padding:5px 12px;border-radius:5px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;font-family:inherit}
+  button:hover{border-color:#58a6ff;color:#58a6ff}
+  .log{font-family:monospace;font-size:.75rem;background:#010409;border:1px solid var(--border);border-radius:6px;padding:12px;max-height:180px;overflow-y:auto;margin-top:8px;color:#79c0ff}
+  .pass{color:var(--green)} .fail{color:var(--red)}
+  .tip{font-size:.72rem;color:var(--muted);background:#1c2128;border-left:2px solid #58a6ff;padding:10px 14px;border-radius:0 4px 4px 0;margin-bottom:20px;line-height:1.6}
+  #unit-results{font-family:monospace;font-size:.8rem;line-height:2}
+</style>
+</head>
+<body>
+<h1>effects.js — Test Suite</h1>
+<p class="subtitle">Tests run against a <strong>mock map</strong> — no Mapbox token needed.</p>
+
+<section>
+  <h2>Unit Tests — Internal Utils</h2>
+  <p class="tip">Pure function tests. No DOM or Mapbox dependency.</p>
+  <div id="unit-results">Loading…</div>
+</section>
+
+<section>
+  <h2>showLabel — All Effects</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="card-label">label-slam</div>
+      <div class="demo-overlay" id="overlay-slam"></div>
+      <button onclick="testSlam()">↺ Replay</button>
+    </div>
+    <div class="card">
+      <div class="card-label">label-typewriter</div>
+      <div class="demo-overlay" id="overlay-tw"></div>
+      <button onclick="testTypewriter()">↺ Replay</button>
+    </div>
+    <div class="card">
+      <div class="card-label">label-fade</div>
+      <div class="demo-overlay" id="overlay-fade"></div>
+      <button onclick="testFade()">↺ Replay</button>
+    </div>
+    <div class="card">
+      <div class="card-label">label counter</div>
+      <div class="demo-overlay" id="overlay-counter"></div>
+      <button onclick="testCounter()">↺ Replay</button>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>drawArrow — All Effects</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="card-label">arrow-draw (curved)</div>
+      <div class="demo-overlay" id="overlay-arrow-draw"></div>
+      <button onclick="testArrowDraw()">↺ Replay</button>
+    </div>
+    <div class="card">
+      <div class="card-label">arrow-travel (dot)</div>
+      <div class="demo-overlay" id="overlay-arrow-travel"></div>
+      <button onclick="testArrowTravel()">↺ Replay</button>
+    </div>
+    <div class="card">
+      <div class="card-label">arrow-glow (static)</div>
+      <div class="demo-overlay" id="overlay-arrow-glow"></div>
+      <button onclick="testArrowGlow()">↺ Replay</button>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>runTimeline — Sequencer</h2>
+  <p class="tip">10-second scene. Labels and arrows fire at scheduled times.</p>
+  <div style="display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+    <div class="demo-overlay" id="overlay-timeline" style="width:320px;height:180px;flex-shrink:0"></div>
+    <div>
+      <button onclick="testTimeline()" style="margin-bottom:8px">▶ Run Timeline (10s)</button>
+      <div class="log" id="timeline-log">Events will appear here…</div>
+    </div>
+  </div>
+</section>
+
+<script>
+/* ── Mock Mapbox map (mimics the GL JS API surface) ── */
+var mockMap = {
+  _layers: {}, _sources: {},
+  getContainer: function() { return document.getElementById('overlay-slam'); },
+  project: function(lngLat) {
+    var x = (lngLat[0] + 30) * (200 / 80);
+    var y = (70 - lngLat[1]) * (120 / 60);
+    return { x: Math.round(x), y: Math.round(y) };
+  },
+  getSource:  function(id) { return this._sources[id] || null; },
+  getLayer:   function(id) { return this._layers[id]  || null; },
+  addSource:  function(id, spec) { this._sources[id] = Object.assign({ setData: function(d){ this.data=d; } }, spec); },
+  addLayer:   function(spec) { this._layers[spec.id] = spec; },
+  setPaintProperty: function(id, prop, val) { if (this._layers[id]) this._layers[id].paint[prop] = val; },
+  removeLayer:  function(id) { delete this._layers[id]; },
+  removeSource: function(id) { delete this._sources[id]; },
+  flyTo: function(opts) { console.log('[MockMap] flyTo:', opts); },
+  on: function(){}, off: function(){}
+};
+
+/* ── Grab internal utils (not the 4 main functions — those stay on window.MapEffects) ── */
+var _utils = window.MapEffects;
+var _toPixel          = _utils._toPixel;
+var _curvedPath       = _utils._curvedPath;
+var _straightPath     = _utils._straightPath;
+
+/* ── Shortcuts to the 4 main functions via MapEffects namespace ── */
+var ME = window.MapEffects;
+
+/* ── UNIT TESTS ─────────────────────────────────────────── */
+function runUnitTests() {
+  var results = [];
+  function assert(name, condition, detail) {
+    results.push({ name: name, pass: !!condition, detail: detail || '' });
+  }
+
+  var pt = _toPixel(mockMap, [0, 50]);
+  assert('_toPixel: returns {x,y}',         pt && typeof pt.x === 'number' && typeof pt.y === 'number', JSON.stringify(pt));
+  assert('_toPixel: lng=0 maps to x=75',    pt && pt.x === 75, 'x=' + (pt && pt.x));
+  assert('_toPixel: null map → null',        _toPixel(null, [0,0]) === null);
+
+  var d = _curvedPath({x:10,y:100}, {x:190,y:100}, 80);
+  assert('_curvedPath: returns string',      typeof d === 'string');
+  assert('_curvedPath: starts with M',       d.startsWith('M'), d);
+  assert('_curvedPath: has Q control point', d.includes('Q'), d);
+
+  var ds = _straightPath({x:0,y:0}, {x:100,y:100});
+  assert('_straightPath: M…L format',        ds.startsWith('M') && ds.includes('L'), ds);
+
+  assert('MapEffects.applyFill exists',      typeof ME.applyFill   === 'function');
+  assert('MapEffects.drawArrow exists',      typeof ME.drawArrow   === 'function');
+  assert('MapEffects.showLabel exists',      typeof ME.showLabel   === 'function');
+  assert('MapEffects.runTimeline exists',    typeof ME.runTimeline === 'function');
+
+  var el = document.getElementById('unit-results');
+  el.innerHTML = results.map(function(r) {
+    return '<div><span class="' + (r.pass ? 'pass' : 'fail') + '">' + (r.pass ? '✓' : '✗') + '</span> ' +
+           r.name + (r.detail ? ' <span style="color:var(--muted)">— ' + r.detail + '</span>' : '') + '</div>';
+  }).join('');
+  var passed = results.filter(function(r){ return r.pass; }).length;
+  el.innerHTML += '<div style="margin-top:8px;color:var(--muted)">' + passed + '/' + results.length + ' passed</div>';
+}
+
+/* ── HELPERS ────────────────────────────────────────────── */
+function clearOverlayById(id) {
+  var el = document.getElementById(id);
+  el.querySelectorAll('.effect-label,.effect-arrow,.effect-fill').forEach(function(e){ e.remove(); });
+  return el;
+}
+
+/* ── LABEL TESTS ─────────────────────────────────────────── */
+window.testSlam = function() {
+  var o = clearOverlayById('overlay-slam');
+  ME.showLabel(mockMap, o, { text:'WAR DECLARED', position:{x:100,y:60}, effect:'label-slam', color:'#f0c040', fontSize:'0.9rem', duration:0.4 });
+};
+
+window.testTypewriter = function() {
+  var o = clearOverlayById('overlay-tw');
+  ME.showLabel(mockMap, o, { text:'INVASION ROUTE', position:{x:100,y:60}, effect:'label-typewriter', color:'#3498db', fontSize:'0.85rem', charInterval:80 });
+};
+
+window.testFade = function() {
+  var o = clearOverlayById('overlay-fade');
+  ME.showLabel(mockMap, o, { text:'CEASEFIRE LINE', position:{x:100,y:60}, effect:'label-fade', color:'#2ecc71', fontSize:'0.85rem', duration:0.8 });
+};
+
+window.testCounter = function() {
+  var o = clearOverlayById('overlay-counter');
+  ME.showLabel(mockMap, o, { text:'0', position:{x:100,y:60}, effect:'label-fade', color:'#e74c3c', fontSize:'1.2rem',
+    isCounter:true, counterFrom:0, counterTo:48, counterSuffix:' DIV', duration:2.0 });
+};
+
+/* ── ARROW TESTS ─────────────────────────────────────────── */
+window.testArrowDraw = function() {
+  var o = clearOverlayById('overlay-arrow-draw');
+  ME.drawArrow(mockMap, o, { from:[30,56], to:[25,48], color:'#e74c3c', effect:'arrow-draw', curved:true, arc:40, headed:true, duration:1.8 });
+};
+
+window.testArrowTravel = function() {
+  var o = clearOverlayById('overlay-arrow-travel');
+  ME.drawArrow(mockMap, o, { from:[30,56], to:[25,48], color:'#f39c12', effect:'arrow-travel', curved:true, arc:40, duration:2.5 });
+};
+
+window.testArrowGlow = function() {
+  var o = clearOverlayById('overlay-arrow-glow');
+  ME.drawArrow(mockMap, o, { from:[30,56], to:[25,48], color:'#3498db', effect:'arrow-glow', glowColor:'#3498db', curved:true, arc:40, headed:false });
+};
+
+/* ── TIMELINE TEST ────────────────────────────────────────── */
+function tlog(msg) {
+  var el = document.getElementById('timeline-log');
+  var d = document.createElement('div');
+  d.textContent = '[' + new Date().toLocaleTimeString('en',{hour12:false}) + '] ' + msg;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+}
+
+window.testTimeline = async function() {
+  var overlay = document.getElementById('overlay-timeline');
+  ME.clearOverlay(overlay);
+  document.getElementById('timeline-log').innerHTML = '';
+  tlog('Scene started');
+
+  var scene = {
+    duration: 10,
+    timeline: [
+      { at:0.0, action:'showLabel',    params:{ text:'EAST EUROPE',  position:{x:160,y:30},  effect:'label-slam',       color:'#f0c040', fontSize:'0.85rem' } },
+      { at:0.8, action:'drawArrow',    params:{ from:[30,56], to:[25,48], color:'#e74c3c', effect:'arrow-draw', arc:30, duration:1.5 } },
+      { at:2.5, action:'showLabel',    params:{ text:'OFFENSIVE',    position:{x:80,y:80},   effect:'label-typewriter', color:'#e74c3c', fontSize:'0.8rem', charInterval:90 } },
+      { at:4.5, action:'showLabel',    params:{ text:'CEASEFIRE',    position:{x:200,y:100}, effect:'label-fade',       color:'#2ecc71', fontSize:'0.8rem' } },
+      { at:5.5, action:'drawArrow',    params:{ from:[25,48], to:[35,52], color:'#3498db', effect:'arrow-glow', arc:30 } },
+      { at:8.5, action:'clearOverlay', params:{} },
+      { at:9.0, action:'showLabel',    params:{ text:'END',          position:{x:160,y:90},  effect:'label-slam',       color:'#8b949e', fontSize:'1rem' } },
+    ]
+  };
+
+  scene.timeline.forEach(function(e) {
+    setTimeout(function(){ tlog('→ ' + e.action + (e.params.text ? ' "' + e.params.text + '"' : '')); }, e.at * 1000);
+  });
+
+  await ME.runTimeline(mockMap, overlay, scene);
+  tlog('✓ Scene complete (10s)');
+};
+
+/* ── INIT ────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', function() {
+  runUnitTests();
+  window.testSlam();
+  window.testTypewriter();
+  window.testFade();
+  window.testCounter();
+  window.testArrowDraw();
+  window.testArrowTravel();
+  window.testArrowGlow();
+});
+</script>
+</body>
+</html>

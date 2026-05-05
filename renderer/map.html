@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Map Renderer</title>
+
+  <!-- Mapbox GL JS v3 -->
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
+
+  <!-- Effects library -->
+  <link rel="stylesheet" href="effects.css">
+  <script src="effects.js"></script>
+
+  <style>
+    /* ── Reset: full 1920×1080 frame, no scrollbars ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width:  1920px;
+      height: 1080px;
+      overflow: hidden;
+      background: #0d1117;
+    }
+
+    /* ── Map fills the entire frame ── */
+    #map {
+      position: absolute;
+      inset: 0;
+      width:  1920px;
+      height: 1080px;
+    }
+
+    /* ── Overlay sits above the WebGL canvas, pointer events disabled ── */
+    #overlay {
+      position: absolute;
+      inset: 0;
+      width:  1920px;
+      height: 1080px;
+      pointer-events: none;
+      z-index: 10;
+      overflow: visible;
+    }
+
+    /* ── Single SVG layer for all arrows/paths ── */
+    #arrows-layer {
+      position: absolute;
+      inset: 0;
+      width:  100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    /* ── Div layer for all HTML labels ── */
+    #labels-layer {
+      position: absolute;
+      inset: 0;
+      width:  100%;
+      height: 100%;
+    }
+
+    /* ── Loading screen shown until tiles are ready ── */
+    #loading-screen {
+      position: absolute;
+      inset: 0;
+      background: #0d1117;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      transition: opacity 0.6s ease;
+    }
+
+    #loading-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loading-spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: rgba(255,255,255,0.6);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Hide default Mapbox UI chrome ── */
+    .mapboxgl-ctrl-logo,
+    .mapboxgl-ctrl-attrib,
+    .mapboxgl-ctrl-group { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- Map canvas -->
+  <div id="map"></div>
+
+  <!-- Overlay: arrows + labels float above map -->
+  <div id="overlay">
+    <svg  id="arrows-layer" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div  id="labels-layer"></div>
+  </div>
+
+  <!-- Loading screen — hidden once tiles load -->
+  <div id="loading-screen">
+    <div class="loading-spinner"></div>
+  </div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ============================================================
+     CONFIG
+     Replace TOKEN with your Mapbox public token.
+     Get one free at https://account.mapbox.com/
+     ============================================================ */
+  var MAPBOX_TOKEN = window.MAPBOX_TOKEN || '';
+
+  /* ── Built-in style aliases ─────────────────────────────── */
+  var STYLES = {
+    dark:      'mapbox://styles/mapbox/dark-v11',
+    satellite: 'mapbox://styles/mapbox/satellite-v9',
+    terrain:   'mapbox://styles/mapbox/outdoors-v12',
+    light:     'mapbox://styles/mapbox/light-v11',
+    streets:   'mapbox://styles/mapbox/streets-v12',
+  };
+
+  /* ── State ───────────────────────────────────────────────── */
+  var map          = null;
+  var overlayEl    = document.getElementById('overlay');
+  var loadingEl    = document.getElementById('loading-screen');
+  var unbindReproject = null;
+  var sceneRunning = false;
+
+  /* window.sceneReady — Playwright polls this before calling playScene() */
+  window.sceneReady = false;
+
+  /* ============================================================
+     MAP INIT
+     Called once on page load with a default style.
+     playScene() can change the style before running a scene.
+     ============================================================ */
+  function initMap(styleKey) {
+    styleKey = styleKey || 'dark';
+    var styleUrl = STYLES[styleKey] || styleKey; // accept raw URL too
+
+    mapboxgl.accessToken = MAPBOX_TOKEN;
+
+    map = new mapboxgl.Map({
+      container:   'map',
+      style:        styleUrl,
+      center:       [20, 30],   // default: Europe/Africa view
+      zoom:         2,
+      pitch:        0,
+      bearing:      0,
+      interactive:  false,      // CRITICAL — no mouse/touch input
+      attributionControl: false,
+      logoPosition: 'bottom-left',
+      antialias:    true,       // smoother edges for fills/borders
+      preserveDrawingBuffer: true, // required for canvas screenshot if needed
+    });
+
+    /* Hide Mapbox UI controls */
+    map.dragPan.disable();
+    map.scrollZoom.disable();
+    map.boxZoom.disable();
+    map.dragRotate.disable();
+    map.keyboard.disable();
+    map.doubleClickZoom.disable();
+    map.touchZoomRotate.disable();
+
+    /* Bind reproject so overlays stay pinned during camera moves */
+    unbindReproject = window.MapEffects.bindReproject(map, overlayEl);
+
+    /* Signal ready when style + tiles have loaded */
+    map.once('idle', function () {
+      window.sceneReady = true;
+      loadingEl.classList.add('hidden');
+      console.log('[map.html] Map ready. window.sceneReady = true');
+    });
+
+    return map;
+  }
+
+  /* ============================================================
+     CHANGE STYLE
+     Swaps the Mapbox base style mid-session.
+     Returns a Promise that resolves when new style is loaded.
+     ============================================================ */
+  function changeStyle(styleKeyOrUrl) {
+    return new Promise(function (resolve) {
+      var url = STYLES[styleKeyOrUrl] || styleKeyOrUrl;
+      window.sceneReady = false;
+      map.setStyle(url);
+      map.once('style.load', function () {
+        window.sceneReady = true;
+        resolve();
+      });
+    });
+  }
+
+  /* ============================================================
+     INITIAL CAMERA
+     Applies the scene's opening camera position before the
+     timeline starts. Uses flyTo if duration > 0, jumpTo otherwise.
+     Returns a Promise resolving when camera arrives.
+     ============================================================ */
+  function applyInitialCamera(cameraSpec) {
+    return new Promise(function (resolve) {
+      if (!cameraSpec) { resolve(); return; }
+
+      var opts = {
+        center:  cameraSpec.center  || [20, 30],
+        zoom:    cameraSpec.zoom    || 3,
+        pitch:   cameraSpec.pitch   || 0,
+        bearing: cameraSpec.bearing || 0,
+      };
+
+      var duration = typeof cameraSpec.duration === 'number'
+        ? cameraSpec.duration * 1000
+        : 2000;
+
+      if (duration === 0) {
+        map.jumpTo(opts);
+        resolve();
+      } else {
+        map.flyTo(Object.assign({}, opts, {
+          duration:  duration,
+          essential: true,
+          easing:    easeInOutCubic,
+        }));
+        map.once('moveend', resolve);
+      }
+    });
+  }
+
+  /* ── Easing function for camera moves ── */
+  function easeInOutCubic(t) {
+    return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+  }
+
+  /* ============================================================
+     CLEAR SCENE STATE
+     Removes all overlay elements and Mapbox layers from a
+     previous scene before running the next one.
+     ============================================================ */
+  function clearSceneState() {
+    window.MapEffects.clearOverlay(overlayEl);
+
+    /* Remove any dynamically-added Mapbox layers/sources */
+    var style = map.getStyle();
+    if (!style) return;
+
+    (style.layers || []).forEach(function (layer) {
+      if (layer.id && layer.id.endsWith('-layer')) {
+        try { map.removeLayer(layer.id); } catch(e) {}
+      }
+    });
+    Object.keys(style.sources || {}).forEach(function (id) {
+      if (id.endsWith('-source')) {
+        try { map.removeSource(id); } catch(e) {}
+      }
+    });
+  }
+
+  /* ============================================================
+     window.playScene(scene)
+     ─────────────────────────────────────────────────────────────
+     Main entry point. Called by Playwright after polling
+     window.sceneReady === true.
+
+     scene shape (matches your JSON schema):
+     {
+       duration:   number,         // total seconds
+       map_style:  string,         // 'dark' | 'satellite' | raw URL
+       camera: {
+         center:   [lng, lat],
+         zoom:     number,
+         pitch:    number,         // 0–60
+         bearing:  number,         // 0–360
+         duration: number,         // seconds for opening flyTo (0 = instant)
+       },
+       timeline: [
+         { at: number, action: string, params: object }
+       ]
+     }
+
+     Returns: Promise resolving when scene.duration elapses.
+     ============================================================ */
+  window.playScene = async function (scene) {
+    if (sceneRunning) {
+      console.warn('[map.html] playScene called while scene is running. Clearing.');
+      clearSceneState();
+    }
+    sceneRunning = true;
+
+    var style = scene.map_style || 'dark';
+    var currentStyle = map.getStyle().name || '';
+
+    /* 1. Change style if needed */
+    if (style !== currentStyle) {
+      await changeStyle(style);
+    }
+
+    /* 2. Clear previous scene leftovers */
+    clearSceneState();
+
+    /* 3. Apply opening camera */
+    await applyInitialCamera(scene.camera);
+
+    /* 4. Run the timeline */
+    await window.MapEffects.runTimeline(map, overlayEl, scene);
+
+    sceneRunning = false;
+    console.log('[map.html] Scene complete:', scene.duration + 's');
+  };
+
+  /* ============================================================
+     window.jumpTo(cameraSpec)
+     Quick camera reposition without a scene — useful for
+     Playwright to verify a location before recording.
+     ============================================================ */
+  window.jumpTo = function (cameraSpec) {
+    map.jumpTo({
+      center:  cameraSpec.center  || [20, 30],
+      zoom:    cameraSpec.zoom    || 3,
+      pitch:   cameraSpec.pitch   || 0,
+      bearing: cameraSpec.bearing || 0,
+    });
+  };
+
+  /* ============================================================
+     window.getSceneState()
+     Debug helper — Playwright can call this to inspect state.
+     ============================================================ */
+  window.getSceneState = function () {
+    return {
+      sceneReady:  window.sceneReady,
+      sceneRunning: sceneRunning,
+      zoom:    map ? map.getZoom()    : null,
+      center:  map ? map.getCenter()  : null,
+      pitch:   map ? map.getPitch()   : null,
+      bearing: map ? map.getBearing() : null,
+    };
+  };
+
+  /* ============================================================
+     BOOT
+     Initialize map on page load with default dark style.
+     Playwright waits for window.sceneReady before calling playScene().
+     ============================================================ */
+     window.init = function(token) {
+       MAPBOX_TOKEN = token;
+       initMap('dark');
+     };
+
+})();
+</script>
+</body>
+</html>
