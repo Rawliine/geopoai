@@ -33,6 +33,7 @@ ROOT         = Path(__file__).parent.parent
 RENDERER_PATH = ROOT / "renderer" / "map.html"
 TMP_DIR      = ROOT / "tmp"
 OUTPUT_DIR   = ROOT / "output"
+COUNTRIES_FC_PATH = ROOT / "data" / "ne_10m_admin_0_countries.featurecollection.geojson"
 
 # ── Logging ────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -176,6 +177,70 @@ def _latest_webm(directory: Path) -> Path | None:
     return files[-1] if files else None
 
 
+@lru_cache(maxsize=1)
+def _load_country_lookup() -> dict[str, dict]:
+    """Load country FeatureCollection and build lookup by names/codes."""
+    if not COUNTRIES_FC_PATH.exists():
+        raise FileNotFoundError(
+            f"Country dataset not found: {COUNTRIES_FC_PATH}. "
+            "Run scripts/prepare_ne_countries.py first."
+        )
+    data = json.loads(COUNTRIES_FC_PATH.read_text(encoding="utf-8"))
+    if data.get("type") != "FeatureCollection":
+        raise ValueError(
+            f"Expected FeatureCollection in {COUNTRIES_FC_PATH}, got {data.get('type')!r}"
+        )
+    lookup: dict[str, dict] = {}
+    for feat in data.get("features", []):
+        props = feat.get("properties", {})
+        for key in ("ADMIN", "NAME", "SOVEREIGNT", "ISO_A3", "ADM0_A3"):
+            val = props.get(key)
+            if isinstance(val, str) and val.strip():
+                lookup[val.strip().lower()] = feat
+    return lookup
+
+
+def _resolve_scene_countries(scene: dict) -> dict:
+    """
+    Expand timeline actions with country references:
+      params.country -> params.geojson
+    Backwards-compatible: existing params.geojson is untouched.
+    """
+    timeline = scene.get("timeline", [])
+    if not isinstance(timeline, list):
+        return scene
+
+    lookup = _load_country_lookup()
+    unresolved: list[str] = []
+
+    for i, entry in enumerate(timeline):
+        if not isinstance(entry, dict):
+            continue
+        if entry.get("action") not in {"applyFill", "applyBorder"}:
+            continue
+        params = entry.get("params")
+        if not isinstance(params, dict):
+            continue
+        if params.get("geojson"):
+            continue
+        country = params.get("country")
+        if not isinstance(country, str) or not country.strip():
+            continue
+        feat = lookup.get(country.strip().lower())
+        if not feat:
+            unresolved.append(
+                f"timeline[{i}] id={params.get('id', '<no-id>')} country={country!r}"
+            )
+            continue
+        params["geojson"] = feat
+
+    if unresolved:
+        raise ValueError(
+            "Unresolved country references:\n- " + "\n- ".join(unresolved)
+        )
+    return scene
+
+
 # ── Core render function ───────────────────────────────────────────────────
 
 async def render_scene(scene: dict, clip_name: str) -> Path:
@@ -191,6 +256,7 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
             "sudo apt install ffmpeg  /  brew install ffmpeg"
         )
 
+    scene = _resolve_scene_countries(scene)
     duration = scene.get("duration", 10)
     fps = int(scene.get("_fps", 60))
     nvenc_qp = int(scene.get("_nvenc_qp", 16))

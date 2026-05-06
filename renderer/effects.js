@@ -278,6 +278,10 @@ function applyFill(map, fillSpec) {
     colorB,
     deterministic = false,
   } = fillSpec;
+  if (!geojson) {
+    console.warn('[effects.js] applyFill: missing geojson (or unresolved country reference)');
+    return null;
+  }
 
   // --- 1. Add or update GeoJSON source ---
   const sourceId = `${id}-source`;

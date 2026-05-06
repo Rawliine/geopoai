@@ -66,3 +66,29 @@ Notes:
 
 - Border effects come from `renderer/effects.css` (`border-trim`, `border-glow`, `border-marching`, `border-breathe`).
 - In deterministic mode, `flyTo` timeline entries are handled by camera segment interpolation in `renderer/map.html`.
+
+Simple country authoring (no giant inline geojson):
+
+- For `applyFill` and `applyBorder`, you can provide:
+  - `country` (e.g. `"Morocco"`, `"Algeria"`, `"Spain"`, `"France"`)
+  - and omit `geojson`.
+- At render time, `pipeline/render_scene.py` resolves `country` references into `geojson` features using:
+  - `data/ne_10m_admin_0_countries.featurecollection.geojson`
+- Backward compatible: if `geojson` is already present in the action params, it is used directly.
+
+Example:
+
+```json
+{
+  "at": 4.4,
+  "action": "applyFill",
+  "params": {
+    "id": "algeria-fill",
+    "country": "Algeria",
+    "color": "#2ecc71",
+    "opacity": 0.35,
+    "effect": "fill-fade",
+    "duration": 1.0
+  }
+}
+```
