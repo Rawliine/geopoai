@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Deterministic Runtime Tests</title>
+  <link rel="stylesheet" href="../renderer/effects.css">
+  <script src="../renderer/effects.js"></script>
+  <style>
+    body { background: #0d1117; color: #e6edf3; font-family: sans-serif; padding: 20px; }
+    #overlay { position: relative; width: 640px; height: 360px; border: 1px solid #30363d; }
+    .pass { color: #3fb950; }
+    .fail { color: #f85149; }
+    pre { margin-top: 16px; background: #010409; padding: 12px; border: 1px solid #30363d; }
+  </style>
+</head>
+<body>
+  <h2>Deterministic Runtime Assertions</h2>
+  <div id="overlay"></div>
+  <pre id="results">Running...</pre>
+<script>
+const overlay = document.getElementById('overlay');
+const map = {
+  _layers: {},
+  _sources: {},
+  getContainer: () => overlay,
+  project: ([lng, lat]) => ({ x: Math.round((lng + 20) * 10), y: Math.round((60 - lat) * 8) }),
+  getSource(id) { return this._sources[id] || null; },
+  getLayer(id) { return this._layers[id] || null; },
+  addSource(id, spec) { this._sources[id] = Object.assign({ setData: function(d){ this.data = d; } }, spec); },
+  addLayer(spec) { this._layers[spec.id] = spec; },
+  setPaintProperty(id, prop, val) { if (this._layers[id]) this._layers[id].paint[prop] = val; },
+  removeLayer(id) { delete this._layers[id]; },
+  removeSource(id) { delete this._sources[id]; },
+  on() {}, off() {},
+  flyTo() {},
+};
+
+function assert(name, condition, detail = '') {
+  return `${condition ? 'PASS' : 'FAIL'} | ${name}${detail ? ` | ${detail}` : ''}`;
+}
+
+const borderGeo = {
+  type: 'Feature',
+  geometry: {
+    type: 'LineString',
+    coordinates: [[-7.6, 33.5], [3.0, 36.7], [9.5, 34.0]]
+  }
+};
+
+const scene = {
+  duration: 6,
+  timeline: [
+    { at: 0, action: 'showLabel', params: { id: 'a', text: 'A', position: [-7.6, 33.5], effect: 'label-fade' } },
+    { at: 0.5, action: 'drawArrow', params: { id: 'arr', from: [-7.6, 33.5], to: [3.0, 36.7], effect: 'arrow-glow' } },
+    { at: 1, action: 'applyBorder', params: { id: 'b1', geojson: borderGeo, effect: 'border-marching' } },
+    { at: 2, action: 'cameraShake', params: { intensity: 'light', durationMs: 500 } },
+    { at: 3, action: 'removeLabel', params: { id: 'a' } },
+    { at: 4, action: 'flyTo', params: { center: [2, 34], zoom: 5, duration: 2 } }
+  ]
+};
+
+const rt = window.MapEffects.createDeterministicRuntime(map, overlay, scene, { seed: 7 });
+rt.stepTo(0.6);
+const s1 = rt.getState();
+rt.stepTo(1.2);
+const s2 = rt.getState();
+rt.stepTo(3.7);
+const s3 = rt.getState();
+rt.reset();
+rt.stepTo(1.2);
+const s4 = rt.getState();
+
+const lines = [
+  assert('Arrow exists after drawArrow', overlay.querySelectorAll('.effect-arrow').length >= 1),
+  assert('Border exists after applyBorder', overlay.querySelectorAll('.effect-border').length >= 1),
+  assert('State hash changes with time', s1.hash !== s2.hash),
+  assert('removeLabel fade/removal progresses', s3.labels <= s2.labels),
+  assert('Deterministic state repeatable after reset', s2.hash === s4.hash, `${s2.hash} vs ${s4.hash}`),
+];
+
+document.getElementById('results').textContent = lines.join('\n');
+</script>
+</body>
+</html>

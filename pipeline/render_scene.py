@@ -275,14 +275,21 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
                 shutil.rmtree(frames_dir.parent, ignore_errors=True)
             frames_dir.mkdir(parents=True, exist_ok=True)
 
-            await page.evaluate("scene => window.loadScene(scene)", scene)
+            scene_meta = await page.evaluate("scene => window.loadScene(scene)", scene)
+            log.info("Deterministic scene meta: %s", scene_meta)
             for i in range(total_frames):
                 t = min(duration, i / fps)
-                await page.evaluate("t => window.stepTo(t)", t)
+                state = await page.evaluate("t => window.stepTo(t)", t)
                 frame_path = frames_dir / f"frame_{i:06d}.png"
                 await page.screenshot(path=str(frame_path))
                 if i % max(1, fps * 2) == 0:
-                    log.info("Captured frame %d/%d", i + 1, total_frames)
+                    log.info(
+                        "Captured frame %d/%d hash=%s monotonic=%s",
+                        i + 1,
+                        total_frames,
+                        state.get("hash"),
+                        state.get("monotonic"),
+                    )
         else:
             log.info("Starting scene (%.1fs)…", duration)
             camera_duration = scene.get("camera", {}).get("duration", 2.0) if isinstance(scene.get("camera"), dict) else 2.0

@@ -1,0 +1,215 @@
+{
+    "_description": "Comprehensive renderer test — covers all major current actions, label modes, arrow modes, counter labels, multiple camera moves, removeLabel, clearOverlay, and cameraShake.",
+    "duration": 35,
+    "_deterministic": true,
+    "_fps": 60,
+    "_nvenc_qp": 14,
+    "_x264_crf": 14,
+    "map_style": "dark",
+    "camera": {
+      "center": [25.0, 50.0],
+      "zoom": 4.0,
+      "pitch": 20,
+      "bearing": 0,
+      "duration": 2.5
+    },
+    "timeline": [
+      {
+        "at": 0.0,
+        "action": "showLabel",
+        "params": {
+          "id": "label-title",
+          "text": "EUROPE: THE COMING WAR",
+          "position": { "x": 960, "y": 80 },
+          "effect": "label-slam",
+          "color": "#f0c040",
+          "fontSize": "2rem"
+        }
+      },
+      {
+        "at": 1.0,
+        "action": "showLabel",
+        "params": {
+          "id": "label-tw",
+          "text": "THEATRE OF OPERATIONS",
+          "position": [20.0, 52.0],
+          "effect": "label-typewriter",
+          "color": "#e74c3c",
+          "fontSize": "1.1rem",
+          "charInterval": 60
+        }
+      },
+      {
+        "at": 2.0,
+        "action": "drawArrow",
+        "params": {
+          "id": "arrow-invasion",
+          "from": [37.6, 55.7],
+          "to": [30.5, 50.4],
+          "color": "#e74c3c",
+          "effect": "arrow-draw",
+          "curved": true,
+          "arc": 100,
+          "headed": true,
+          "duration": 2.0
+        }
+      },
+      {
+        "at": 4.0,
+        "action": "showLabel",
+        "params": {
+          "id": "label-counter",
+          "text": "0",
+          "position": { "x": 300, "y": 200 },
+          "effect": "label-fade",
+          "color": "#e74c3c",
+          "fontSize": "1.6rem",
+          "isCounter": true,
+          "counterFrom": 0,
+          "counterTo": 190000,
+          "counterSuffix": " TROOPS",
+          "duration": 3.0
+        }
+      },
+      {
+        "at": 5.0,
+        "action": "drawArrow",
+        "params": {
+          "id": "arrow-supply",
+          "from": [27.5, 53.9],
+          "to": [30.5, 50.4],
+          "color": "#f39c12",
+          "effect": "arrow-travel",
+          "curved": true,
+          "arc": 60,
+          "duration": 3.0
+        }
+      },
+      {
+        "at": 6.0,
+        "action": "showLabel",
+        "params": {
+          "id": "label-kyiv",
+          "text": "KYIV",
+          "position": [30.5, 50.4],
+          "effect": "label-fade",
+          "color": "#2ecc71",
+          "fontSize": "1rem"
+        }
+      },
+      {
+        "at": 7.0,
+        "action": "cameraShake",
+        "params": { "intensity": "heavy", "durationMs": 600 }
+      },
+      {
+        "at": 8.0,
+        "action": "drawArrow",
+        "params": {
+          "id": "arrow-nato",
+          "from": [14.5, 50.0],
+          "to": [24.0, 54.0],
+          "color": "#3498db",
+          "effect": "arrow-glow",
+          "glowColor": "#3498db",
+          "curved": true,
+          "arc": -60,
+          "headed": false,
+          "duration": 2.0
+        }
+      },
+      {
+        "at": 9.0,
+        "action": "removeLabel",
+        "params": { "id": "label-title" }
+      },
+      {
+        "at": 10.0,
+        "action": "flyTo",
+        "params": {
+          "center": [32.0, 49.0],
+          "zoom": 6.5,
+          "pitch": 45,
+          "bearing": 15,
+          "duration": 2.5
+        }
+      },
+      {
+        "at": 12.5,
+        "action": "showLabel",
+        "params": {
+          "id": "label-phase2",
+          "text": "PHASE 2: ENCIRCLEMENT",
+          "position": { "x": 960, "y": 950 },
+          "effect": "label-slam",
+          "color": "#e74c3c",
+          "fontSize": "1.4rem"
+        }
+      },
+      {
+        "at": 14.0,
+        "action": "drawArrow",
+        "params": {
+          "id": "arrow-south",
+          "from": [34.0, 45.5],
+          "to": [32.0, 46.5],
+          "color": "#e74c3c",
+          "effect": "arrow-draw",
+          "curved": false,
+          "headed": true,
+          "duration": 1.5
+        }
+      },
+      {
+        "at": 16.0,
+        "action": "cameraShake",
+        "params": { "intensity": "light", "durationMs": 300 }
+      },
+      {
+        "at": 18.0,
+        "action": "clearOverlay",
+        "params": {}
+      },
+      {
+        "at": 19.0,
+        "action": "flyTo",
+        "params": {
+          "center": [20.0, 48.0],
+          "zoom": 4.0,
+          "pitch": 0,
+          "bearing": 0,
+          "duration": 2.0
+        }
+      },
+      {
+        "at": 21.0,
+        "action": "showLabel",
+        "params": {
+          "id": "label-conclusion",
+          "text": "NASH EQUILIBRIUM: NEITHER SIDE CAN GAIN",
+          "position": { "x": 960, "y": 540 },
+          "effect": "label-typewriter",
+          "color": "#8b949e",
+          "fontSize": "1.2rem",
+          "charInterval": 45
+        }
+      },
+      {
+        "at": 28.0,
+        "action": "showLabel",
+        "params": {
+          "id": "label-casualties",
+          "text": "0",
+          "position": { "x": 960, "y": 640 },
+          "effect": "label-fade",
+          "color": "#e74c3c",
+          "fontSize": "1.4rem",
+          "isCounter": true,
+          "counterFrom": 0,
+          "counterTo": 400000,
+          "counterSuffix": " CASUALTIES",
+          "duration": 4.0
+        }
+      }
+    ]
+  }

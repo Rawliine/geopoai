@@ -61,6 +61,12 @@ function curvedPath(from, to, arc = 80) {
   return `M${from.x},${from.y} Q${mx},${my} ${to.x},${to.y}`;
 }
 
+function polylinePath(points) {
+  if (!points || points.length < 2) return '';
+  const [first, ...rest] = points;
+  return `M${first.x},${first.y} ${rest.map(p => `L${p.x},${p.y}`).join(' ')}`;
+}
+
 /**
  * Straight SVG path string between two pixel points.
  */
@@ -209,6 +215,28 @@ function reproject(map, overlayEl) {
       pathEl.style.setProperty('--path-length', pathEl.getTotalLength());
     }
   });
+
+  // Reproject SVG border paths
+  overlayEl.querySelectorAll('svg[data-border-lines]').forEach(svgEl => {
+    const raw = svgEl.dataset.borderLines;
+    if (!raw) return;
+    let lines;
+    try {
+      lines = JSON.parse(raw);
+    } catch (_err) {
+      return;
+    }
+    svgEl.querySelectorAll('path.border-path').forEach((pathEl, i) => {
+      const line = lines[i];
+      if (!Array.isArray(line) || line.length < 2) return;
+      const projected = line
+        .map(([lng, lat]) => toPixel(map, [lng, lat]))
+        .filter(Boolean);
+      if (projected.length < 2) return;
+      pathEl.setAttribute('d', polylinePath(projected));
+      pathEl.style.setProperty('--path-length', pathEl.getTotalLength());
+    });
+  });
 }
 
 /**
@@ -248,6 +276,7 @@ function applyFill(map, fillSpec) {
     duration   = 1.2,
     delay      = 0,
     colorB,
+    deterministic = false,
   } = fillSpec;
 
   // --- 1. Add or update GeoJSON source ---
@@ -301,13 +330,194 @@ function applyFill(map, fillSpec) {
   overlayDiv.classList.add(effect);
 
   // --- 5. Sync final opacity to Mapbox layer after animation ---
-  const totalDuration = (duration + delay) * 1000;
-  setTimeout(() => {
+  if (deterministic) {
     map.setPaintProperty(layerId, 'fill-opacity', opacity);
-    overlayDiv.remove(); // CSS overlay done, Mapbox layer holds the fill
-  }, totalDuration + 100);
+    overlayDiv.remove();
+  } else {
+    const totalDuration = (duration + delay) * 1000;
+    setTimeout(() => {
+      map.setPaintProperty(layerId, 'fill-opacity', opacity);
+      overlayDiv.remove(); // CSS overlay done, Mapbox layer holds the fill
+    }, totalDuration + 100);
+  }
 
   return { layerId, sourceId };
+}
+
+function _geojsonToBorderLines(geojson) {
+  if (!geojson) return [];
+  const source = geojson.type === 'Feature' ? geojson.geometry : geojson;
+  if (!source) return [];
+  if (source.type === 'LineString') return [source.coordinates];
+  if (source.type === 'MultiLineString') return source.coordinates;
+  if (source.type === 'Polygon') return source.coordinates;
+  if (source.type === 'MultiPolygon') return source.coordinates.flat();
+  return [];
+}
+
+function applyBorder(map, overlayEl, borderSpec) {
+  const {
+    id = `border-${Date.now()}`,
+    geojson,
+    color = '#f0c040',
+    width = 2.5,
+    effect = 'border-trim',
+    duration = 1.2,
+    delay = 0,
+    glowColor,
+    dashPattern,
+  } = borderSpec;
+
+  const lines = _geojsonToBorderLines(geojson);
+  if (!lines.length) {
+    console.warn('[effects.js] applyBorder: unsupported or empty geojson');
+    return null;
+  }
+
+  const w = overlayEl.clientWidth;
+  const h = overlayEl.clientHeight;
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('width', w);
+  svg.setAttribute('height', h);
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.classList.add('effect-border');
+  svg.id = id;
+  svg.dataset.borderLines = JSON.stringify(lines);
+  svg.style.cssText = `
+    position: absolute; top: 0; left: 0; pointer-events: none;
+    overflow: visible;
+    --effect-duration: ${duration}s;
+    --effect-delay: ${delay}s;
+    --glow-color: ${glowColor ?? color};
+  `;
+
+  lines.forEach(line => {
+    const projected = line
+      .map(([lng, lat]) => toPixel(map, [lng, lat]))
+      .filter(Boolean);
+    if (projected.length < 2) return;
+    const path = document.createElementNS(svgNS, 'path');
+    path.classList.add('border-path');
+    path.setAttribute('d', polylinePath(projected));
+    path.setAttribute('fill', 'none');
+    path.setAttribute('stroke', color);
+    path.setAttribute('stroke-width', width);
+    path.setAttribute('stroke-linecap', 'round');
+    path.setAttribute('stroke-linejoin', 'round');
+    if (dashPattern) {
+      path.setAttribute(
+        'stroke-dasharray',
+        Array.isArray(dashPattern) ? dashPattern.join(' ') : String(dashPattern)
+      );
+    }
+    svg.appendChild(path);
+    path.style.setProperty('--path-length', path.getTotalLength());
+    void path.getBoundingClientRect();
+    if (effect) path.classList.add(effect);
+  });
+
+  overlayEl.appendChild(svg);
+  return svg;
+}
+
+function removeBorder(overlayEl, id) {
+  if (!id) return;
+  const el = document.getElementById(id);
+  if (el && el.classList.contains('effect-border')) {
+    el.remove();
+  }
+}
+
+function executeTimelineAction(map, overlayEl, entry, ctx = {}) {
+  const params = entry.params ?? {};
+  switch (entry.action) {
+    case 'applyFill':
+      applyFill(map, Object.assign({}, params, { deterministic: Boolean(ctx.deterministic) }));
+      if (ctx.runtime && params.id) ctx.runtime.createdFillIds.add(params.id);
+      break;
+    case 'applyBorder': {
+      const border = applyBorder(map, overlayEl, params);
+      if (ctx.runtime && border?.id) ctx.runtime.createdBorderIds.add(border.id);
+      break;
+    }
+    case 'removeBorder':
+      removeBorder(overlayEl, params.id);
+      break;
+    case 'drawArrow':
+      drawArrow(map, overlayEl, params);
+      break;
+    case 'showLabel':
+      showLabel(map, overlayEl, params);
+      break;
+    case 'clearOverlay':
+      clearOverlay(overlayEl);
+      break;
+    case 'removeLabel': {
+      const el = document.getElementById(params.id);
+      if (el) {
+        if (ctx.deterministic && ctx.runtime) {
+          ctx.runtime.pendingRemovals.push({ id: params.id, removeAt: (entry.at ?? 0) + 0.6 });
+          el.classList.add('label-fade-out');
+        } else {
+          el.classList.add('label-fade-out');
+          setTimeout(() => el.remove(), 600);
+        }
+      }
+      break;
+    }
+    case 'removeLayer': {
+      const { id } = params;
+      if (map.getLayer(`${id}-layer`)) map.removeLayer(`${id}-layer`);
+      if (map.getSource(`${id}-source`)) map.removeSource(`${id}-source`);
+      const overlayFill = document.getElementById(`${id}-overlay`);
+      if (overlayFill) overlayFill.remove();
+      break;
+    }
+    case 'cameraShake': {
+      if (ctx.deterministic && ctx.runtime) {
+        const { intensity = 'medium', durationMs = 400 } = params;
+        ctx.runtime.cameraShakeActive = {
+          start: Number(entry.at ?? 0),
+          duration: Math.max(0, Number(durationMs) / 1000),
+          intensity: String(intensity),
+        };
+      } else {
+        const { intensity = 'medium', durationMs = 400 } = params;
+        const container = map.getContainer();
+        const amplitudes = { light: 3, medium: 6, heavy: 12 };
+        const amp = amplitudes[intensity] ?? 6;
+        container.style.transition = 'none';
+        let elapsed = 0;
+        const interval = 30;
+        const shakeTimer = setInterval(() => {
+          elapsed += interval;
+          const dx = (Math.random() - 0.5) * amp;
+          const dy = (Math.random() - 0.5) * amp;
+          container.style.transform = `translate(${dx}px, ${dy}px)`;
+          if (elapsed >= durationMs) {
+            clearInterval(shakeTimer);
+            container.style.transform = '';
+          }
+        }, interval);
+      }
+      break;
+    }
+    case 'flyTo':
+      if (!ctx.deterministic) {
+        map.flyTo({
+          center:   params.center,
+          zoom:     params.zoom,
+          pitch:    params.pitch ?? 0,
+          bearing:  params.bearing ?? 0,
+          duration: (params.duration ?? 2) * 1000,
+          essential: true,
+        });
+      }
+      break;
+    default:
+      console.warn(`[effects.js] unknown action "${entry.action}"`);
+  }
 }
 
 
@@ -591,80 +801,7 @@ function runTimeline(map, overlayEl, scene) {
 
     const timer = setTimeout(() => {
       try {
-        switch (entry.action) {
-
-          case 'applyFill':
-            applyFill(map, entry.params);
-            break;
-
-          case 'drawArrow':
-            drawArrow(map, overlayEl, entry.params);
-            break;
-
-          case 'showLabel':
-            showLabel(map, overlayEl, entry.params);
-            break;
-
-          case 'clearOverlay':
-            clearOverlay(overlayEl);
-            break;
-
-          case 'removeLabel': {
-            const el = document.getElementById(entry.params.id);
-            if (el) {
-              el.classList.add('label-fade-out');
-              setTimeout(() => el.remove(), 600);
-            }
-            break;
-          }
-
-          case 'removeLayer': {
-            const { id } = entry.params;
-            if (map.getLayer(`${id}-layer`)) map.removeLayer(`${id}-layer`);
-            if (map.getSource(`${id}-source`)) map.removeSource(`${id}-source`);
-            const overlayFill = document.getElementById(`${id}-overlay`);
-            if (overlayFill) overlayFill.remove();
-            break;
-          }
-
-          case 'cameraShake': {
-            // CSS-based camera shake via map container transform
-            const { intensity = 'medium', durationMs = 400 } = entry.params ?? {};
-            const container = map.getContainer();
-            const amplitudes = { light: 3, medium: 6, heavy: 12 };
-            const amp = amplitudes[intensity] ?? 6;
-            container.style.transition = 'none';
-            let elapsed = 0;
-            const interval = 30;
-            const shakeTimer = setInterval(() => {
-              elapsed += interval;
-              const dx = (Math.random() - 0.5) * amp;
-              const dy = (Math.random() - 0.5) * amp;
-              container.style.transform = `translate(${dx}px, ${dy}px)`;
-              if (elapsed >= durationMs) {
-                clearInterval(shakeTimer);
-                container.style.transform = '';
-              }
-            }, interval);
-            break;
-          }
-
-          case 'flyTo': {
-            // Mid-timeline camera move (in addition to the initial scene camera)
-            map.flyTo({
-              center:   entry.params.center,
-              zoom:     entry.params.zoom,
-              pitch:    entry.params.pitch    ?? 0,
-              bearing:  entry.params.bearing  ?? 0,
-              duration: (entry.params.duration ?? 2) * 1000,
-              essential: true,
-            });
-            break;
-          }
-
-          default:
-            console.warn(`[effects.js] runTimeline: unknown action "${entry.action}"`);
-        }
+        executeTimelineAction(map, overlayEl, entry, { deterministic: false });
       } catch (err) {
         console.error(`[effects.js] runTimeline error at t=${entry.at}s:`, err);
       }
@@ -738,9 +875,11 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
     seed: Number(options.seed ?? 1),
     fired: new Set(),
     createdFillIds: new Set(),
+    createdBorderIds: new Set(),
     createdLabelIds: new Set(),
     currentTime: 0,
     cameraShakeActive: null,
+    pendingRemovals: [],
   };
 
   function _entryId(entry, idx) {
@@ -755,10 +894,8 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
     if (existing) return existing;
     const spec = Object.assign({}, params, {
       id,
-      effect: 'label-fade',
-      delay: 0,
-      duration: 0,
-      isCounter: false,
+      delay: params.delay ?? 0,
+      duration: params.duration ?? 0.8,
     });
     const label = showLabel(map, overlayEl, spec);
     if (!label) return null;
@@ -796,60 +933,13 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
   }
 
   function _applyOneShot(entry, idx) {
-    switch (entry.action) {
-      case 'applyFill': {
-        const params = Object.assign({}, entry.params ?? {});
-        if (!params.id) params.id = `det-fill-${idx}`;
-        params.delay = 0;
-        params.duration = 0;
-        applyFill(map, params);
-        runtime.createdFillIds.add(params.id);
-        break;
-      }
-      case 'drawArrow': {
-        const params = Object.assign({}, entry.params ?? {});
-        if (!params.id) params.id = `det-arrow-${idx}`;
-        params.delay = 0;
-        params.duration = 0;
-        params.effect = 'arrow-draw';
-        drawArrow(map, overlayEl, params);
-        break;
-      }
-      case 'showLabel': {
-        _ensureLabel(entry, idx);
-        break;
-      }
-      case 'clearOverlay':
-        clearOverlay(overlayEl);
-        break;
-      case 'removeLabel': {
-        const id = entry.params?.id;
-        if (!id) break;
-        const el = document.getElementById(id);
-        if (el) el.remove();
-        break;
-      }
-      case 'removeLayer': {
-        const id = entry.params?.id;
-        if (!id) break;
-        if (map.getLayer(`${id}-layer`)) map.removeLayer(`${id}-layer`);
-        if (map.getSource(`${id}-source`)) map.removeSource(`${id}-source`);
-        const overlayFill = document.getElementById(`${id}-overlay`);
-        if (overlayFill) overlayFill.remove();
-        break;
-      }
-      case 'cameraShake': {
-        const params = entry.params ?? {};
-        runtime.cameraShakeActive = {
-          start: Number(entry.at ?? 0),
-          duration: Math.max(0, Number(params.durationMs ?? 400) / 1000),
-          intensity: String(params.intensity ?? 'medium'),
-        };
-        break;
-      }
-      default:
-        break;
-    }
+    const params = Object.assign({}, entry.params ?? {});
+    if (entry.action === 'applyFill' && !params.id) params.id = `det-fill-${idx}`;
+    if (entry.action === 'drawArrow' && !params.id) params.id = `det-arrow-${idx}`;
+    if (entry.action === 'applyBorder' && !params.id) params.id = `det-border-${idx}`;
+    const normalized = Object.assign({}, entry, { params });
+    executeTimelineAction(map, overlayEl, normalized, { deterministic: true, runtime });
+    if (entry.action === 'showLabel') _ensureLabel(normalized, idx);
   }
 
   function _updateCameraShake(t) {
@@ -885,6 +975,12 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
     });
 
     _updateCameraShake(runtime.currentTime);
+    runtime.pendingRemovals = runtime.pendingRemovals.filter(item => {
+      if (runtime.currentTime < item.removeAt) return true;
+      const el = document.getElementById(item.id);
+      if (el) el.remove();
+      return false;
+    });
     reproject(map, overlayEl);
   }
 
@@ -899,7 +995,9 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
       const overlayFill = document.getElementById(`${id}-overlay`);
       if (overlayFill) overlayFill.remove();
     });
+    runtime.createdBorderIds.forEach(id => removeBorder(overlayEl, id));
     runtime.createdFillIds.clear();
+    runtime.createdBorderIds.clear();
     runtime.createdLabelIds.clear();
     const container = map.getContainer();
     if (container) container.style.transform = '';
@@ -937,6 +1035,8 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
 // Browser global (for map.html script tag usage)
 window.MapEffects = {
   applyFill,
+  applyBorder,
+  removeBorder,
   drawArrow,
   showLabel,
   runTimeline,
