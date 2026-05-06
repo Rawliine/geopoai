@@ -22,6 +22,7 @@ import os
 import shutil
 import subprocess
 import sys
+from functools import lru_cache
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -59,7 +60,24 @@ def _check_ffmpeg() -> bool:
     return shutil.which("ffmpeg") is not None
 
 
-def _webm_to_mp4(webm_path: Path, output_path: Path) -> bool:
+@lru_cache(maxsize=1)
+def _supports_nvenc() -> bool:
+    """Return True if ffmpeg reports h264_nvenc support."""
+    result = subprocess.run(
+        ["ffmpeg", "-hide_banner", "-encoders"],
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0 and "h264_nvenc" in result.stdout
+
+
+def _webm_to_mp4(
+    webm_path: Path,
+    output_path: Path,
+    fps: int = 30,
+    nvenc_qp: int = 16,
+    x264_crf: int = 15,
+) -> bool:
     """
     Convert .webm → .mp4 using ffmpeg.
     Returns True on success.
@@ -70,16 +88,35 @@ def _webm_to_mp4(webm_path: Path, output_path: Path) -> bool:
       -preset fast      good speed/quality balance
       -movflags +faststart  web-optimised
     """
-    cmd = [
-        "ffmpeg", "-y",
-        "-i", str(webm_path),
-        "-c:v", "libx264",
-        "-pix_fmt", "yuv420p",
-        "-crf", "18",
-        "-preset", "fast",
-        "-movflags", "+faststart",
-        str(output_path),
-    ]
+    fps_filter = f"fps={fps}"
+    if _supports_nvenc():
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", str(webm_path),
+            "-vf", fps_filter,
+            "-c:v", "h264_nvenc",
+            "-preset", "p7",
+            "-tune", "hq",
+            "-rc", "constqp",
+            "-qp", str(nvenc_qp),
+            "-spatial-aq", "1",
+            "-temporal-aq", "1",
+            "-pix_fmt", "yuv420p",
+            "-movflags", "+faststart",
+            str(output_path),
+        ]
+    else:
+        cmd = [
+            "ffmpeg", "-y",
+            "-i", str(webm_path),
+            "-vf", fps_filter,
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-crf", str(x264_crf),
+            "-preset", "slow",
+            "-movflags", "+faststart",
+            str(output_path),
+        ]
     log.info("FFmpeg: %s", " ".join(cmd))
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
@@ -110,6 +147,9 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
         )
 
     duration = scene.get("duration", 10)
+    fps = int(scene.get("_fps", 60))
+    nvenc_qp = int(scene.get("_nvenc_qp", 16))
+    x264_crf = int(scene.get("_x264_crf", 15))
     map_style = scene.get("map_style", "dark")
     tile_timeout = scene.get("_tile_timeout", 20_000)
 
@@ -126,6 +166,10 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
                 "--disable-setuid-sandbox",
                 "--disable-dev-shm-usage",
                 "--ignore-certificate-errors",
+                "--ignore-gpu-blocklist",
+                "--enable-gpu-rasterization",
+                "--enable-zero-copy",
+                "--use-angle=vulkan",
             ],
         )
 
@@ -145,7 +189,10 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
         await page.goto(renderer_url, wait_until="domcontentloaded")
 
         log.info("Injecting Mapbox token and initialising map…")
-        await page.evaluate(f"window.init('{MAPBOX_TOKEN}')")
+        await page.evaluate(
+            """args => window.init(args.token, { renderMode: true })""",
+            {"token": MAPBOX_TOKEN},
+        )
 
         log.info("Waiting for map tiles (timeout=%dms)…", tile_timeout)
         try:
@@ -180,8 +227,11 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
                 "listeners in renderer/map.html."
             )
 
-        tail = scene.get("_tail_buffer", 0.8)
-        await asyncio.sleep(duration + tail)
+        # playScene() already waits for camera + timeline completion.
+        # Keep only a tiny tail so the final effect frame is captured.
+        tail = float(scene.get("_tail_buffer", 0.25))
+        if tail > 0:
+            await asyncio.sleep(tail)
 
         video_path_obj = await page.video.path() if page.video else None
         await context.close()
@@ -201,7 +251,13 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
     log.info("Recording saved: %s (%.1f MB)", webm_path.name, webm_path.stat().st_size / 1e6)
 
     output_path = OUTPUT_DIR / f"{clip_name}.mp4"
-    success = _webm_to_mp4(webm_path, output_path)
+    success = _webm_to_mp4(
+        webm_path,
+        output_path,
+        fps=fps,
+        nvenc_qp=nvenc_qp,
+        x264_crf=x264_crf,
+    )
 
     try:
         webm_path.unlink()

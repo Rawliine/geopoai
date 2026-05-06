@@ -137,6 +137,7 @@
   var unbindReproject = null;
   var sceneRunning = false;
   var activeStyleKey = 'dark';
+  var renderMode = false;
 
   /* window.sceneReady — Playwright polls this before calling playScene() */
   window.sceneReady = false;
@@ -175,6 +176,9 @@
       logoPosition: 'bottom-left',
       antialias:    true,       // smoother edges for fills/borders
       preserveDrawingBuffer: true, // required for canvas screenshot if needed
+      fadeDuration: 0,          // avoid tile fade shimmer during motion capture
+      prefetchZoomDelta: 0,     // reduce aggressive background tile prefetch
+      renderWorldCopies: false,
     });
 
     /* Hide Mapbox UI controls */
@@ -192,7 +196,7 @@
     /* Signal ready when style + tiles have loaded */
     map.once('idle', function () {
       window.sceneReady = true;
-      loadingEl.classList.add('hidden');
+      if (loadingEl) loadingEl.classList.add('hidden');
       console.log('[map.html] Map ready. window.sceneReady = true');
     });
 
@@ -355,11 +359,15 @@
     /* 2. Clear previous scene leftovers */
     clearSceneState();
 
-    /* 3. Apply opening camera */
-    await applyInitialCamera(scene.camera);
+    /* 3. Apply opening camera (concurrently with timeline) */
+    var cameraPromise = Promise.resolve();
+    if (scene.camera) {
+      cameraPromise = applyInitialCamera(scene.camera);
+    }
 
-    /* 4. Run the timeline */
+    /* 4. Run the timeline (scene.duration is total runtime budget) */
     await window.MapEffects.runTimeline(map, overlayEl, scene);
+    await cameraPromise;
 
     sceneRunning = false;
     console.log('[map.html] Scene complete:', scene.duration + 's');
@@ -399,8 +407,14 @@
      Initialize map on page load with default dark style.
      Playwright waits for window.sceneReady before calling playScene().
      ============================================================ */
-     window.init = function(token) {
+     window.init = function(token, options) {
        MAPBOX_TOKEN = token;
+       renderMode = Boolean(options && options.renderMode);
+       if (renderMode && loadingEl) {
+         loadingEl.style.display = 'none';
+       } else if (loadingEl) {
+         loadingEl.style.display = 'flex';
+       }
        initMap('dark');
      };
 
