@@ -707,6 +707,228 @@ function bindReproject(map, overlayEl) {
   };
 }
 
+/* ============================================================
+   DETERMINISTIC RUNTIME
+   Evaluate scene as a pure function of time t (seconds).
+   ============================================================ */
+
+function _hashString(input) {
+  let hash = 2166136261;
+  for (let i = 0; i < input.length; i += 1) {
+    hash ^= input.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
+}
+
+function _seededNoise(seed, x) {
+  const s = Math.sin((x + 1) * 12.9898 + seed * 78.233) * 43758.5453;
+  return s - Math.floor(s);
+}
+
+function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
+  const timeline = Array.isArray(scene.timeline) ? [...scene.timeline] : [];
+  timeline.sort((a, b) => (a.at ?? 0) - (b.at ?? 0));
+
+  const runtime = {
+    map,
+    overlayEl,
+    scene,
+    timeline,
+    seed: Number(options.seed ?? 1),
+    fired: new Set(),
+    createdFillIds: new Set(),
+    createdLabelIds: new Set(),
+    currentTime: 0,
+    cameraShakeActive: null,
+  };
+
+  function _entryId(entry, idx) {
+    const p = JSON.stringify(entry.params ?? {});
+    return `${idx}:${entry.action}:${entry.at ?? 0}:${_hashString(p)}`;
+  }
+
+  function _ensureLabel(entry, idx) {
+    const params = entry.params ?? {};
+    const id = params.id || `det-label-${idx}`;
+    const existing = document.getElementById(id);
+    if (existing) return existing;
+    const spec = Object.assign({}, params, {
+      id,
+      effect: 'label-fade',
+      delay: 0,
+      duration: 0,
+      isCounter: false,
+    });
+    const label = showLabel(map, overlayEl, spec);
+    if (!label) return null;
+    label.classList.add('visible');
+    runtime.createdLabelIds.add(id);
+    return label;
+  }
+
+  function _updateLabelDeterministic(entry, idx, t) {
+    const params = entry.params ?? {};
+    const start = Number(entry.at ?? 0);
+    const localT = Math.max(0, t - start);
+    const label = _ensureLabel(entry, idx);
+    if (!label) return;
+
+    if (params.effect === 'label-typewriter') {
+      const text = String(params.text ?? '');
+      const charIntervalMs = Number(params.charInterval ?? 70);
+      const charsVisible = Math.max(
+        0,
+        Math.min(text.length, Math.floor((localT * 1000) / charIntervalMs))
+      );
+      label.textContent = text.slice(0, charsVisible);
+    } else if (params.isCounter) {
+      const from = Number(params.counterFrom ?? 0);
+      const to = Number(params.counterTo ?? 100);
+      const duration = Math.max(0.001, Number(params.duration ?? 1));
+      const suffix = String(params.counterSuffix ?? '');
+      const p = Math.max(0, Math.min(1, localT / duration));
+      const eased = 1 - (1 - p) ** 3;
+      label.textContent = `${Math.round(from + (to - from) * eased)}${suffix}`;
+    } else {
+      label.textContent = String(params.text ?? '');
+    }
+  }
+
+  function _applyOneShot(entry, idx) {
+    switch (entry.action) {
+      case 'applyFill': {
+        const params = Object.assign({}, entry.params ?? {});
+        if (!params.id) params.id = `det-fill-${idx}`;
+        params.delay = 0;
+        params.duration = 0;
+        applyFill(map, params);
+        runtime.createdFillIds.add(params.id);
+        break;
+      }
+      case 'drawArrow': {
+        const params = Object.assign({}, entry.params ?? {});
+        if (!params.id) params.id = `det-arrow-${idx}`;
+        params.delay = 0;
+        params.duration = 0;
+        params.effect = 'arrow-draw';
+        drawArrow(map, overlayEl, params);
+        break;
+      }
+      case 'showLabel': {
+        _ensureLabel(entry, idx);
+        break;
+      }
+      case 'clearOverlay':
+        clearOverlay(overlayEl);
+        break;
+      case 'removeLabel': {
+        const id = entry.params?.id;
+        if (!id) break;
+        const el = document.getElementById(id);
+        if (el) el.remove();
+        break;
+      }
+      case 'removeLayer': {
+        const id = entry.params?.id;
+        if (!id) break;
+        if (map.getLayer(`${id}-layer`)) map.removeLayer(`${id}-layer`);
+        if (map.getSource(`${id}-source`)) map.removeSource(`${id}-source`);
+        const overlayFill = document.getElementById(`${id}-overlay`);
+        if (overlayFill) overlayFill.remove();
+        break;
+      }
+      case 'cameraShake': {
+        const params = entry.params ?? {};
+        runtime.cameraShakeActive = {
+          start: Number(entry.at ?? 0),
+          duration: Math.max(0, Number(params.durationMs ?? 400) / 1000),
+          intensity: String(params.intensity ?? 'medium'),
+        };
+        break;
+      }
+      default:
+        break;
+    }
+  }
+
+  function _updateCameraShake(t) {
+    const shake = runtime.cameraShakeActive;
+    const container = map.getContainer();
+    if (!shake || !container) return;
+    const elapsed = t - shake.start;
+    if (elapsed < 0 || elapsed > shake.duration) {
+      container.style.transform = '';
+      return;
+    }
+    const amplitudes = { light: 3, medium: 6, heavy: 12 };
+    const amp = amplitudes[shake.intensity] ?? 6;
+    const nx = _seededNoise(runtime.seed, elapsed * 23) - 0.5;
+    const ny = _seededNoise(runtime.seed + 17, elapsed * 29) - 0.5;
+    container.style.transform = `translate(${(nx * amp).toFixed(2)}px, ${(ny * amp).toFixed(2)}px)`;
+  }
+
+  function stepTo(tSec) {
+    runtime.currentTime = Math.max(0, Number(tSec ?? 0));
+
+    runtime.timeline.forEach((entry, idx) => {
+      const at = Number(entry.at ?? 0);
+      const entryId = _entryId(entry, idx);
+      if (runtime.currentTime < at) return;
+      if (!runtime.fired.has(entryId)) {
+        _applyOneShot(entry, idx);
+        runtime.fired.add(entryId);
+      }
+      if (entry.action === 'showLabel') {
+        _updateLabelDeterministic(entry, idx, runtime.currentTime);
+      }
+    });
+
+    _updateCameraShake(runtime.currentTime);
+    reproject(map, overlayEl);
+  }
+
+  function reset() {
+    runtime.fired.clear();
+    runtime.currentTime = 0;
+    runtime.cameraShakeActive = null;
+    clearOverlay(overlayEl);
+    runtime.createdFillIds.forEach(id => {
+      if (map.getLayer(`${id}-layer`)) map.removeLayer(`${id}-layer`);
+      if (map.getSource(`${id}-source`)) map.removeSource(`${id}-source`);
+      const overlayFill = document.getElementById(`${id}-overlay`);
+      if (overlayFill) overlayFill.remove();
+    });
+    runtime.createdFillIds.clear();
+    runtime.createdLabelIds.clear();
+    const container = map.getContainer();
+    if (container) container.style.transform = '';
+  }
+
+  function getState() {
+    return {
+      t: runtime.currentTime,
+      firedEvents: runtime.fired.size,
+      labels: runtime.overlayEl.querySelectorAll('.effect-label').length,
+      arrows: runtime.overlayEl.querySelectorAll('.effect-arrow').length,
+      hash: _hashString(
+        JSON.stringify({
+          t: runtime.currentTime.toFixed(3),
+          fired: runtime.fired.size,
+          labels: runtime.overlayEl.querySelectorAll('.effect-label').length,
+          arrows: runtime.overlayEl.querySelectorAll('.effect-arrow').length,
+        })
+      ),
+    };
+  }
+
+  return {
+    stepTo,
+    reset,
+    getState,
+  };
+}
+
 
 /* ============================================================
    EXPORTS
@@ -721,6 +943,7 @@ window.MapEffects = {
   reproject,
   clearOverlay,
   bindReproject,
+  createDeterministicRuntime,
   // Internal utils exposed for testing
   _curvedPath:       curvedPath,
   _straightPath:     straightPath,

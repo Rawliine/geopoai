@@ -1,5 +1,9 @@
 {
   "duration": 12,
+  "_deterministic": true,
+  "_fps": 60,
+  "_nvenc_qp": 14,
+  "_x264_crf": 14,
   "map_style": "dark",
   "camera": {
     "center": [31.2, 48.4],

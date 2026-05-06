@@ -125,6 +125,51 @@ def _webm_to_mp4(
     return True
 
 
+def _frames_to_mp4(
+    frames_dir: Path,
+    output_path: Path,
+    fps: int = 30,
+    nvenc_qp: int = 16,
+    x264_crf: int = 15,
+) -> bool:
+    """Encode frame_%06d.png sequence to mp4."""
+    input_pattern = str(frames_dir / "frame_%06d.png")
+    if _supports_nvenc():
+        cmd = [
+            "ffmpeg", "-y",
+            "-framerate", str(fps),
+            "-i", input_pattern,
+            "-c:v", "h264_nvenc",
+            "-preset", "p7",
+            "-tune", "hq",
+            "-rc", "constqp",
+            "-qp", str(nvenc_qp),
+            "-spatial-aq", "1",
+            "-temporal-aq", "1",
+            "-pix_fmt", "yuv420p",
+            "-movflags", "+faststart",
+            str(output_path),
+        ]
+    else:
+        cmd = [
+            "ffmpeg", "-y",
+            "-framerate", str(fps),
+            "-i", input_pattern,
+            "-c:v", "libx264",
+            "-pix_fmt", "yuv420p",
+            "-crf", str(x264_crf),
+            "-preset", "slow",
+            "-movflags", "+faststart",
+            str(output_path),
+        ]
+    log.info("FFmpeg (frames): %s", " ".join(cmd))
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        log.error("FFmpeg frame encode failed:\n%s", result.stderr[-2000:])
+        return False
+    return True
+
+
 def _latest_webm(directory: Path) -> Path | None:
     """Return the most recently modified .webm in directory, or None."""
     files = sorted(directory.glob("*.webm"), key=lambda f: f.stat().st_mtime)
@@ -150,6 +195,7 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
     fps = int(scene.get("_fps", 60))
     nvenc_qp = int(scene.get("_nvenc_qp", 16))
     x264_crf = int(scene.get("_x264_crf", 15))
+    deterministic = bool(scene.get("_deterministic", False))
     map_style = scene.get("map_style", "dark")
     tile_timeout = scene.get("_tile_timeout", 20_000)
 
@@ -173,11 +219,17 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
             ],
         )
 
-        context = await browser.new_context(
-            record_video_dir=str(TMP_DIR),
-            record_video_size={"width": 1920, "height": 1080},
-            viewport={"width": 1920, "height": 1080},
-        )
+        context_kwargs = {
+            "viewport": {"width": 1920, "height": 1080},
+        }
+        if not deterministic:
+            context_kwargs.update(
+                {
+                    "record_video_dir": str(TMP_DIR),
+                    "record_video_size": {"width": 1920, "height": 1080},
+                }
+            )
+        context = await browser.new_context(**context_kwargs)
 
         page = await context.new_page()
 
@@ -209,60 +261,97 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
             )
         log.info("Map ready.")
 
-        log.info("Starting scene (%.1fs)…", duration)
-        camera_duration = scene.get("camera", {}).get("duration", 2.0) if isinstance(scene.get("camera"), dict) else 2.0
-        default_scene_timeout = duration + camera_duration + 20
-        scene_timeout = scene.get("_scene_timeout", default_scene_timeout)
-        try:
-            await asyncio.wait_for(
-                page.evaluate("scene => window.playScene(scene)", scene),
-                timeout=scene_timeout,
+        video_path_obj = None
+        frames_dir = TMP_DIR / clip_name / "frames"
+        if deterministic:
+            total_frames = max(1, int(round(duration * fps)))
+            log.info(
+                "Deterministic render: %d frames at %dfps (%.2fs).",
+                total_frames,
+                fps,
+                total_frames / fps,
             )
-        except asyncio.TimeoutError:
-            await context.close()
-            await browser.close()
-            raise RuntimeError(
-                f"Scene playback timed out after {scene_timeout:.1f}s while waiting "
-                "for window.playScene() to finish. Check map style/camera event "
-                "listeners in renderer/map.html."
-            )
+            if frames_dir.parent.exists():
+                shutil.rmtree(frames_dir.parent, ignore_errors=True)
+            frames_dir.mkdir(parents=True, exist_ok=True)
 
-        # playScene() already waits for camera + timeline completion.
-        # Keep only a tiny tail so the final effect frame is captured.
-        tail = float(scene.get("_tail_buffer", 0.25))
-        if tail > 0:
-            await asyncio.sleep(tail)
+            await page.evaluate("scene => window.loadScene(scene)", scene)
+            for i in range(total_frames):
+                t = min(duration, i / fps)
+                await page.evaluate("t => window.stepTo(t)", t)
+                frame_path = frames_dir / f"frame_{i:06d}.png"
+                await page.screenshot(path=str(frame_path))
+                if i % max(1, fps * 2) == 0:
+                    log.info("Captured frame %d/%d", i + 1, total_frames)
+        else:
+            log.info("Starting scene (%.1fs)…", duration)
+            camera_duration = scene.get("camera", {}).get("duration", 2.0) if isinstance(scene.get("camera"), dict) else 2.0
+            default_scene_timeout = duration + camera_duration + 20
+            scene_timeout = scene.get("_scene_timeout", default_scene_timeout)
+            try:
+                await asyncio.wait_for(
+                    page.evaluate("scene => window.playScene(scene)", scene),
+                    timeout=scene_timeout,
+                )
+            except asyncio.TimeoutError:
+                await context.close()
+                await browser.close()
+                raise RuntimeError(
+                    f"Scene playback timed out after {scene_timeout:.1f}s while waiting "
+                    "for window.playScene() to finish. Check map style/camera event "
+                    "listeners in renderer/map.html."
+                )
 
-        video_path_obj = await page.video.path() if page.video else None
+            # playScene() already waits for camera + timeline completion.
+            # Keep only a tiny tail so the final effect frame is captured.
+            tail = float(scene.get("_tail_buffer", 0.25))
+            if tail > 0:
+                await asyncio.sleep(tail)
+            video_path_obj = await page.video.path() if page.video else None
+
         await context.close()
         await browser.close()
 
-    if video_path_obj and Path(str(video_path_obj)).exists():
-        webm_path = Path(str(video_path_obj))
+    output_path = OUTPUT_DIR / f"{clip_name}.mp4"
+    if deterministic:
+        if not frames_dir.exists():
+            raise RuntimeError("Deterministic frames directory missing; capture failed.")
+        success = _frames_to_mp4(
+            frames_dir=frames_dir,
+            output_path=output_path,
+            fps=fps,
+            nvenc_qp=nvenc_qp,
+            x264_crf=x264_crf,
+        )
+        if success:
+            expected_seconds = max(0, int(round(duration * fps))) / fps
+            log.info("Deterministic output runtime target: %.2fs", expected_seconds)
+            shutil.rmtree(frames_dir.parent, ignore_errors=True)
     else:
-        webm_path = _latest_webm(TMP_DIR)
+        if video_path_obj and Path(str(video_path_obj)).exists():
+            webm_path = Path(str(video_path_obj))
+        else:
+            webm_path = _latest_webm(TMP_DIR)
 
-    if not webm_path or not webm_path.exists():
-        raise RuntimeError(
-            "No .webm recording found in tmp/. "
-            "Playwright may have failed to record."
+        if not webm_path or not webm_path.exists():
+            raise RuntimeError(
+                "No .webm recording found in tmp/. "
+                "Playwright may have failed to record."
+            )
+
+        log.info("Recording saved: %s (%.1f MB)", webm_path.name, webm_path.stat().st_size / 1e6)
+        success = _webm_to_mp4(
+            webm_path,
+            output_path,
+            fps=fps,
+            nvenc_qp=nvenc_qp,
+            x264_crf=x264_crf,
         )
 
-    log.info("Recording saved: %s (%.1f MB)", webm_path.name, webm_path.stat().st_size / 1e6)
-
-    output_path = OUTPUT_DIR / f"{clip_name}.mp4"
-    success = _webm_to_mp4(
-        webm_path,
-        output_path,
-        fps=fps,
-        nvenc_qp=nvenc_qp,
-        x264_crf=x264_crf,
-    )
-
-    try:
-        webm_path.unlink()
-    except OSError:
-        pass
+        try:
+            webm_path.unlink()
+        except OSError:
+            pass
 
     if not success:
         raise RuntimeError(f"FFmpeg conversion failed for clip '{clip_name}'.")

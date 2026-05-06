@@ -138,6 +138,10 @@
   var sceneRunning = false;
   var activeStyleKey = 'dark';
   var renderMode = false;
+  var deterministicRuntime = null;
+  var deterministicScene = null;
+  var deterministicCameraPlan = null;
+  var deterministicSeed = 1;
 
   /* window.sceneReady — Playwright polls this before calling playScene() */
   window.sceneReady = false;
@@ -293,6 +297,81 @@
     return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
   }
 
+  function cameraFromSpec(spec) {
+    return {
+      center: spec.center || [20, 30],
+      zoom: spec.zoom ?? 2,
+      pitch: spec.pitch ?? 0,
+      bearing: spec.bearing ?? 0,
+    };
+  }
+
+  function interpolateCamera(from, to, p) {
+    return {
+      center: [
+        from.center[0] + (to.center[0] - from.center[0]) * p,
+        from.center[1] + (to.center[1] - from.center[1]) * p,
+      ],
+      zoom: from.zoom + (to.zoom - from.zoom) * p,
+      pitch: from.pitch + (to.pitch - from.pitch) * p,
+      bearing: from.bearing + (to.bearing - from.bearing) * p,
+    };
+  }
+
+  function evaluateCameraPlan(segments, tSec, baseCamera) {
+    var state = Object.assign({}, baseCamera, { center: [...baseCamera.center] });
+    for (var i = 0; i < segments.length; i += 1) {
+      var seg = segments[i];
+      if (tSec < seg.start) break;
+      if (seg.duration <= 0 || tSec >= seg.start + seg.duration) {
+        state = Object.assign({}, seg.to, { center: [...seg.to.center] });
+        continue;
+      }
+      var p = (tSec - seg.start) / seg.duration;
+      var eased = easeInOutCubic(Math.max(0, Math.min(1, p)));
+      state = interpolateCamera(seg.from, seg.to, eased);
+      return state;
+    }
+    return state;
+  }
+
+  function buildDeterministicCameraPlan(scene) {
+    var baseCamera = { center: [20, 30], zoom: 2, pitch: 0, bearing: 0 };
+    var segments = [];
+    var initial = scene.camera ? cameraFromSpec(scene.camera) : null;
+    var initialDuration = scene.camera && typeof scene.camera.duration === 'number'
+      ? scene.camera.duration
+      : 2.0;
+
+    if (initial) {
+      segments.push({
+        start: 0,
+        duration: Math.max(0, initialDuration),
+        from: baseCamera,
+        to: initial,
+      });
+    }
+
+    var timeline = Array.isArray(scene.timeline) ? [...scene.timeline] : [];
+    timeline
+      .filter(function (e) { return e.action === 'flyTo'; })
+      .sort(function (a, b) { return (a.at ?? 0) - (b.at ?? 0); })
+      .forEach(function (entry) {
+        var start = Number(entry.at ?? 0);
+        var duration = Number(entry.params?.duration ?? 2);
+        var from = evaluateCameraPlan(segments, start, baseCamera);
+        var to = cameraFromSpec(entry.params ?? {});
+        segments.push({
+          start: start,
+          duration: Math.max(0, duration),
+          from: from,
+          to: to,
+        });
+      });
+
+    return { baseCamera: baseCamera, segments: segments };
+  }
+
   /* ============================================================
      CLEAR SCENE STATE
      Removes all overlay elements and Mapbox layers from a
@@ -371,6 +450,64 @@
 
     sceneRunning = false;
     console.log('[map.html] Scene complete:', scene.duration + 's');
+  };
+
+  window.loadScene = async function (scene) {
+    deterministicScene = scene;
+    deterministicSeed = Number(scene._seed ?? 1);
+    var style = scene.map_style || 'dark';
+    var requestedStyleKey = normalizeStyleKey(style);
+    if (requestedStyleKey !== activeStyleKey) {
+      await changeStyle(style);
+    }
+    clearSceneState();
+    deterministicCameraPlan = buildDeterministicCameraPlan(scene);
+    deterministicRuntime = window.MapEffects.createDeterministicRuntime(
+      map,
+      overlayEl,
+      scene,
+      { seed: deterministicSeed }
+    );
+    map.jumpTo(deterministicCameraPlan.baseCamera);
+    window.MapEffects.reproject(map, overlayEl);
+    return { ok: true, duration: Number(scene.duration ?? 10) };
+  };
+
+  window.stepTo = async function (tSec) {
+    if (!deterministicScene || !deterministicRuntime || !deterministicCameraPlan) {
+      throw new Error('Deterministic scene not loaded. Call window.loadScene(scene) first.');
+    }
+    var t = Math.max(0, Number(tSec ?? 0));
+    var camera = evaluateCameraPlan(
+      deterministicCameraPlan.segments,
+      t,
+      deterministicCameraPlan.baseCamera
+    );
+    map.jumpTo(camera);
+    deterministicRuntime.stepTo(t);
+    await new Promise(function (resolve) { requestAnimationFrame(function () { resolve(); }); });
+    return deterministicRuntime.getState();
+  };
+
+  window.getDeterministicState = function () {
+    return {
+      loaded: Boolean(deterministicRuntime),
+      seed: deterministicSeed,
+      cameraSegments: deterministicCameraPlan ? deterministicCameraPlan.segments.length : 0,
+      effectState: deterministicRuntime ? deterministicRuntime.getState() : null,
+    };
+  };
+
+  window.resetDeterministic = function () {
+    if (deterministicRuntime) deterministicRuntime.reset();
+    deterministicRuntime = null;
+    deterministicScene = null;
+    deterministicCameraPlan = null;
+  };
+
+  window.initDeterministic = function(token, options) {
+    window.init(token, options || {});
+    return true;
   };
 
   /* ============================================================
