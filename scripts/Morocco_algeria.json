@@ -153,7 +153,8 @@
         "effect": "border-trim",
         "duration": 1.2,
         "delay": 0,
-        "country": "Algeria"
+        "country": "Algeria",
+        "version": "ceasefire"
       }
     },
     {
@@ -166,7 +167,8 @@
         "effect": "border-trim",
         "duration": 1.2,
         "delay": 0,
-        "country": "Spain"
+        "country": "Spain",
+        "include_islands": true
       }
     },
     {
@@ -231,7 +233,21 @@
         "opacity": 0.35,
         "effect": "fill-fade",
         "duration": 1.0,
-        "country": "Morocco"
+        "country": "Morocco",
+        "version": "ceasefire"
+      }
+    },
+    {
+      "at": 4.75,
+      "action": "applyBorder",
+      "params": {
+        "id": "morocco-latest-border",
+        "country": "Morocco",
+        "version": "latest",
+        "color": "#ffffff",
+        "width": 1.8,
+        "effect": "border-glow",
+        "duration": 1.2
       }
     },
     {
@@ -371,5 +387,7 @@
         "duration": 2.0
       }
     }
-  ]
+  ],
+  "_map_version": "latest",
+  "_include_islands": false
 }

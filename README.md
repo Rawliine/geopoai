@@ -73,8 +73,70 @@ Simple country authoring (no giant inline geojson):
   - `country` (e.g. `"Morocco"`, `"Algeria"`, `"Spain"`, `"France"`)
   - and omit `geojson`.
 - At render time, `pipeline/render_scene.py` resolves `country` references into `geojson` features using:
-  - `data/ne_10m_admin_0_countries.featurecollection.geojson`
+  - `data/maps/<version>/countries.featurecollection.geojson`
 - Backward compatible: if `geojson` is already present in the action params, it is used directly.
+
+Historical map version controls:
+
+- Scene defaults:
+  - `"_map_version": "latest"`
+  - `"_include_islands": false`
+- Per-action overrides (`applyFill` / `applyBorder`):
+  - `"version": "1991_ceasefire"` (falls back to `latest` if missing)
+  - `"include_islands": true`
+
+Resolution order:
+1. Action override (`params.version`, `params.include_islands`)
+2. Scene defaults (`_map_version`, `_include_islands`)
+3. Hard defaults (`latest`, `false`)
+
+Data prep utility is now in `data/`:
+
+- `python data/prepare_ne_countries.py --zip data/ne_10m_admin_0_countries.zip --version latest`
+- Output path contract:
+  - `data/maps/<version>/countries.featurecollection.geojson`
+  - `data/maps/<version>/countries/*.geojson`
+
+Auto downloader + extractor workflow:
+
+- Version manifest: `data/maps/versions.json`
+- Alias mapping: `data/maps/aliases.json`
+  - includes `ceasefire -> 1991_ceasefire`
+- If scene requests a version that is not cached locally, `pipeline/render_scene.py` auto-runs:
+  - `python data/prepare_ne_countries.py --from-manifest --version <resolved_version>`
+- Supported manifest `source_type` values:
+  - `local_path`
+  - `zip_url`
+  - `geojson_url`
+
+Example scene controls:
+
+```json
+{
+  "_map_version": "latest",
+  "_include_islands": false,
+  "timeline": [
+    {
+      "at": 2.4,
+      "action": "applyBorder",
+      "params": {
+        "id": "algeria-border",
+        "country": "Algeria",
+        "version": "ceasefire"
+      }
+    },
+    {
+      "at": 2.6,
+      "action": "applyBorder",
+      "params": {
+        "id": "spain-border",
+        "country": "Spain",
+        "include_islands": true
+      }
+    }
+  ]
+}
+```
 
 Example:
 
