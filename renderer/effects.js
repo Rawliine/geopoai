@@ -216,6 +216,25 @@ function reproject(map, overlayEl) {
     }
   });
 
+  // Reproject SVG fill overlays
+  overlayEl.querySelectorAll('svg.effect-fill-svg[data-fill-lines]').forEach(svgEl => {
+    let lines;
+    try { lines = JSON.parse(svgEl.dataset.fillLines); } catch (_) { return; }
+    const w = overlayEl.clientWidth;
+    const h = overlayEl.clientHeight;
+    svgEl.setAttribute('width', w);
+    svgEl.setAttribute('height', h);
+    svgEl.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    const pathEl = svgEl.querySelector('path');
+    if (!pathEl) return;
+    const d = lines.map(ring => {
+      const pts = ring.map(([lng, lat]) => toPixel(map, [lng, lat])).filter(Boolean);
+      if (pts.length < 3) return '';
+      return `M${pts[0].x},${pts[0].y} ${pts.slice(1).map(p => `L${p.x},${p.y}`).join(' ')} Z`;
+    }).filter(Boolean).join(' ');
+    if (d.trim()) pathEl.setAttribute('d', d);
+  });
+
   // Reproject SVG pulse rings
   overlayEl.querySelectorAll('svg[data-center-lng]').forEach(svgEl => {
     const lng    = parseFloat(svgEl.dataset.centerLng);
@@ -261,7 +280,7 @@ function reproject(map, overlayEl) {
  * Leaves the SVG defs (arrowhead markers) intact.
  */
 function clearOverlay(overlayEl) {
-  overlayEl.querySelectorAll('.effect-arrow, .effect-label, .effect-pulse-ring').forEach(el => el.remove());
+  overlayEl.querySelectorAll('.effect-arrow, .effect-label, .effect-pulse-ring, .effect-fill-svg').forEach(el => el.remove());
 }
 
 
@@ -283,7 +302,56 @@ function clearOverlay(overlayEl) {
    }
    ============================================================ */
 
-function applyFill(map, fillSpec) {
+/* ── Fill SVG helpers ──────────────────────────────────────── */
+
+function _elasticOut(t) {
+  if (t <= 0) return 0;
+  if (t >= 1) return 1;
+  return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * (2 * Math.PI / 3)) + 1;
+}
+
+function _createFillSVG(map, overlayEl, geojson, id, color, opacity) {
+  const lines = _geojsonToBorderLines(geojson);
+  if (!lines.length) return null;
+  const w = overlayEl.clientWidth || 1920;
+  const h = overlayEl.clientHeight || 1080;
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('width', w);
+  svg.setAttribute('height', h);
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.id = `${id}-fill-svg`;
+  svg.classList.add('effect-fill-svg');
+  svg.dataset.fillLines = JSON.stringify(lines);
+  svg.style.cssText = 'position:absolute;top:0;left:0;pointer-events:none;overflow:visible;';
+  const d = lines.map(ring => {
+    const pts = ring.map(([lng, lat]) => toPixel(map, [lng, lat])).filter(Boolean);
+    if (pts.length < 3) return '';
+    return `M${pts[0].x},${pts[0].y} ${pts.slice(1).map(p => `L${p.x},${p.y}`).join(' ')} Z`;
+  }).filter(Boolean).join(' ');
+  if (!d.trim()) return null;
+  const path = document.createElementNS(svgNS, 'path');
+  path.setAttribute('d', d);
+  path.setAttribute('fill', color);
+  path.setAttribute('fill-opacity', opacity);
+  path.setAttribute('fill-rule', 'evenodd');
+  path.setAttribute('stroke', 'none');
+  svg.appendChild(path);
+  overlayEl.appendChild(svg);
+  return svg;
+}
+
+function _applyWipeProgress(svgEl, progress, direction) {
+  const r = ((1 - progress) * 100).toFixed(2);
+  switch (direction) {
+    case 'rtl': svgEl.style.clipPath = `inset(0 0 0 ${r}%)`; break;
+    case 'ttb': svgEl.style.clipPath = `inset(0 0 ${r}% 0)`; break;
+    case 'btt': svgEl.style.clipPath = `inset(${r}% 0 0 0)`; break;
+    default:    svgEl.style.clipPath = `inset(0 ${r}% 0 0)`; break;
+  }
+}
+
+function applyFill(map, fillSpec, overlayEl) {
   const {
     id,
     geojson,
@@ -293,7 +361,7 @@ function applyFill(map, fillSpec) {
     duration   = 1.2,
     delay      = 0,
     colorB,
-    origin,           // [lng, lat] — ripple/wipe epicenter; auto-converts to % for CSS
+    origin,
     deterministic = false,
   } = fillSpec;
   if (!geojson) {
@@ -301,7 +369,6 @@ function applyFill(map, fillSpec) {
     return null;
   }
 
-  // --- 1. Add or update GeoJSON source ---
   const sourceId = `${id}-source`;
   const layerId  = `${id}-layer`;
 
@@ -310,28 +377,91 @@ function applyFill(map, fillSpec) {
   } else {
     map.addSource(sourceId, { type: 'geojson', data: geojson });
   }
-
-  // --- 2. Add fill layer if not present ---
   if (!map.getLayer(layerId)) {
-    map.addLayer({
-      id:     layerId,
-      type:   'fill',
-      source: sourceId,
-      paint: {
-        'fill-color':   color,
-        'fill-opacity': 0,           // start transparent — CSS animates this
-      }
-    });
+    map.addLayer({ id: layerId, type: 'fill', source: sourceId,
+                   paint: { 'fill-color': color, 'fill-opacity': 0 } });
   } else {
     map.setPaintProperty(layerId, 'fill-color', color);
+    map.setPaintProperty(layerId, 'fill-opacity', 0);
   }
 
-  // --- 3. Create overlay div for CSS animation ---
-  // We animate a transparent overlay div, then sync opacity to Mapbox layer
-  // This gives us CSS effect power + Mapbox rendering quality
+  // ── Wipe effects — visible SVG filled path + clip-path animation ──
+  const wipeDir = effect === 'fill-wipe'     ? 'ltr'
+                : effect === 'fill-wipe-rtl' ? 'rtl'
+                : effect === 'fill-wipe-ttb' ? 'ttb'
+                : effect === 'fill-wipe-btt' ? 'btt'
+                : null;
+
+  if (wipeDir !== null) {
+    const svgEl = overlayEl && _createFillSVG(map, overlayEl, geojson, id, color, opacity);
+    if (svgEl) {
+      _applyWipeProgress(svgEl, 0, wipeDir);
+      if (!deterministic) {
+        const startMs = performance.now() + delay * 1000;
+        (function step() {
+          if (performance.now() < startMs) { requestAnimationFrame(step); return; }
+          const p = Math.min(1, (performance.now() - startMs) / (duration * 1000));
+          _applyWipeProgress(svgEl, p, wipeDir);
+          if (p < 1) { requestAnimationFrame(step); }
+          else { svgEl.remove(); map.setPaintProperty(layerId, 'fill-opacity', opacity); }
+        })();
+      }
+    } else {
+      map.setPaintProperty(layerId, 'fill-opacity', opacity);
+    }
+    return { layerId, sourceId };
+  }
+
+  // ── fill-ripple — visible SVG + scale-from-origin animation ──
+  if (effect === 'fill-ripple') {
+    const svgEl = overlayEl && _createFillSVG(map, overlayEl, geojson, id, color, opacity);
+    if (svgEl) {
+      let ox = 50, oy = 50;
+      if (origin && Array.isArray(origin) && origin.length >= 2) {
+        const pt = toPixel(map, origin);
+        if (pt) {
+          ox = (pt.x / (overlayEl.clientWidth  || 1920)) * 100;
+          oy = (pt.y / (overlayEl.clientHeight || 1080)) * 100;
+        }
+      }
+      svgEl.style.transformOrigin = `${ox}% ${oy}%`;
+      svgEl.style.transform = 'scale(0)';
+      if (!deterministic) {
+        const startMs = performance.now() + delay * 1000;
+        (function step() {
+          if (performance.now() < startMs) { requestAnimationFrame(step); return; }
+          const p = Math.min(1, (performance.now() - startMs) / (duration * 1000));
+          svgEl.style.transform = `scale(${_elasticOut(p)})`;
+          if (p < 1) { requestAnimationFrame(step); }
+          else { svgEl.remove(); map.setPaintProperty(layerId, 'fill-opacity', opacity); }
+        })();
+      }
+    } else {
+      map.setPaintProperty(layerId, 'fill-opacity', opacity);
+    }
+    return { layerId, sourceId };
+  }
+
+  // ── fill-fade — animate Mapbox fill-opacity directly ─────────
+  if (effect === 'fill-fade') {
+    if (!deterministic) {
+      const startMs = performance.now() + delay * 1000;
+      (function step() {
+        if (performance.now() < startMs) { requestAnimationFrame(step); return; }
+        const p = Math.min(1, (performance.now() - startMs) / (duration * 1000));
+        map.setPaintProperty(layerId, 'fill-opacity', opacity * (1 - (1 - p) ** 3));
+        if (p < 1) requestAnimationFrame(step);
+      })();
+    }
+    // deterministic: stepTo drives fill-opacity each frame
+    return { layerId, sourceId };
+  }
+
+  // ── Other effects (fill-contested, etc.) — overlay div ───────
+  const mapContainer = map.getContainer();
   const overlayDiv = document.createElement('div');
   overlayDiv.id = `${id}-overlay`;
-  overlayDiv.className = `effect-fill`;
+  overlayDiv.className = 'effect-fill';
   overlayDiv.style.cssText = `
     position: absolute; inset: 0; pointer-events: none;
     --fill-opacity: ${opacity};
@@ -340,37 +470,18 @@ function applyFill(map, fillSpec) {
     --effect-color-a: ${color};
     --effect-color-b: ${colorB ?? color};
   `;
-
-  // Get the map canvas container as the parent for fill overlays
-  const mapContainer = map.getContainer();
-  overlayDiv.style.position = 'absolute';
-  overlayDiv.style.inset = '0';
   mapContainer.appendChild(overlayDiv);
-
-  // --- 4. Apply CSS effect class ---
-  if (origin && Array.isArray(origin) && origin.length >= 2) {
-    const pt = toPixel(map, origin);
-    if (pt) {
-      const container = map.getContainer();
-      const cw = container.clientWidth  || 1920;
-      const ch = container.clientHeight || 1080;
-      overlayDiv.style.setProperty('--ripple-origin-x', `${(pt.x / cw) * 100}%`);
-      overlayDiv.style.setProperty('--ripple-origin-y', `${(pt.y / ch) * 100}%`);
-    }
-  }
   void overlayDiv.offsetWidth;
   overlayDiv.classList.add(effect);
 
-  // --- 5. Sync final opacity to Mapbox layer after animation ---
   if (deterministic) {
     map.setPaintProperty(layerId, 'fill-opacity', opacity);
     overlayDiv.remove();
   } else {
-    const totalDuration = (duration + delay) * 1000;
     setTimeout(() => {
       map.setPaintProperty(layerId, 'fill-opacity', opacity);
-      overlayDiv.remove(); // CSS overlay done, Mapbox layer holds the fill
-    }, totalDuration + 100);
+      overlayDiv.remove();
+    }, (duration + delay) * 1000 + 100);
   }
 
   return { layerId, sourceId };
@@ -548,7 +659,7 @@ function executeTimelineAction(map, overlayEl, entry, ctx = {}) {
   const params = entry.params ?? {};
   switch (entry.action) {
     case 'applyFill':
-      applyFill(map, Object.assign({}, params, { deterministic: Boolean(ctx.deterministic) }));
+      applyFill(map, Object.assign({}, params, { deterministic: Boolean(ctx.deterministic) }), overlayEl);
       if (ctx.runtime && params.id) ctx.runtime.createdFillIds.add(params.id);
       break;
     case 'applyBorder': {
@@ -579,6 +690,9 @@ function executeTimelineAction(map, overlayEl, entry, ctx = {}) {
       clearOverlay(overlayEl);
       break;
     case 'removeLabel': {
+      if (ctx.deterministic && ctx.runtime) {
+        ctx.runtime.removedLabelIds.add(params.id);
+      }
       const el = document.getElementById(params.id);
       if (el) {
         if (ctx.deterministic && ctx.runtime) {
@@ -858,7 +972,7 @@ function showLabel(map, overlayEl, labelSpec) {
     top:  ${px.y}px;
     color: ${color};
     font-size: ${fontSize};
-    transform: translate(-50%, -50%);
+    translate: -50% -50%;
     transform-origin: ${anchor};
     --effect-duration: ${duration}s;
     --effect-delay: ${delay}s;
@@ -1004,6 +1118,7 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
     createdArrowIds: new Set(),
     createdPulseRingIds: new Set(),
     createdLabelIds: new Set(),
+    removedLabelIds: new Set(),
     currentTime: 0,
     cameraShakeActive: null,
     pendingRemovals: [],
@@ -1017,6 +1132,7 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
   function _ensureLabel(entry, idx) {
     const params = entry.params ?? {};
     const id = params.id || `det-label-${idx}`;
+    if (runtime.removedLabelIds.has(id)) return null;
     const existing = document.getElementById(id);
     if (existing) return existing;
     const spec = Object.assign({}, params, {
@@ -1056,6 +1172,57 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
       label.textContent = `${Math.round(from + (to - from) * eased)}${suffix}`;
     } else {
       label.textContent = String(params.text ?? '');
+    }
+  }
+
+  function _updateFillDeterministic(entry, t) {
+    const params = entry.params ?? {};
+    const id      = params.id;
+    if (!id) return;
+    const effect   = params.effect ?? 'fill-fade';
+    const dur      = Math.max(0.001, Number(params.duration ?? 1));
+    const del      = Number(params.delay ?? 0);
+    const opacity  = Number(params.opacity ?? 0.6);
+    const localT   = Math.max(0, t - Number(entry.at ?? 0) - del);
+    const progress = Math.min(1, localT / dur);
+    const layerId  = `${id}-layer`;
+
+    if (effect === 'fill-fade') {
+      if (map.getLayer(layerId))
+        map.setPaintProperty(layerId, 'fill-opacity', opacity * (1 - (1 - progress) ** 3));
+      return;
+    }
+
+    const wipeDir = effect === 'fill-wipe'     ? 'ltr'
+                  : effect === 'fill-wipe-rtl' ? 'rtl'
+                  : effect === 'fill-wipe-ttb' ? 'ttb'
+                  : effect === 'fill-wipe-btt' ? 'btt'
+                  : null;
+    if (wipeDir !== null) {
+      const svgEl = document.getElementById(`${id}-fill-svg`);
+      if (svgEl) {
+        _applyWipeProgress(svgEl, progress, wipeDir);
+        if (progress >= 1) {
+          svgEl.remove();
+          if (map.getLayer(layerId)) map.setPaintProperty(layerId, 'fill-opacity', opacity);
+        }
+      } else if (progress >= 1 && map.getLayer(layerId)) {
+        map.setPaintProperty(layerId, 'fill-opacity', opacity);
+      }
+      return;
+    }
+
+    if (effect === 'fill-ripple') {
+      const svgEl = document.getElementById(`${id}-fill-svg`);
+      if (svgEl) {
+        svgEl.style.transform = `scale(${_elasticOut(progress)})`;
+        if (progress >= 1) {
+          svgEl.remove();
+          if (map.getLayer(layerId)) map.setPaintProperty(layerId, 'fill-opacity', opacity);
+        }
+      } else if (progress >= 1 && map.getLayer(layerId)) {
+        map.setPaintProperty(layerId, 'fill-opacity', opacity);
+      }
     }
   }
 
@@ -1099,6 +1266,9 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
       if (entry.action === 'showLabel') {
         _updateLabelDeterministic(entry, idx, runtime.currentTime);
       }
+      if (entry.action === 'applyFill') {
+        _updateFillDeterministic(entry, runtime.currentTime);
+      }
     });
 
     _updateCameraShake(runtime.currentTime);
@@ -1121,6 +1291,8 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
       if (map.getSource(`${id}-source`)) map.removeSource(`${id}-source`);
       const overlayFill = document.getElementById(`${id}-overlay`);
       if (overlayFill) overlayFill.remove();
+      const fillSvg = document.getElementById(`${id}-fill-svg`);
+      if (fillSvg) fillSvg.remove();
     });
     runtime.createdBorderIds.forEach(id => removeBorder(overlayEl, id));
     runtime.createdArrowIds.forEach(id => removeArrow(overlayEl, id));
@@ -1133,6 +1305,7 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
     runtime.createdArrowIds.clear();
     runtime.createdPulseRingIds.clear();
     runtime.createdLabelIds.clear();
+    runtime.removedLabelIds.clear();
     const container = map.getContainer();
     if (container) container.style.transform = '';
   }

@@ -20,6 +20,7 @@
         "at": 0.0,
         "action": "showLabel",
         "params": {
+          "id": "intro-text",
           "text": "We always say theres unsetttlable chaose in middle east, but what i fi told you that therese worse than middle east and its less mediatiized.",
           "position": {
             "x": 960,
@@ -28,7 +29,7 @@
           "effect": "label-typewriter",
           "color": "#f0c040",
           "fontSize": "1.4rem",
-          "charInterval": 60
+          "charInterval": 22
         }
       },
       {
@@ -46,9 +47,15 @@
         }
       },
       {
+        "at": 3.2,
+        "action": "removeLabel",
+        "params": { "id": "intro-text" }
+      },
+      {
         "at": 3.3,
         "action": "showLabel",
         "params": {
+          "id": "north-africa-label",
           "text": "Well, its north africa!",
           "position": {
             "x": 960,
@@ -143,6 +150,11 @@
         }
       },
       {
+        "at": 8.1,
+        "action": "removeLabel",
+        "params": { "id": "north-africa-label" }
+      },
+      {
         "at": 8.2,
         "action": "showLabel",
         "params": {
@@ -209,7 +221,7 @@
           "color": "#3498db",
           "width": 2.8,
           "effect": "border-marching",
-          "duration": 0.9,
+          "duration": 20.0,
           "country": "Spain"
         }
       },
@@ -221,7 +233,7 @@
           "color": "#9b59b6",
           "width": 2.8,
           "effect": "border-marching",
-          "duration": 0.9,
+          "duration": 20.0,
           "country": "France"
         }
       },
@@ -244,7 +256,7 @@
           "curved": true,
           "arc": 140,
           "headed": false,
-          "duration": 2.2
+          "duration": 3.8
         }
       },
       {
@@ -266,7 +278,7 @@
           "curved": true,
           "arc": 120,
           "headed": false,
-          "duration": 2.0
+          "duration": 3.5
         }
       },
       {
@@ -280,13 +292,38 @@
         "params": {
           "id": "Sahara-contested-fill",
           "color": "#e67e22",
-          "colorB": "#c0392b",
+          "colorB": "#2ecc71",
           "opacity": 0.35,
           "effect": "fill-contested",
-          "duration": 1.0,
+          "duration": 0.2,
           "country": "Western Sahara",
           "version": "ceasefire"
         }
+      },
+      {
+        "at": 13,
+        "action": "removeBorder",
+        "params": { "id": "Sahara-border" }
+      },
+      {
+        "at": 14.5,
+        "action": "removeBorder",
+        "params": { "id": "spain-border-march" }
+      },
+      {
+        "at": 14.5,
+        "action": "removeBorder",
+        "params": { "id": "france-border-march" }
+      },
+      {
+        "at": 14.5,
+        "action": "removeArrow",
+        "params": { "id": "sahara-to-france" }
+      },
+      {
+        "at": 14.5,
+        "action": "removeArrow",
+        "params": { "id": "sahara-to-spain" }
       },
       {
         "at": 15,
@@ -371,8 +408,8 @@
           "count": 3,
           "radius": 90,
           "width": 2.5,
-          "duration": 1,
-          "stagger": 1,
+          "duration": 2.2,
+          "stagger": 0.55,
           "delay": 0
         }
       },
@@ -386,8 +423,8 @@
           "count": 3,
           "radius": 90,
           "width": 2.5,
-          "duration": 1,
-          "stagger": 1,
+          "duration": 2.2,
+          "stagger": 0.55,
           "delay": 0
         }
       },
@@ -401,8 +438,8 @@
           "count": 3,
           "radius": 90,
           "width": 2.5,
-          "duration": 1,
-          "stagger": 1,
+          "duration": 2.2,
+          "stagger": 0.55,
           "delay": 0
         }
       },
@@ -429,7 +466,7 @@
           "color": "#ffffff",
           "width": 1.8,
           "effect": "border-glow",
-          "duration": 1.2
+          "duration": 2.8
         }
       }
     ],
