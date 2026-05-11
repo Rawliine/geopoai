@@ -216,6 +216,23 @@ function reproject(map, overlayEl) {
     }
   });
 
+  // Reproject SVG pulse rings
+  overlayEl.querySelectorAll('svg[data-center-lng]').forEach(svgEl => {
+    const lng    = parseFloat(svgEl.dataset.centerLng);
+    const lat    = parseFloat(svgEl.dataset.centerLat);
+    const pt     = toPixel(map, [lng, lat]);
+    if (!pt) return;
+    const w = overlayEl.clientWidth;
+    const h = overlayEl.clientHeight;
+    svgEl.setAttribute('width', w);
+    svgEl.setAttribute('height', h);
+    svgEl.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    svgEl.querySelectorAll('circle').forEach(circle => {
+      circle.setAttribute('cx', pt.x);
+      circle.setAttribute('cy', pt.y);
+    });
+  });
+
   // Reproject SVG border paths
   overlayEl.querySelectorAll('svg[data-border-lines]').forEach(svgEl => {
     const raw = svgEl.dataset.borderLines;
@@ -244,7 +261,7 @@ function reproject(map, overlayEl) {
  * Leaves the SVG defs (arrowhead markers) intact.
  */
 function clearOverlay(overlayEl) {
-  overlayEl.querySelectorAll('.effect-arrow, .effect-label').forEach(el => el.remove());
+  overlayEl.querySelectorAll('.effect-arrow, .effect-label, .effect-pulse-ring').forEach(el => el.remove());
 }
 
 
@@ -276,6 +293,7 @@ function applyFill(map, fillSpec) {
     duration   = 1.2,
     delay      = 0,
     colorB,
+    origin,           // [lng, lat] — ripple/wipe epicenter; auto-converts to % for CSS
     deterministic = false,
   } = fillSpec;
   if (!geojson) {
@@ -330,6 +348,16 @@ function applyFill(map, fillSpec) {
   mapContainer.appendChild(overlayDiv);
 
   // --- 4. Apply CSS effect class ---
+  if (origin && Array.isArray(origin) && origin.length >= 2) {
+    const pt = toPixel(map, origin);
+    if (pt) {
+      const container = map.getContainer();
+      const cw = container.clientWidth  || 1920;
+      const ch = container.clientHeight || 1080;
+      overlayDiv.style.setProperty('--ripple-origin-x', `${(pt.x / cw) * 100}%`);
+      overlayDiv.style.setProperty('--ripple-origin-y', `${(pt.y / ch) * 100}%`);
+    }
+  }
   void overlayDiv.offsetWidth;
   overlayDiv.classList.add(effect);
 
@@ -433,6 +461,89 @@ function removeBorder(overlayEl, id) {
   }
 }
 
+function removeArrow(overlayEl, id) {
+  if (!id) return;
+  const el = document.getElementById(id);
+  if (el && el.classList.contains('effect-arrow')) {
+    el.remove();
+  }
+}
+
+/**
+ * pulseRing(map, overlayEl, spec)
+ * Emits N expanding SVG ring circles from a geographic point.
+ *
+ * spec shape:
+ * {
+ *   id:       string,
+ *   center:   [lng, lat],    // geographic epicenter
+ *   color:    string,        // stroke color (default '#ffffff')
+ *   count:    number,        // rings to emit (default 1)
+ *   radius:   number,        // max ring radius in px (default 80)
+ *   width:    number,        // stroke width px (default 2)
+ *   duration: number,        // seconds per ring (default 1.4)
+ *   stagger:  number,        // seconds between rings (default 0.4)
+ *   delay:    number,        // seconds before first ring (default 0)
+ * }
+ */
+function pulseRing(map, overlayEl, spec) {
+  const {
+    id       = `pulse-${Date.now()}`,
+    center,
+    color    = '#ffffff',
+    count    = 1,
+    radius   = 80,
+    width    = 2,
+    duration = 1.4,
+    stagger  = 0.4,
+    delay    = 0,
+  } = spec;
+
+  if (!center) {
+    console.warn('[effects.js] pulseRing: missing center');
+    return null;
+  }
+
+  const pt = toPixel(map, center);
+  if (!pt) return null;
+
+  const w = overlayEl.clientWidth;
+  const h = overlayEl.clientHeight;
+  const svgNS = 'http://www.w3.org/2000/svg';
+
+  const svg = document.createElementNS(svgNS, 'svg');
+  svg.setAttribute('width', w);
+  svg.setAttribute('height', h);
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.classList.add('effect-pulse-ring');
+  svg.id = id;
+  svg.dataset.centerLng  = center[0];
+  svg.dataset.centerLat  = center[1];
+  svg.dataset.ringRadius = radius;
+  svg.style.cssText = `position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible;`;
+
+  for (let i = 0; i < count; i++) {
+    const circle = document.createElementNS(svgNS, 'circle');
+    circle.setAttribute('cx', pt.x);
+    circle.setAttribute('cy', pt.y);
+    circle.setAttribute('r', radius);
+    circle.setAttribute('fill', 'none');
+    circle.setAttribute('stroke', color);
+    circle.setAttribute('stroke-width', width);
+    circle.style.setProperty('--ring-duration', `${duration}s`);
+    circle.style.setProperty('--ring-delay', `${delay + i * stagger}s`);
+    circle.classList.add('fill-ripple-ring');
+    svg.appendChild(circle);
+  }
+
+  overlayEl.appendChild(svg);
+
+  const totalMs = (delay + duration + (count - 1) * stagger + 0.2) * 1000;
+  setTimeout(() => { if (svg.parentNode) svg.remove(); }, totalMs);
+
+  return svg;
+}
+
 function executeTimelineAction(map, overlayEl, entry, ctx = {}) {
   const params = entry.params ?? {};
   switch (entry.action) {
@@ -448,9 +559,19 @@ function executeTimelineAction(map, overlayEl, entry, ctx = {}) {
     case 'removeBorder':
       removeBorder(overlayEl, params.id);
       break;
-    case 'drawArrow':
-      drawArrow(map, overlayEl, params);
+    case 'drawArrow': {
+      const arrow = drawArrow(map, overlayEl, params);
+      if (ctx.runtime && arrow?.id) ctx.runtime.createdArrowIds.add(arrow.id);
       break;
+    }
+    case 'removeArrow':
+      removeArrow(overlayEl, params.id);
+      break;
+    case 'pulseRing': {
+      const ring = pulseRing(map, overlayEl, params);
+      if (ctx.runtime && ring?.id) ctx.runtime.createdPulseRingIds.add(ring.id);
+      break;
+    }
     case 'showLabel':
       showLabel(map, overlayEl, params);
       break;
@@ -880,6 +1001,8 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
     fired: new Set(),
     createdFillIds: new Set(),
     createdBorderIds: new Set(),
+    createdArrowIds: new Set(),
+    createdPulseRingIds: new Set(),
     createdLabelIds: new Set(),
     currentTime: 0,
     cameraShakeActive: null,
@@ -1000,8 +1123,15 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
       if (overlayFill) overlayFill.remove();
     });
     runtime.createdBorderIds.forEach(id => removeBorder(overlayEl, id));
+    runtime.createdArrowIds.forEach(id => removeArrow(overlayEl, id));
+    runtime.createdPulseRingIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    });
     runtime.createdFillIds.clear();
     runtime.createdBorderIds.clear();
+    runtime.createdArrowIds.clear();
+    runtime.createdPulseRingIds.clear();
     runtime.createdLabelIds.clear();
     const container = map.getContainer();
     if (container) container.style.transform = '';
@@ -1041,6 +1171,8 @@ window.MapEffects = {
   applyFill,
   applyBorder,
   removeBorder,
+  removeArrow,
+  pulseRing,
   drawArrow,
   showLabel,
   runTimeline,

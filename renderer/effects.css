@@ -19,6 +19,7 @@
   .fill-fade,
   .fill-wipe,
   .fill-ripple,
+  .fill-ripple-ring,
   .fill-contested,
   .border-trim,
   .border-glow,
@@ -135,22 +136,26 @@
     100% { transform: scale(1.0);  opacity: var(--fill-opacity, 0.65); }
   }
   
-  /* Pulse ring variant — used as a secondary "shockwave" ring */
+  /* Pulse ring — applied to SVG <circle> elements by pulseRing action.
+     Circle r is set to the final radius; animation scales 0→1 and fades.
+     transform-box+origin center the scale on the circle itself.        */
   .fill-ripple-ring {
+    transform-box: fill-box;
+    transform-origin: center;
     transform: scale(0);
-    transform-origin: var(--ripple-origin-x, 50%) var(--ripple-origin-y, 50%);
-    opacity: 1;
+    opacity: 0;
     animation:
       fill-ripple-ring-expand
-      var(--effect-duration, 1.6s)
+      var(--ring-duration, 1.4s)
       ease-out
-      var(--effect-delay, 0s)
+      var(--ring-delay, 0s)
       forwards;
   }
-  
+
   @keyframes fill-ripple-ring-expand {
-    0%   { transform: scale(0);   opacity: 0.8; }
-    100% { transform: scale(2.5); opacity: 0;   }
+    0%   { transform: scale(0);   opacity: 0;   }
+    12%  { opacity: 0.9; }
+    100% { transform: scale(1);   opacity: 0;   }
   }
   
   

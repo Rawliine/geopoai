@@ -1,0 +1,439 @@
+{
+    "duration": 26,
+    "_deterministic": true,
+    "_fps": 60,
+    "_nvenc_qp": 14,
+    "_x264_crf": 14,
+    "map_style": "dark",
+    "camera": {
+      "center": [
+        -2.49,
+        31.77
+      ],
+      "zoom": 1.0,
+      "pitch": 30,
+      "bearing": 0,
+      "duration": 0.5
+    },
+    "timeline": [
+      {
+        "at": 0.0,
+        "action": "showLabel",
+        "params": {
+          "text": "We always say theres unsetttlable chaose in middle east, but what i fi told you that therese worse than middle east and its less mediatiized.",
+          "position": {
+            "x": 960,
+            "y": 60
+          },
+          "effect": "label-typewriter",
+          "color": "#f0c040",
+          "fontSize": "1.4rem",
+          "charInterval": 60
+        }
+      },
+      {
+        "at": 2.3,
+        "action": "flyTo",
+        "params": {
+          "center": [
+            -2.49,
+            31.77
+          ],
+          "zoom": 2.5,
+          "pitch": 30,
+          "bearing": 0,
+          "duration": 1
+        }
+      },
+      {
+        "at": 3.3,
+        "action": "showLabel",
+        "params": {
+          "text": "Well, its north africa!",
+          "position": {
+            "x": 960,
+            "y": 160
+          },
+          "effect": "label-slam",
+          "color": "#f0c040",
+          "fontSize": "1.1rem"
+        }
+      },
+      {
+        "at": 4.4,
+        "action": "applyBorder",
+        "params": {
+          "id": "morocco-border",
+          "color": "#f1c40f",
+          "width": 3,
+          "effect": "border-trim",
+          "duration": 1.2,
+          "delay": 0,
+          "country": "Morocco",
+          "version": "ceasefire"
+        }
+      },
+      {
+        "at": 4.4,
+        "action": "applyBorder",
+        "params": {
+          "id": "Sahara-border",
+          "color": "#e67e22",
+          "width": 3,
+          "effect": "border-trim",
+          "duration": 1.2,
+          "delay": 0,
+          "country": "Western Sahara",
+          "version": "ceasefire"
+        }
+      },
+      {
+        "at": 4.4,
+        "action": "applyBorder",
+        "params": {
+          "id": "algeria-border",
+          "color": "#2ecc71",
+          "width": 3,
+          "effect": "border-trim",
+          "duration": 1.2,
+          "delay": 0,
+          "country": "Algeria",
+          "version": "ceasefire"
+        }
+      },
+      {
+        "at": 4.4,
+        "action": "applyBorder",
+        "params": {
+          "id": "spain-border",
+          "color": "#3498db",
+          "width": 3,
+          "effect": "border-trim",
+          "duration": 1.2,
+          "delay": 0,
+          "country": "Spain",
+          "include_islands": false
+        }
+      },
+      {
+        "at": 4.4,
+        "action": "applyBorder",
+        "params": {
+          "id": "france-border",
+          "color": "#9b59b6",
+          "width": 3,
+          "effect": "border-trim",
+          "duration": 1.2,
+          "delay": 0,
+          "country": "France"
+        }
+      },
+      {
+        "at": 6.0,
+        "action": "flyTo",
+        "params": {
+          "center": [
+            -2.49,
+            31.77
+          ],
+          "zoom": 2.5,
+          "pitch": 30,
+          "bearing": 0,
+          "duration": 1
+        }
+      },
+      {
+        "at": 8.2,
+        "action": "showLabel",
+        "params": {
+          "text": "These 2 countries were under spanish and french control until they both left",
+          "position": {
+            "x": 960,
+            "y": 160
+          },
+          "effect": "label-slam",
+          "color": "#f0c040",
+          "fontSize": "1.1rem"
+        }
+      },
+      {
+        "at": 8.6,
+        "action": "applyFill",
+        "params": {
+          "id": "algeria-fill",
+          "color": "#2ecc71",
+          "opacity": 0.35,
+          "effect": "fill-fade",
+          "duration": 1.0,
+          "country": "Algeria"
+        }
+      },
+      {
+        "at": 8.6,
+        "action": "applyFill",
+        "params": {
+          "id": "morocco-fill",
+          "color": "#f1c40f",
+          "opacity": 0.35,
+          "effect": "fill-fade",
+          "duration": 1.0,
+          "country": "Morocco",
+          "version": "ceasefire"
+        }
+      },
+      {
+        "at": 9.4,
+        "action": "removeBorder",
+        "params": { "id": "france-border" }
+      },
+      {
+        "at": 9.4,
+        "action": "removeBorder",
+        "params": { "id": "spain-border" }
+      },
+      {
+        "at": 9.4,
+        "action": "removeBorder",
+        "params": { "id": "algeria-border" }
+      },
+      {
+        "at": 9.4,
+        "action": "removeBorder",
+        "params": { "id": "morocco-border" }
+      },
+      {
+        "at": 9.6,
+        "action": "applyBorder",
+        "params": {
+          "id": "spain-border-march",
+          "color": "#3498db",
+          "width": 2.8,
+          "effect": "border-marching",
+          "duration": 0.9,
+          "country": "Spain"
+        }
+      },
+      {
+        "at": 9.6,
+        "action": "applyBorder",
+        "params": {
+          "id": "france-border-march",
+          "color": "#9b59b6",
+          "width": 2.8,
+          "effect": "border-marching",
+          "duration": 0.9,
+          "country": "France"
+        }
+      },
+      {
+        "at": 11,
+        "action": "drawArrow",
+        "params": {
+          "id": "sahara-to-france",
+          "from": [
+            -5.0,
+            27.2
+          ],
+          "to": [
+            2.3,
+            46.2
+          ],
+          "color": "#9b59b6",
+          "effect": "arrow-travel",
+          "width": 5,
+          "curved": true,
+          "arc": 140,
+          "headed": false,
+          "duration": 2.2
+        }
+      },
+      {
+        "at": 11,
+        "action": "drawArrow",
+        "params": {
+          "id": "sahara-to-spain",
+          "from": [
+            -5.0,
+            27.2
+          ],
+          "to": [
+            -3.7,
+            40.4
+          ],
+          "color": "#3498db",
+          "effect": "arrow-travel",
+          "width": 5,
+          "curved": true,
+          "arc": 120,
+          "headed": false,
+          "duration": 2.0
+        }
+      },
+      {
+        "at": 12,
+        "action": "removeLayer",
+        "params": { "id": "Sahara-fill" }
+      },
+      {
+        "at": 13,
+        "action":"applyFill",
+        "params": {
+          "id": "Sahara-contested-fill",
+          "color": "#e67e22",
+          "colorB": "#c0392b",
+          "opacity": 0.35,
+          "effect": "fill-contested",
+          "duration": 1.0,
+          "country": "Western Sahara",
+          "version": "ceasefire"
+        }
+      },
+      {
+        "at": 15,
+        "action": "removeLayer",
+        "params": {
+            "id": "Sahara-contested-fill"
+        }
+      },
+      {
+        "at": 17,
+        "action": "drawArrow",
+        "params": {
+          "id": "rabat-to-el-aaiun",
+          "from": [-6.84, 33.97],
+          "to": [-13.2, 27.15],
+          "color": "#c0392b",
+          "width": 4,
+          "effect": "arrow-travel",
+          "curved": true,
+          "arc": 110,
+          "headed": true,
+          "duration": 2.0,
+          "delay": 0
+        }
+      },
+      {
+        "at": 17,
+        "action": "drawArrow",
+        "params": {
+          "id": "rabat-to-smara",
+          "from": [-6.84, 33.97],
+          "to": [-11.67, 26.74],
+          "color": "#c0392b",
+          "width": 4,
+          "effect": "arrow-travel",
+          "curved": true,
+          "arc": 120,
+          "headed": true,
+          "duration": 2.0,
+          "delay": 0.15
+        }
+      },
+      {
+        "at": 17,
+        "action": "drawArrow",
+        "params": {
+          "id": "rabat-to-dakhla",
+          "from": [-6.84, 33.97],
+          "to": [-15.93, 23.72],
+          "color": "#c0392b",
+          "width": 4,
+          "effect": "arrow-travel",
+          "curved": true,
+          "arc": 130,
+          "headed": true,
+          "duration": 2.0,
+          "delay": 0.3
+        }
+      },
+      {
+        "at": 19,
+        "action": "removeArrow",
+        "params": { "id": "rabat-to-el-aaiun" }
+      },
+      {
+        "at": 19,
+        "action": "removeArrow",
+        "params": { "id": "rabat-to-smara" }
+      },
+      {
+        "at": 19,
+        "action": "removeArrow",
+        "params": { "id": "rabat-to-dakhla" }
+      },
+      {
+        "at": 19,
+        "action": "pulseRing",
+        "params": {
+          "id": "pulse-el-aaiun",
+          "center": [-13.2, 27.15],
+          "color": "#e67e22",
+          "count": 3,
+          "radius": 90,
+          "width": 2.5,
+          "duration": 1,
+          "stagger": 1,
+          "delay": 0
+        }
+      },
+      {
+        "at": 19,
+        "action": "pulseRing",
+        "params": {
+          "id": "pulse-smara",
+          "center": [-11.67, 26.74],
+          "color": "#e67e22",
+          "count": 3,
+          "radius": 90,
+          "width": 2.5,
+          "duration": 1,
+          "stagger": 1,
+          "delay": 0
+        }
+      },
+      {
+        "at": 19,
+        "action": "pulseRing",
+        "params": {
+          "id": "pulse-dakhla",
+          "center": [-15.93, 23.72],
+          "color": "#e67e22",
+          "count": 3,
+          "radius": 90,
+          "width": 2.5,
+          "duration": 1,
+          "stagger": 1,
+          "delay": 0
+        }
+      },
+      {
+        "at": 21,
+        "action":"applyFill",
+        "params": {
+          "id": "Sahara-join-morocco-fill",
+          "color": "#f1c40f",
+          "opacity": 0.35,
+          "effect": "fill-wipe",
+          "duration": 2.0,
+          "country": "Morocco",
+          "version": "latest"
+        }
+      },
+      {
+        "at": 24,
+        "action": "applyBorder",
+        "params": {
+          "id": "morocco-latest-border",
+          "country": "Morocco",
+          "version": "latest",
+          "color": "#ffffff",
+          "width": 1.8,
+          "effect": "border-glow",
+          "duration": 1.2
+        }
+      }
+    ],
+    "_map_version": "latest",
+    "_include_islands": false
+  }
+  
