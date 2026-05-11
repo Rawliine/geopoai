@@ -252,6 +252,18 @@ def _ring_area(ring: list[list[float]]) -> float:
     return abs(area) / 2.0
 
 
+def _feature_area(feat: dict) -> float:
+    """Rough area of a feature's geometry (in geographic degrees²) for lookup ranking."""
+    geom = feat.get("geometry") or {}
+    gtype = geom.get("type", "")
+    coords = geom.get("coordinates", [])
+    if gtype == "Polygon":
+        return _ring_area(coords[0]) if coords else 0.0
+    if gtype == "MultiPolygon":
+        return sum(_ring_area(poly[0]) for poly in coords if poly)
+    return 0.0
+
+
 def _maybe_filter_islands(feature: dict, include_islands: bool) -> dict:
     if include_islands:
         return feature
@@ -304,7 +316,9 @@ def _load_country_lookup(version: str) -> tuple[dict[str, dict], str]:
         ):
             val = props.get(key)
             if isinstance(val, str) and val.strip():
-                lookup[val.strip().lower()] = feat
+                k = val.strip().lower()
+                if k not in lookup or _feature_area(feat) > _feature_area(lookup[k]):
+                    lookup[k] = feat
     return lookup, chosen
 
 
