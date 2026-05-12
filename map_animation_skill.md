@@ -131,7 +131,7 @@ Schedule downstream actions ≥ 0.6s after `removeBorder` to avoid visual overla
     "from": [-6.84, 33.97],     // [lng, lat] origin
     "to": [-13.2, 27.15],       // [lng, lat] destination
     "color": "#c0392b",
-    "width": 4,                 // stroke width in px (default 2.5)
+    "width": 2.5,               // stroke width in px (default 2.5; keep ≤ 3 for clean look)
     "effect": "arrow-travel",   // see Effects Gallery
     "curved": true,             // bezier curve (default true)
     "arc": 110,                 // curve bow height in px (default 80)
@@ -143,12 +143,12 @@ Schedule downstream actions ≥ 0.6s after `removeBorder` to avoid visual overla
 }
 ```
 
-**Important:** `arrow-travel` with `headed: true` places the arrowhead at the
-destination while the dot is still traveling — usually looks wrong. Use
-`"headed": false` for travel arrows.
+**`headed` behavior by effect:**
+- `arrow-draw` + `headed: true` — arrowhead is deferred until the stroke finishes drawing. Correct and recommended for military advance / movement arrows.
+- `arrow-travel` + `headed: true` — arrowhead sits at destination while the dot is still traveling. Usually wrong. Use `"headed": false` for travel arrows.
+- `arrow-glow` + `headed: true` — arrowhead appears immediately with the path. Fine.
 
-All arrow types now have a draw-on entrance (path traces from origin to destination
-before the main effect starts). Budget ~0.25–0.35× `duration` for the entrance.
+All arrow types draw on from origin→destination on appearance, and erase origin→destination on removal. Budget ~0.25–0.35× `duration` for the entrance draw-on.
 
 ---
 
@@ -418,8 +418,9 @@ Use Mapbox-style decimal degrees. No DMS notation.
 
 6. **Deterministic vs realtime.** Use `_deterministic: true` for final renders
    (consistent quality, slow). Omit or set `false` for drafts (fast, may have
-   frame-rate variation). Infinite CSS effects (`border-glow`, `border-marching`,
-   etc.) run correctly in both modes.
+   frame-rate variation). `pulseRing` rings are JS-driven in deterministic mode
+   (scene-time accurate regardless of render speed). Infinite CSS effects
+   (`border-glow`, `border-marching`, etc.) run correctly in both modes.
 
 7. **Total duration.** Set `duration` (top-level) at least 0.5s beyond the last
    action's `at` + its animation duration. The clip cuts abruptly at `duration`.
@@ -475,8 +476,8 @@ Use Mapbox-style decimal degrees. No DMS notation.
     {
       "at": 8.0, "action": "drawArrow",
       "params": { "id": "invasion", "from": [-6.84, 33.97], "to": [-13.2, 27.15],
-        "color": "#c0392b", "width": 4, "effect": "arrow-travel",
-        "curved": true, "arc": 110, "headed": false, "duration": 3.8, "delay": 0 }
+        "color": "#c0392b", "width": 2.5, "effect": "arrow-draw",
+        "curved": true, "arc": 110, "headed": true, "duration": 2.0, "delay": 0 }
     },
     {
       "at": 12.0, "action": "pulseRing",

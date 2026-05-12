@@ -573,6 +573,7 @@ function _triggerArrowExit(el, exitDuration = 0.6) {
   const pathEl = el.querySelector('path.arrow-path');
   const dotEl  = el.querySelector('.travel-dot');
   if (pathEl) {
+    pathEl.removeAttribute('marker-end');   // hide arrowhead immediately on exit
     const pathLen = parseFloat(pathEl.style.getPropertyValue('--path-length'))
                     || el.style.getPropertyValue('--path-length')
                     || 1000;
@@ -629,6 +630,8 @@ function pulseRing(map, overlayEl, spec) {
     ringDuration = 1.8,  // per-ring expansion time (seconds)
     delay        = 0,
     stagger,             // legacy: if set, uses old stagger-based spacing
+    deterministic = false,
+    startT        = 0,   // absolute scene time of the pulseRing action (for det. mode)
   } = spec;
 
   if (!center) {
@@ -686,6 +689,15 @@ function pulseRing(map, overlayEl, spec) {
     circle.style.setProperty('--ring-duration', `${effectiveRingDuration}s`);
     circle.style.setProperty('--ring-delay', `${ringDelay}s`);
     circle.classList.add('fill-ripple-ring');
+    if (deterministic) {
+      // Disable CSS animation; drive scale/opacity from stepTo via scene time
+      circle.style.animation = 'none';
+      circle.style.transform = 'scale(0)';
+      circle.style.opacity   = '0';
+      circle.dataset.ringStart    = String(startT + ringDelay);
+      circle.dataset.ringDuration = String(effectiveRingDuration);
+      circle.classList.add('det-pulse-ring');
+    }
     svg.appendChild(circle);
   }
 
@@ -696,7 +708,10 @@ function pulseRing(map, overlayEl, spec) {
   const totalMs = isLegacy
     ? (delay + duration + (count - 1) * stagger + 0.2) * 1000
     : (delay + duration + ringDuration + 0.2) * 1000;
-  setTimeout(() => { if (svg.parentNode) svg.remove(); }, totalMs);
+  // In deterministic mode the SVG lives until reset() — no wall-clock timer
+  if (!deterministic) {
+    setTimeout(() => { if (svg.parentNode) svg.remove(); }, totalMs);
+  }
 
   return svg;
 }
@@ -747,7 +762,11 @@ function executeTimelineAction(map, overlayEl, entry, ctx = {}) {
       break;
     }
     case 'pulseRing': {
-      const ring = pulseRing(map, overlayEl, params);
+      const ringParams = Object.assign({}, params, {
+        deterministic: Boolean(ctx.deterministic),
+        startT: Number(entry.at ?? 0),
+      });
+      const ring = pulseRing(map, overlayEl, ringParams);
       if (ctx.runtime && ring?.id) ctx.runtime.createdPulseRingIds.add(ring.id);
       break;
     }
@@ -942,9 +961,9 @@ function drawArrow(map, overlayEl, arrowSpec) {
     const defs = document.createElementNS(svgNS, 'defs');
     const markerId = `arrowhead-${id}`;
     defs.innerHTML = `
-      <marker id="${markerId}" markerWidth="8" markerHeight="6"
-              refX="7" refY="3" orient="auto">
-        <polygon points="0 0, 8 3, 0 6" fill="${color}"/>
+      <marker id="${markerId}" markerWidth="10" markerHeight="7"
+              refX="9" refY="3.5" orient="auto" markerUnits="userSpaceOnUse">
+        <polygon points="0 0, 10 3.5, 0 7" fill="${color}"/>
       </marker>`;
     svg.appendChild(defs);
   }
@@ -1457,6 +1476,26 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
       if (p >= 1) { if (el) el.remove(); return false; }
       return true;
     });
+
+    // Drive pulse ring expansion from scene time (CSS animation ≠ scene time in det. mode)
+    overlayEl.querySelectorAll('.det-pulse-ring').forEach(circle => {
+      const ringStart = parseFloat(circle.dataset.ringStart ?? 0);
+      const ringDur   = parseFloat(circle.dataset.ringDuration ?? 1.8);
+      const t = runtime.currentTime;
+      if (t < ringStart) {
+        circle.style.transform = 'scale(0)';
+        circle.style.opacity   = '0';
+        return;
+      }
+      const progress = Math.min(1, (t - ringStart) / ringDur);
+      // Mirror CSS keyframe: scale 0→1, opacity 0→0.9 (at 12%)→0
+      const opacity = progress < 0.12
+        ? (progress / 0.12) * 0.9
+        : 0.9 * (1 - (progress - 0.12) / (1 - 0.12));
+      circle.style.transform = `scale(${progress})`;
+      circle.style.opacity   = String(Math.max(0, opacity));
+    });
+
     reproject(map, overlayEl);
   }
 

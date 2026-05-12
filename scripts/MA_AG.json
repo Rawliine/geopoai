@@ -29,7 +29,7 @@
           "effect": "label-typewriter",
           "color": "#f0c040",
           "fontSize": "1.4rem",
-          "charInterval": 22
+          "charInterval": 12
         }
       },
       {
@@ -244,8 +244,8 @@
         "params": {
           "id": "sahara-to-france",
           "from": [
-            -5.0,
-            27.2
+            -12.9,
+            25.0
           ],
           "to": [
             2.3,
@@ -253,7 +253,7 @@
           ],
           "color": "#9b59b6",
           "effect": "arrow-travel",
-          "width": 5,
+          "width": 3,
           "curved": true,
           "arc": 140,
           "headed": false,
@@ -266,8 +266,8 @@
         "params": {
           "id": "sahara-to-spain",
           "from": [
-            -5.0,
-            27.2
+            -12.9,
+            25.0
           ],
           "to": [
             -3.7,
@@ -275,7 +275,7 @@
           ],
           "color": "#3498db",
           "effect": "arrow-travel",
-          "width": 5,
+          "width": 3,
           "curved": true,
           "arc": 120,
           "headed": false,
@@ -296,7 +296,7 @@
           "colorB": "#2ecc71",
           "opacity": 0.35,
           "effect": "fill-contested",
-          "duration": 0.2,
+          "duration": 0.4,
           "country": "Western Sahara",
           "version": "ceasefire"
         }
@@ -358,8 +358,9 @@
           "from": [-6.84, 33.97],
           "to": [-13.2, 27.15],
           "color": "#c0392b",
-          "width": 4,
+          "width": 2.5,
           "effect": "arrow-draw",
+          "opacity": 0.65,
           "curved": true,
           "arc": 110,
           "headed": true,
@@ -375,8 +376,9 @@
           "from": [-6.84, 33.97],
           "to": [-11.67, 26.74],
           "color": "#c0392b",
-          "width": 4,
+          "width": 2.5,
           "effect": "arrow-draw",
+          "opacity": 0.65,
           "curved": true,
           "arc": 120,
           "headed": true,
@@ -392,8 +394,9 @@
           "from": [-6.84, 33.97],
           "to": [-15.93, 23.72],
           "color": "#c0392b",
-          "width": 4,
+          "width": 2.5,
           "effect": "arrow-draw",
+          "opacity": 0.65,
           "curved": true,
           "arc": 130,
           "headed": true,
@@ -478,6 +481,11 @@
           "fontSize": "1.3rem",
           "charInterval": 28
         }
+      },
+      {
+        "at": 20.5,
+        "action": "removeLayer",
+        "params": { "id": "morocco-fill" }
       },
       {
         "at": 21,
