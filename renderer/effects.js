@@ -665,15 +665,16 @@ function pulseRing(map, overlayEl, spec) {
     svg.appendChild(dot);
   }
 
-  // Rings: radar-cadence mode (default) or legacy stagger mode
-  const spacing = stagger !== undefined
-    ? stagger
-    : (count > 0 ? duration / count : duration);
+  // Legacy stagger mode: duration = per-ring expansion time (original semantics)
+  // Radar mode (default): duration = total effect lifetime, ringDuration = per-ring expansion
+  const isLegacy = stagger !== undefined;
+  const effectiveRingDuration = isLegacy ? duration : ringDuration;
+  const spacing = isLegacy ? stagger : (count > 0 ? duration / count : duration);
 
   for (let i = 0; i < count; i++) {
-    const ringDelay = stagger !== undefined
-      ? delay + i * stagger                          // legacy: first ring at t=delay
-      : delay + spacing * 0.5 + i * spacing;        // radar: distribute with leading margin
+    const ringDelay = isLegacy
+      ? delay + i * stagger                      // legacy: first ring at t=delay
+      : delay + spacing * 0.5 + i * spacing;    // radar: distribute with leading margin
 
     const circle = document.createElementNS(svgNS, 'circle');
     circle.setAttribute('cx', pt.x);
@@ -682,7 +683,7 @@ function pulseRing(map, overlayEl, spec) {
     circle.setAttribute('fill', 'none');
     circle.setAttribute('stroke', color);
     circle.setAttribute('stroke-width', width);
-    circle.style.setProperty('--ring-duration', `${ringDuration}s`);
+    circle.style.setProperty('--ring-duration', `${effectiveRingDuration}s`);
     circle.style.setProperty('--ring-delay', `${ringDelay}s`);
     circle.classList.add('fill-ripple-ring');
     svg.appendChild(circle);
@@ -690,7 +691,11 @@ function pulseRing(map, overlayEl, spec) {
 
   overlayEl.appendChild(svg);
 
-  const totalMs = (delay + duration + ringDuration + 0.2) * 1000;
+  // Legacy cleanup: last ring ends at delay + (count-1)*stagger + duration
+  // Radar cleanup: total lifetime is duration, plus time for last ring to finish
+  const totalMs = isLegacy
+    ? (delay + duration + (count - 1) * stagger + 0.2) * 1000
+    : (delay + duration + ringDuration + 0.2) * 1000;
   setTimeout(() => { if (svg.parentNode) svg.remove(); }, totalMs);
 
   return svg;
@@ -713,9 +718,10 @@ function executeTimelineAction(map, overlayEl, entry, ctx = {}) {
       if (ctx.deterministic && ctx.runtime) {
         const el = document.getElementById(params.id);
         if (el && el.classList.contains('effect-border')) {
-          el.style.setProperty('--exit-duration', `${exitDur}s`);
-          el.classList.add('border-exit');
-          ctx.runtime.pendingRemovals.push({ id: params.id, removeAt: (entry.at ?? 0) + exitDur });
+          // Track per-frame opacity via scene time (CSS time != scene time in deterministic mode)
+          ctx.runtime.pendingBorderExits.push({
+            id: params.id, startT: entry.at ?? 0, exitDuration: exitDur,
+          });
         }
       } else {
         removeBorder(overlayEl, params.id, exitDur);
@@ -1247,6 +1253,7 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
     cameraShakeActive: null,
     pendingRemovals: [],
     pendingFillExits: [],
+    pendingBorderExits: [],
   };
 
   function _entryId(entry, idx) {
@@ -1430,6 +1437,13 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
       if (ov) ov.remove();
       return false;
     });
+    runtime.pendingBorderExits = runtime.pendingBorderExits.filter(item => {
+      const p = Math.min(1, (runtime.currentTime - item.startT) / item.exitDuration);
+      const el = document.getElementById(item.id);
+      if (el) el.style.opacity = String(1 - p);
+      if (p >= 1) { if (el) el.remove(); return false; }
+      return true;
+    });
     reproject(map, overlayEl);
   }
 
@@ -1465,6 +1479,7 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
     runtime.createdLabelIds.clear();
     runtime.removedLabelIds.clear();
     runtime.pendingFillExits.length = 0;
+    runtime.pendingBorderExits.length = 0;
     const container = map.getContainer();
     if (container) container.style.transform = '';
   }

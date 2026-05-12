@@ -62,8 +62,8 @@
             "y": 160
           },
           "effect": "label-slam",
-          "color": "#f0c040",
-          "fontSize": "1.1rem"
+          "color": "#e8f4f8",
+          "fontSize": "1.5rem"
         }
       },
       {
@@ -158,14 +158,15 @@
         "at": 8.2,
         "action": "showLabel",
         "params": {
+          "id": "colonialism-label",
           "text": "These 2 countries were under spanish and french control until they both left",
           "position": {
             "x": 960,
             "y": 160
           },
           "effect": "label-slam",
-          "color": "#f0c040",
-          "fontSize": "1.1rem"
+          "color": "#a8d8ea",
+          "fontSize": "1.4rem"
         }
       },
       {
@@ -306,6 +307,11 @@
         "params": { "id": "Sahara-border" }
       },
       {
+        "at": 14.0,
+        "action": "removeLabel",
+        "params": { "id": "colonialism-label" }
+      },
+      {
         "at": 14.5,
         "action": "removeBorder",
         "params": { "id": "spain-border-march" }
@@ -333,6 +339,18 @@
         }
       },
       {
+        "at": 16.0,
+        "action": "showLabel",
+        "params": {
+          "id": "invasion-label",
+          "text": "Morocco advanced into Western Sahara in 1975",
+          "position": { "x": 960, "y": 160 },
+          "effect": "label-slam",
+          "color": "#f1948a",
+          "fontSize": "1.4rem"
+        }
+      },
+      {
         "at": 17,
         "action": "drawArrow",
         "params": {
@@ -341,7 +359,7 @@
           "to": [-13.2, 27.15],
           "color": "#c0392b",
           "width": 4,
-          "effect": "arrow-travel",
+          "effect": "arrow-draw",
           "curved": true,
           "arc": 110,
           "headed": true,
@@ -358,7 +376,7 @@
           "to": [-11.67, 26.74],
           "color": "#c0392b",
           "width": 4,
-          "effect": "arrow-travel",
+          "effect": "arrow-draw",
           "curved": true,
           "arc": 120,
           "headed": true,
@@ -375,13 +393,18 @@
           "to": [-15.93, 23.72],
           "color": "#c0392b",
           "width": 4,
-          "effect": "arrow-travel",
+          "effect": "arrow-draw",
           "curved": true,
           "arc": 130,
           "headed": true,
           "duration": 2.0,
           "delay": 0.3
         }
+      },
+      {
+        "at": 18.8,
+        "action": "removeLabel",
+        "params": { "id": "invasion-label" }
       },
       {
         "at": 19,
@@ -441,6 +464,19 @@
           "duration": 2.2,
           "stagger": 0.55,
           "delay": 0
+        }
+      },
+      {
+        "at": 20.5,
+        "action": "showLabel",
+        "params": {
+          "id": "ceasefire-label",
+          "text": "A ceasefire in 1991 left Morocco controlling 80% of the territory",
+          "position": { "x": 960, "y": 160 },
+          "effect": "label-typewriter",
+          "color": "#abebc6",
+          "fontSize": "1.3rem",
+          "charInterval": 28
         }
       },
       {
