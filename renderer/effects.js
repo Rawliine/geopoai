@@ -457,33 +457,29 @@ function applyFill(map, fillSpec, overlayEl) {
     return { layerId, sourceId };
   }
 
-  // ── Other effects (fill-contested, etc.) — overlay div ───────
-  const mapContainer = map.getContainer();
-  const overlayDiv = document.createElement('div');
-  overlayDiv.id = `${id}-overlay`;
-  overlayDiv.className = 'effect-fill';
-  overlayDiv.style.cssText = `
-    position: absolute; inset: 0; pointer-events: none;
-    --fill-opacity: ${opacity};
-    --effect-duration: ${duration}s;
-    --effect-delay: ${delay}s;
-    --effect-color-a: ${color};
-    --effect-color-b: ${colorB ?? color};
-  `;
-  mapContainer.appendChild(overlayDiv);
-  void overlayDiv.offsetWidth;
-  overlayDiv.classList.add(effect);
-
-  if (deterministic) {
-    map.setPaintProperty(layerId, 'fill-opacity', opacity);
-    overlayDiv.remove();
-  } else {
-    setTimeout(() => {
+  // ── fill-contested / fill-contested-smooth — SVG path with CSS color animation ──
+  if (effect === 'fill-contested' || effect === 'fill-contested-smooth') {
+    const svgEl = overlayEl && _createFillSVG(map, overlayEl, geojson, id, color, opacity);
+    if (svgEl) {
+      const path = svgEl.querySelector('path');
+      path.style.setProperty('--effect-color-a', color);
+      path.style.setProperty('--effect-color-b', colorB ?? '#3498db');
+      path.style.setProperty('--effect-duration', `${duration}s`);
+      path.style.setProperty('--effect-delay', `${delay}s`);
+      path.style.setProperty('--fill-opacity', opacity);
+      if (!deterministic) {
+        void path.getBoundingClientRect();
+        path.classList.add(effect);
+      }
+      // deterministic mode: color stepped per-frame in _updateFillDeterministic
+    } else {
       map.setPaintProperty(layerId, 'fill-opacity', opacity);
-      overlayDiv.remove();
-    }, (duration + delay) * 1000 + 100);
+    }
+    return { layerId, sourceId };
   }
 
+  // Unknown effect — fall back to Mapbox layer opacity
+  map.setPaintProperty(layerId, 'fill-opacity', opacity);
   return { layerId, sourceId };
 }
 
@@ -564,20 +560,42 @@ function applyBorder(map, overlayEl, borderSpec) {
   return svg;
 }
 
-function removeBorder(overlayEl, id) {
+function removeBorder(overlayEl, id, exitDuration = 0.6) {
   if (!id) return;
   const el = document.getElementById(id);
-  if (el && el.classList.contains('effect-border')) {
-    el.remove();
+  if (!el || !el.classList.contains('effect-border')) return;
+  el.style.setProperty('--exit-duration', `${exitDuration}s`);
+  el.classList.add('border-exit');
+  setTimeout(() => { if (el.parentNode) el.remove(); }, exitDuration * 1000 + 50);
+}
+
+function _triggerArrowExit(el, exitDuration = 0.6) {
+  const pathEl = el.querySelector('path.arrow-path');
+  const dotEl  = el.querySelector('.travel-dot');
+  if (pathEl) {
+    const pathLen = parseFloat(pathEl.style.getPropertyValue('--path-length'))
+                    || el.style.getPropertyValue('--path-length')
+                    || 1000;
+    el.style.setProperty('--exit-duration', `${exitDuration}s`);
+    pathEl.style.strokeDasharray  = `${pathLen}`;
+    pathEl.style.strokeDashoffset = '0';
+    pathEl.classList.remove('arrow-draw', 'arrow-draw-headed', 'arrow-glow', 'arrow-entrance', 'arrow-exit');
+    void pathEl.getBoundingClientRect();
+    pathEl.classList.add('arrow-exit');
+  }
+  if (dotEl) {
+    dotEl.classList.remove('travel-dot');
+    dotEl.style.transition = `opacity ${exitDuration}s ease-out`;
+    dotEl.style.opacity = '0';
   }
 }
 
-function removeArrow(overlayEl, id) {
+function removeArrow(overlayEl, id, exitDuration = 0.6) {
   if (!id) return;
   const el = document.getElementById(id);
-  if (el && el.classList.contains('effect-arrow')) {
-    el.remove();
-  }
+  if (!el || !el.classList.contains('effect-arrow')) return;
+  _triggerArrowExit(el, exitDuration);
+  setTimeout(() => { if (el.parentNode) el.remove(); }, exitDuration * 1000 + 50);
 }
 
 /**
@@ -599,15 +617,18 @@ function removeArrow(overlayEl, id) {
  */
 function pulseRing(map, overlayEl, spec) {
   const {
-    id       = `pulse-${Date.now()}`,
+    id           = `pulse-${Date.now()}`,
     center,
-    color    = '#ffffff',
-    count    = 1,
-    radius   = 80,
-    width    = 2,
-    duration = 1.4,
-    stagger  = 0.4,
-    delay    = 0,
+    color        = '#ffffff',
+    dotColor,
+    dotRadius    = 5,
+    count        = 3,
+    radius       = 80,
+    width        = 2,
+    duration     = 4.0,  // total effect lifetime (seconds)
+    ringDuration = 1.8,  // per-ring expansion time (seconds)
+    delay        = 0,
+    stagger,             // legacy: if set, uses old stagger-based spacing
   } = spec;
 
   if (!center) {
@@ -633,7 +654,27 @@ function pulseRing(map, overlayEl, spec) {
   svg.dataset.ringRadius = radius;
   svg.style.cssText = `position: absolute; top: 0; left: 0; pointer-events: none; overflow: visible;`;
 
+  // Static center dot — no animation, tracks the geo point
+  if (dotRadius > 0) {
+    const dot = document.createElementNS(svgNS, 'circle');
+    dot.setAttribute('cx', pt.x);
+    dot.setAttribute('cy', pt.y);
+    dot.setAttribute('r', dotRadius);
+    dot.setAttribute('fill', dotColor ?? color);
+    dot.setAttribute('opacity', '0.9');
+    svg.appendChild(dot);
+  }
+
+  // Rings: radar-cadence mode (default) or legacy stagger mode
+  const spacing = stagger !== undefined
+    ? stagger
+    : (count > 0 ? duration / count : duration);
+
   for (let i = 0; i < count; i++) {
+    const ringDelay = stagger !== undefined
+      ? delay + i * stagger                          // legacy: first ring at t=delay
+      : delay + spacing * 0.5 + i * spacing;        // radar: distribute with leading margin
+
     const circle = document.createElementNS(svgNS, 'circle');
     circle.setAttribute('cx', pt.x);
     circle.setAttribute('cy', pt.y);
@@ -641,15 +682,15 @@ function pulseRing(map, overlayEl, spec) {
     circle.setAttribute('fill', 'none');
     circle.setAttribute('stroke', color);
     circle.setAttribute('stroke-width', width);
-    circle.style.setProperty('--ring-duration', `${duration}s`);
-    circle.style.setProperty('--ring-delay', `${delay + i * stagger}s`);
+    circle.style.setProperty('--ring-duration', `${ringDuration}s`);
+    circle.style.setProperty('--ring-delay', `${ringDelay}s`);
     circle.classList.add('fill-ripple-ring');
     svg.appendChild(circle);
   }
 
   overlayEl.appendChild(svg);
 
-  const totalMs = (delay + duration + (count - 1) * stagger + 0.2) * 1000;
+  const totalMs = (delay + duration + ringDuration + 0.2) * 1000;
   setTimeout(() => { if (svg.parentNode) svg.remove(); }, totalMs);
 
   return svg;
@@ -667,17 +708,38 @@ function executeTimelineAction(map, overlayEl, entry, ctx = {}) {
       if (ctx.runtime && border?.id) ctx.runtime.createdBorderIds.add(border.id);
       break;
     }
-    case 'removeBorder':
-      removeBorder(overlayEl, params.id);
+    case 'removeBorder': {
+      const exitDur = params.exitDuration ?? 0.6;
+      if (ctx.deterministic && ctx.runtime) {
+        const el = document.getElementById(params.id);
+        if (el && el.classList.contains('effect-border')) {
+          el.style.setProperty('--exit-duration', `${exitDur}s`);
+          el.classList.add('border-exit');
+          ctx.runtime.pendingRemovals.push({ id: params.id, removeAt: (entry.at ?? 0) + exitDur });
+        }
+      } else {
+        removeBorder(overlayEl, params.id, exitDur);
+      }
       break;
+    }
     case 'drawArrow': {
       const arrow = drawArrow(map, overlayEl, params);
       if (ctx.runtime && arrow?.id) ctx.runtime.createdArrowIds.add(arrow.id);
       break;
     }
-    case 'removeArrow':
-      removeArrow(overlayEl, params.id);
+    case 'removeArrow': {
+      const exitDur = params.exitDuration ?? 0.6;
+      if (ctx.deterministic && ctx.runtime) {
+        const el = document.getElementById(params.id);
+        if (el && el.classList.contains('effect-arrow')) {
+          _triggerArrowExit(el, exitDur);
+          ctx.runtime.pendingRemovals.push({ id: params.id, removeAt: (entry.at ?? 0) + exitDur });
+        }
+      } else {
+        removeArrow(overlayEl, params.id, exitDur);
+      }
       break;
+    }
     case 'pulseRing': {
       const ring = pulseRing(map, overlayEl, params);
       if (ctx.runtime && ring?.id) ctx.runtime.createdPulseRingIds.add(ring.id);
@@ -707,10 +769,44 @@ function executeTimelineAction(map, overlayEl, entry, ctx = {}) {
     }
     case 'removeLayer': {
       const { id } = params;
-      if (map.getLayer(`${id}-layer`)) map.removeLayer(`${id}-layer`);
-      if (map.getSource(`${id}-source`)) map.removeSource(`${id}-source`);
-      const overlayFill = document.getElementById(`${id}-overlay`);
-      if (overlayFill) overlayFill.remove();
+      const exitDur   = params.exitDuration ?? 0.6;
+      const layerId2  = `${id}-layer`;
+      const sourceId2 = `${id}-source`;
+
+      if (ctx.deterministic && ctx.runtime) {
+        const startOpacity = map.getLayer(layerId2)
+          ? (map.getPaintProperty(layerId2, 'fill-opacity') ?? 0.6)
+          : 0;
+        if (!ctx.runtime.pendingFillExits) ctx.runtime.pendingFillExits = [];
+        ctx.runtime.pendingFillExits.push({
+          layerId: layerId2, sourceId: sourceId2,
+          startT: entry.at ?? 0, startOpacity, exitDuration: exitDur,
+          overlayId: `${id}-overlay`,
+        });
+        // Remove SVG fill overlay immediately (it was only used during entrance animation)
+        const fillSvg2 = document.getElementById(`${id}-fill-svg`);
+        if (fillSvg2) fillSvg2.remove();
+      } else {
+        if (map.getLayer(layerId2)) {
+          const startOpacity = map.getPaintProperty(layerId2, 'fill-opacity') ?? 0.6;
+          const startMs = performance.now();
+          (function step() {
+            const p = Math.min(1, (performance.now() - startMs) / (exitDur * 1000));
+            map.setPaintProperty(layerId2, 'fill-opacity', startOpacity * (1 - p));
+            if (p < 1) { requestAnimationFrame(step); }
+            else {
+              if (map.getLayer(layerId2))  map.removeLayer(layerId2);
+              if (map.getSource(sourceId2)) map.removeSource(sourceId2);
+            }
+          })();
+        } else if (map.getSource(sourceId2)) {
+          map.removeSource(sourceId2);
+        }
+        const overlayFill = document.getElementById(`${id}-overlay`);
+        if (overlayFill) overlayFill.remove();
+        const fillSvg3 = document.getElementById(`${id}-fill-svg`);
+        if (fillSvg3) fillSvg3.remove();
+      }
       break;
     }
     case 'cameraShake': {
@@ -867,8 +963,8 @@ function drawArrow(map, overlayEl, arrowSpec) {
 
   // --- Apply effect ---
   if (effect === 'arrow-travel') {
-    // Static path (faint) + animated dot
-    path.setAttribute('stroke', `${color}44`); // faint base
+    // Faint base path draws on first, then dot travels
+    path.setAttribute('stroke', `${color}44`);
     path.setAttribute('stroke-width', width * 0.7);
 
     const dot = document.createElementNS(svgNS, 'circle');
@@ -877,21 +973,49 @@ function drawArrow(map, overlayEl, arrowSpec) {
     dot.setAttribute('cy', fromPx.y);
     dot.style.setProperty('--glow-color', glowColor ?? color);
     dot.style.setProperty('--dot-radius', '5px');
+    dot.style.opacity = '0'; // hidden while path draws on
     svg.appendChild(dot);
 
+    // Phase 1: draw faint path on from origin → destination
+    const entranceDur = Math.min(0.9, duration * 0.25);
+    svg.style.setProperty('--entrance-duration', `${entranceDur}s`);
+    void path.getBoundingClientRect();
+    path.classList.add('arrow-entrance');
+
     overlayEl.appendChild(svg);
-    animateTravelDot(path, dot, duration * 1000, delay * 1000);
+
+    // Phase 2: after entrance, start dot travel
+    setTimeout(() => {
+      if (!path.parentNode) return;
+      path.classList.remove('arrow-entrance');
+      path.style.removeProperty('stroke-dasharray');
+      path.style.removeProperty('stroke-dashoffset');
+      dot.style.opacity = '';
+      animateTravelDot(path, dot, duration * 1000, 0);
+    }, (delay + entranceDur) * 1000 + 50);
+
+  } else if (effect === 'arrow-draw') {
+    void path.getBoundingClientRect();
+    path.classList.add('arrow-draw');
+    if (headed) path.classList.add('arrow-draw-headed');
+    overlayEl.appendChild(svg);
 
   } else {
-    // draw-on or glow
-    void path.getBoundingClientRect(); // force reflow before class add
-    if (effect === 'arrow-draw') {
-      path.classList.add('arrow-draw');
-      if (headed) path.classList.add('arrow-draw-headed');
-    } else {
-      path.classList.add('arrow-glow');
-    }
+    // arrow-glow: draw on first, then switch to glow pulse
+    const entranceDur = Math.min(0.9, duration * 0.35);
+    svg.style.setProperty('--entrance-duration', `${entranceDur}s`);
+    void path.getBoundingClientRect();
+    path.classList.add('arrow-entrance');
     overlayEl.appendChild(svg);
+
+    setTimeout(() => {
+      if (!path.parentNode) return;
+      path.classList.remove('arrow-entrance');
+      path.style.removeProperty('stroke-dasharray');
+      path.style.removeProperty('stroke-dashoffset');
+      void path.getBoundingClientRect();
+      path.classList.add('arrow-glow');
+    }, (delay + entranceDur) * 1000 + 50);
   }
 
   return svg;
@@ -1122,6 +1246,7 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
     currentTime: 0,
     cameraShakeActive: null,
     pendingRemovals: [],
+    pendingFillExits: [],
   };
 
   function _entryId(entry, idx) {
@@ -1223,6 +1348,21 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
       } else if (progress >= 1 && map.getLayer(layerId)) {
         map.setPaintProperty(layerId, 'fill-opacity', opacity);
       }
+      return;
+    }
+
+    if (effect === 'fill-contested' || effect === 'fill-contested-smooth') {
+      const svgEl = document.getElementById(`${id}-fill-svg`);
+      if (!svgEl) return;
+      const path = svgEl.querySelector('path');
+      if (!path) return;
+      const period   = Math.max(0.05, dur);
+      const localTime = Math.max(0, t - Number(entry.at ?? 0) - del);
+      const phase    = (localTime / period) % 1;
+      const colorA   = params.color ?? '#e74c3c';
+      const colorB2  = params.colorB ?? '#3498db';
+      path.setAttribute('fill', phase < 0.5 ? colorA : colorB2);
+      path.setAttribute('fill-opacity', opacity);
     }
   }
 
@@ -1278,6 +1418,18 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
       if (el) el.remove();
       return false;
     });
+    runtime.pendingFillExits = runtime.pendingFillExits.filter(item => {
+      const elapsed = runtime.currentTime - item.startT;
+      const p = Math.min(1, elapsed / item.exitDuration);
+      if (map.getLayer(item.layerId))
+        map.setPaintProperty(item.layerId, 'fill-opacity', item.startOpacity * (1 - p));
+      if (p < 1) return true;
+      if (map.getLayer(item.layerId))  map.removeLayer(item.layerId);
+      if (map.getSource(item.sourceId)) map.removeSource(item.sourceId);
+      const ov = document.getElementById(item.overlayId);
+      if (ov) ov.remove();
+      return false;
+    });
     reproject(map, overlayEl);
   }
 
@@ -1294,8 +1446,14 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
       const fillSvg = document.getElementById(`${id}-fill-svg`);
       if (fillSvg) fillSvg.remove();
     });
-    runtime.createdBorderIds.forEach(id => removeBorder(overlayEl, id));
-    runtime.createdArrowIds.forEach(id => removeArrow(overlayEl, id));
+    runtime.createdBorderIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    });
+    runtime.createdArrowIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.remove();
+    });
     runtime.createdPulseRingIds.forEach(id => {
       const el = document.getElementById(id);
       if (el) el.remove();
@@ -1306,6 +1464,7 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
     runtime.createdPulseRingIds.clear();
     runtime.createdLabelIds.clear();
     runtime.removedLabelIds.clear();
+    runtime.pendingFillExits.length = 0;
     const container = map.getContainer();
     if (container) container.style.transform = '';
   }
