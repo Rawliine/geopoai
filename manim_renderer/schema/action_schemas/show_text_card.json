@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "showTextCard.params",
+  "type": "object",
+  "required": ["id", "text"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Kebab-case ID."
+    },
+    "text": { "type": "string", "minLength": 1 },
+    "size": { "enum": ["title", "body", "label", "caption"] },
+    "timing": {
+      "enum": ["instant", "snap", "fast", "normal", "slow", "dramatic", "crawl"]
+    },
+    "effect": { "enum": ["fade-in"] }
+  },
+  "additionalProperties": false
+}

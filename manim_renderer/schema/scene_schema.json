@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ManimScene",
+  "type": "object",
+  "required": ["renderer", "format", "quality", "scene", "timeline"],
+  "properties": {
+    "renderer": { "const": "manim" },
+    "format": { "enum": ["horizontal", "vertical"] },
+    "quality": { "enum": ["preview", "draft", "full"] },
+    "scene": {
+      "type": "object",
+      "required": ["layout", "duration"],
+      "properties": {
+        "layout": { "type": "string" },
+        "duration": { "type": "number", "exclusiveMinimum": 0 },
+        "theme": { "type": "string" }
+      },
+      "additionalProperties": true
+    },
+    "slots": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/definitions/event" }
+    },
+    "overlays": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/event" }
+    },
+    "timeline": {
+      "type": "array",
+      "items": { "$ref": "#/definitions/event" }
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "event": {
+      "type": "object",
+      "required": ["at", "action"],
+      "properties": {
+        "at": { "type": "number", "minimum": 0 },
+        "action": { "type": "string" },
+        "params": { "type": "object" }
+      },
+      "additionalProperties": false
+    }
+  }
+}

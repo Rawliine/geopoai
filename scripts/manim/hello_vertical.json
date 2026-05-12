@@ -1,0 +1,24 @@
+{
+  "renderer": "manim",
+  "format": "vertical",
+  "quality": "preview",
+  "scene": {
+    "layout": "hero",
+    "duration": 3,
+    "theme": "dark"
+  },
+  "slots": {
+    "main": {
+      "at": 0.0,
+      "action": "showTextCard",
+      "params": {
+        "id": "hello",
+        "text": "GeoPoAI",
+        "timing": "normal",
+        "effect": "fade-in"
+      }
+    }
+  },
+  "overlays": [],
+  "timeline": []
+}

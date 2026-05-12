@@ -19,7 +19,7 @@ MAPBOX_TOKEN=pk.eyJ1...
 ## Render a scene
 
 ```bash
-python pipeline/render_scene.py scripts/MA_AG.json my_clip
+python pipeline/render_scene.py scripts/map/MA_AG.json my_clip
 # → output/my_clip.mp4
 ```
 

@@ -15,7 +15,7 @@ MAPBOX_TOKEN=pk.eyJ1...
 
 Render a scene:
 ```bash
-python pipeline/render_scene.py scripts/test_scene.json hook_clip
+python pipeline/render_scene.py scripts/map/test_scene.json hook_clip
 # → output/hook_clip.mp4
 ```
 
@@ -96,7 +96,8 @@ Both are reprojected on every camera `move`/`moveend` event via `MapEffects.bind
 | `renderer/effects.css` | CSS animation classes (`fill-fade`, `border-marching`, `arrow-draw`, `label-slam`, etc.) |
 | `config/map_versions.json` | Map version manifest with download sources (tracked by git) |
 | `config/map_aliases.json` | Short alias → canonical version name (tracked by git) |
-| `scripts/` | Example scene JSON files |
+| `scripts/map/` | Example Mapbox scene JSON files |
+| `scripts/manim/` | Example Manim scene JSON files |
 | `tests/` | Browser-based HTML + pytest test files |
 
 ## Effects reference
