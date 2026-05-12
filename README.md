@@ -1,156 +1,140 @@
 # GeoPoAI
 
-Put your token in `.env`:
+Geopolitical map animation pipeline. Renders scene JSON files into MP4 clips by driving a headless Mapbox GL JS page via Playwright and encoding with ffmpeg.
 
-`MAPBOX_TOKEN=...`
+## Setup
 
-Run:
-
-`python pipeline/render_scene.py scripts/test_scene.json hook_clip`
-
-Deterministic render mode (recommended for consistent motion quality):
-
-- Add these scene keys in your JSON:
-  - `_deterministic: true`
-  - `_fps: 60`
-  - `_seed: 1`
-  - `_nvenc_qp: 14` (for NVENC GPUs; lower is higher quality)
-- Deterministic mode renders exactly `round(duration * fps)` frames and assembles with ffmpeg.
-- Determinism validation:
-  - Runtime target is logged as `round(duration * fps) / fps`.
-  - Repeat runs with same scene + `_seed` should produce near-identical output.
-
-Timeline actions currently supported:
-
-- `showLabel`
-- `drawArrow`
-- `applyFill`
-- `applyBorder`
-- `removeBorder`
-- `removeLabel`
-- `removeLayer`
-- `clearOverlay`
-- `cameraShake`
-- `flyTo`
-
-Position formats:
-
-- Geo-anchored: `[lng, lat]` (for camera, arrows, labels tied to map)
-- Screen-fixed: `{ "x": number, "y": number }` (for labels only)
-
-`applyBorder` params example:
-
-```json
-{
-  "at": 1.2,
-  "action": "applyBorder",
-  "params": {
-    "id": "dz-ma-border",
-    "geojson": {
-      "type": "Feature",
-      "geometry": {
-        "type": "LineString",
-        "coordinates": [[-1.2, 34.7], [-2.5, 33.9], [-3.3, 32.7]]
-      }
-    },
-    "color": "#f0c040",
-    "width": 3,
-    "effect": "border-marching",
-    "duration": 1.2,
-    "delay": 0
-  }
-}
+**1. Install dependencies**
+```bash
+pip install -r requirements.txt
+playwright install chromium
 ```
 
-Notes:
+**2. Add your Mapbox token**
+```
+# .env
+MAPBOX_TOKEN=pk.eyJ1...
+```
 
-- Border effects come from `renderer/effects.css` (`border-trim`, `border-glow`, `border-marching`, `border-breathe`).
-- In deterministic mode, `flyTo` timeline entries are handled by camera segment interpolation in `renderer/map.html`.
+## Render a scene
 
-Simple country authoring (no giant inline geojson):
+```bash
+python pipeline/render_scene.py scripts/MA_AG.json my_clip
+# → output/my_clip.mp4
+```
 
-- For `applyFill` and `applyBorder`, you can provide:
-  - `country` (e.g. `"Morocco"`, `"Algeria"`, `"Spain"`, `"France"`)
-  - and omit `geojson`.
-- At render time, `pipeline/render_scene.py` resolves `country` references into `geojson` features using:
-  - `data/maps/<version>/countries.featurecollection.geojson`
-- Backward compatible: if `geojson` is already present in the action params, it is used directly.
+Programmatic usage:
+```python
+import asyncio
+from pipeline.render_scene import render_scene
 
-Historical map version controls:
+path = asyncio.run(render_scene(scene_dict, "clip_name"))
+```
 
-- Scene defaults:
-  - `"_map_version": "latest"`
-  - `"_include_islands": false`
-- Per-action overrides (`applyFill` / `applyBorder`):
-  - `"version": "1991_ceasefire"` (falls back to `latest` if missing)
-  - `"include_islands": true`
+## Map data
 
-Resolution order:
-1. Action override (`params.version`, `params.include_islands`)
-2. Scene defaults (`_map_version`, `_include_islands`)
-3. Hard defaults (`latest`, `false`)
+Country geometry is downloaded on first use (auto-provisioned). To download manually:
 
-Data prep utility is now in `data/`:
+```bash
+python config/prepare_maps.py --list-versions          # see all available datasets
+python config/prepare_maps.py --from-manifest --version latest
+python config/prepare_maps.py --from-manifest --version 1991_ceasefire
+```
 
-- `python data/prepare_ne_countries.py --zip data/ne_10m_admin_0_countries.zip --version latest`
-- Output path contract:
-  - `data/maps/<version>/countries.featurecollection.geojson`
-  - `data/maps/<version>/countries/*.geojson`
+Downloaded data goes to `data/maps/<version>/` (gitignored). Downloads are cached to `data/.cache/`.
 
-Auto downloader + extractor workflow:
+**Available versions** (defined in `config/map_versions.json`):
 
-- Version manifest: `data/maps/versions.json`
-- Alias mapping: `data/maps/aliases.json`
-  - includes `ceasefire -> 1991_ceasefire`
-- If scene requests a version that is not cached locally, `pipeline/render_scene.py` auto-runs:
-  - `python data/prepare_ne_countries.py --from-manifest --version <resolved_version>`
-- Supported manifest `source_type` values:
-  - `local_path`
-  - `zip_url`
-  - `geojson_url`
+| Version | Resolution | Description |
+|---|---|---|
+| `latest` | 10m | Natural Earth countries — Morocco + W. Sahara merged |
+| `1991_ceasefire` / `ceasefire` | 10m | Natural Earth map units — Morocco + W. Sahara split |
+| `ne_10m_sovereignty` | 10m | Sovereignty units — sovereign states vs. territories |
+| `ne_50m_countries` / `fast` | 50m | Lower resolution — faster for wide-angle scenes |
+| `ne_110m_countries` / `global` | 110m | Minimal geometry — planetary overview shots |
 
-Example scene controls:
+To add a new dataset: add one entry to `config/map_versions.json`. No code changes needed.
+
+## Scene JSON format
 
 ```json
 {
-  "_map_version": "latest",
-  "_include_islands": false,
+  "duration": 20,
+  "_deterministic": true,
+  "_fps": 60,
+  "map_style": "dark",
+  "camera": { "center": [-5.0, 30.0], "zoom": 3.0, "pitch": 25, "bearing": 0 },
   "timeline": [
-    {
-      "at": 2.4,
-      "action": "applyBorder",
-      "params": {
-        "id": "algeria-border",
-        "country": "Algeria",
-        "version": "ceasefire"
-      }
-    },
-    {
-      "at": 2.6,
-      "action": "applyBorder",
-      "params": {
-        "id": "spain-border",
-        "country": "Spain",
-        "include_islands": true
-      }
-    }
+    { "at": 0.0,  "action": "showLabel",   "params": { "id": "title", "text": "...", "position": { "x": 960, "y": 80 }, "effect": "label-slam", "fontSize": "1.5rem", "color": "#f0c040" } },
+    { "at": 1.5,  "action": "flyTo",       "params": { "center": [-8.0, 28.0], "zoom": 4.5, "pitch": 25, "duration": 1.5 } },
+    { "at": 3.5,  "action": "applyBorder", "params": { "id": "ma-border", "country": "Morocco", "version": "ceasefire", "color": "#f1c40f", "width": 3, "effect": "border-trim", "duration": 1.2 } },
+    { "at": 4.0,  "action": "applyFill",   "params": { "id": "ma-fill", "country": "Morocco", "color": "#f1c40f", "opacity": 0.35, "effect": "fill-fade", "duration": 1.0 } },
+    { "at": 8.0,  "action": "drawArrow",   "params": { "id": "arrow1", "from": [-6.84, 33.97], "to": [-13.2, 27.15], "color": "#c0392b", "width": 2.5, "effect": "arrow-draw", "curved": true, "headed": true, "duration": 2.0 } },
+    { "at": 11.0, "action": "removeArrow", "params": { "id": "arrow1" } },
+    { "at": 12.0, "action": "pulseRing",   "params": { "id": "pulse1", "center": [-13.2, 27.15], "color": "#e67e22", "count": 3, "radius": 90, "duration": 4.0, "ringDuration": 1.8 } },
+    { "at": 15.0, "action": "removeLabel", "params": { "id": "title" } }
   ]
 }
 ```
 
-Example:
+**Coordinates are always `[longitude, latitude]`** — never `[lat, lng]`.
+
+### Country shorthand
+
+Use `country: "Name"` instead of inlining GeoJSON. Version can be overridden per action:
 
 ```json
-{
-  "at": 4.4,
-  "action": "applyFill",
-  "params": {
-    "id": "algeria-fill",
-    "country": "Algeria",
-    "color": "#2ecc71",
-    "opacity": 0.35,
-    "effect": "fill-fade",
-    "duration": 1.0
-  }
-}
+{ "action": "applyFill", "params": { "country": "Western Sahara", "version": "ceasefire", ... } }
+```
+
+Version resolution order: `params.version` → scene `_map_version` → `"latest"`.
+
+### Timeline actions
+
+| Action | Purpose |
+|---|---|
+| `showLabel` | Text label (screen-fixed or geo-anchored) |
+| `removeLabel` | Fade out a label |
+| `applyFill` | Colored fill over a country/region |
+| `removeLayer` | Fade out a fill |
+| `applyBorder` | Animated border stroke |
+| `removeBorder` | Fade/erase a border |
+| `drawArrow` | Animated arrow between two geo points |
+| `removeArrow` | Erase an arrow |
+| `pulseRing` | Radar-style expanding rings from a geo point |
+| `flyTo` | Camera move |
+| `cameraShake` | Brief impact shake |
+| `clearOverlay` | Remove all arrows and labels instantly |
+
+### Effects
+
+**Fill:** `fill-fade` · `fill-wipe` · `fill-wipe-rtl` · `fill-wipe-ttb` · `fill-wipe-btt` · `fill-ripple` · `fill-contested`  
+**Border:** `border-trim` · `border-glow` · `border-marching` · `border-breathe`  
+**Arrow:** `arrow-draw` · `arrow-travel` · `arrow-glow`  
+**Label:** `label-slam` · `label-typewriter` · `label-fade`
+
+See `map_animation_skill.md` for the full authoring guide.
+
+## Render modes
+
+**Realtime** (default): records WebM via Playwright → converts to MP4. Fast.
+
+**Deterministic** (`_deterministic: true`): one screenshot per frame via `stepTo(t)`. Consistent quality, slower. Use for final delivery.
+
+```json
+{ "_deterministic": true, "_fps": 60, "_seed": 1, "_x264_crf": 14 }
+```
+
+## Config files (tracked by git)
+
+| Path | Purpose |
+|---|---|
+| `config/map_versions.json` | Dataset registry — source URLs and metadata |
+| `config/map_aliases.json` | Short aliases (`ceasefire`, `fast`, `global`, …) |
+| `config/prepare_maps.py` | Download + process Natural Earth datasets |
+
+## Tests
+
+```bash
+pytest tests/test_data_pipeline.py -v
 ```

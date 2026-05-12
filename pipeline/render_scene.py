@@ -35,8 +35,9 @@ RENDERER_PATH = ROOT / "renderer" / "map.html"
 TMP_DIR      = ROOT / "tmp"
 OUTPUT_DIR   = ROOT / "output"
 MAPS_DIR     = ROOT / "data" / "maps"
-VERSIONS_MANIFEST_PATH = MAPS_DIR / "versions.json"
-ALIASES_PATH = MAPS_DIR / "aliases.json"
+CONFIG_DIR   = ROOT / "config"
+VERSIONS_MANIFEST_PATH = CONFIG_DIR / "map_versions.json"
+ALIASES_PATH = CONFIG_DIR / "map_aliases.json"
 
 # ── Logging ────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -200,7 +201,7 @@ def _load_aliases() -> dict[str, str]:
 def _resolve_version_alias(version: str) -> str:
     aliases = _load_aliases()
     key = (version or "latest").strip().lower() or "latest"
-    return aliases.get(key, version.strip() if isinstance(version, str) else "latest")
+    return aliases.get(key, key)  # fall back to the key itself (already defaults to "latest")
 
 
 def _ensure_version_available(version: str) -> str:
@@ -211,7 +212,7 @@ def _ensure_version_available(version: str) -> str:
         return resolved
     cmd = [
         sys.executable,
-        str(ROOT / "data" / "prepare_ne_countries.py"),
+        str(ROOT / "config" / "prepare_maps.py"),
         "--from-manifest",
         "--manifest",
         str(VERSIONS_MANIFEST_PATH),
@@ -296,29 +297,38 @@ def _load_country_lookup(version: str) -> tuple[dict[str, dict], str]:
         chosen = "latest"
         path = fallback
 
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if data.get("type") != "FeatureCollection":
-        raise ValueError(
-            f"Expected FeatureCollection in {path}, got {data.get('type')!r}"
-        )
-    lookup: dict[str, dict] = {}
-    for feat in data.get("features", []):
+    _LOOKUP_KEYS = ("ADMIN", "NAME", "SOVEREIGNT", "ISO_A3", "ADM0_A3",
+                    "shapeName", "boundaryName", "name")
+
+    def _index_feature(feat: dict, lkp: dict) -> None:
         props = feat.get("properties", {})
-        for key in (
-            "ADMIN",
-            "NAME",
-            "SOVEREIGNT",
-            "ISO_A3",
-            "ADM0_A3",
-            "shapeName",
-            "boundaryName",
-            "name",
-        ):
+        for key in _LOOKUP_KEYS:
             val = props.get(key)
             if isinstance(val, str) and val.strip():
                 k = val.strip().lower()
-                if k not in lookup or _feature_area(feat) > _feature_area(lookup[k]):
-                    lookup[k] = feat
+                if k not in lkp or _feature_area(feat) > _feature_area(lkp[k]):
+                    lkp[k] = feat
+
+    lookup: dict[str, dict] = {}
+    countries_dir = MAPS_DIR / chosen / "countries"
+    if countries_dir.exists() and any(countries_dir.glob("*.geojson")):
+        # Fast path: read pre-extracted per-country files (avoids loading full FC)
+        for f in countries_dir.glob("*.geojson"):
+            try:
+                feat = json.loads(f.read_text(encoding="utf-8"))
+                _index_feature(feat, lookup)
+            except Exception:
+                pass
+    else:
+        # Slow path: parse full FeatureCollection
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if data.get("type") != "FeatureCollection":
+            raise ValueError(
+                f"Expected FeatureCollection in {path}, got {data.get('type')!r}"
+            )
+        for feat in data.get("features", []):
+            _index_feature(feat, lookup)
+
     return lookup, chosen
 
 

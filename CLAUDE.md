@@ -27,8 +27,10 @@ path = asyncio.run(render_scene(scene_dict, "clip_name"))
 
 Data prep (run once per map version, or on-demand via auto-provisioning):
 ```bash
-python data/prepare_ne_countries.py --from-manifest --version latest
-python data/prepare_ne_countries.py --zip /path/to/ne_10m_admin_0_countries.zip --version latest
+python config/prepare_maps.py --list-versions
+python config/prepare_maps.py --from-manifest --version latest
+python config/prepare_maps.py --from-manifest --version 1991_ceasefire
+python config/prepare_maps.py --zip /path/to/file.zip --version my_version
 ```
 
 ## Architecture
@@ -60,11 +62,20 @@ Top-level scene keys:
 
 ### Country data versioning
 
-`data/maps/` holds versioned country datasets. The version manifest is at `data/maps/versions.json`; aliases are at `data/maps/aliases.json` (e.g. `ceasefire → 1991_ceasefire`).
+The **manifest** (tracked in git) lives at `config/map_versions.json`; aliases at `config/map_aliases.json`. Both are committed and describe all available download sources.
 
-When a scene action uses `country: "Morocco"` without `geojson`, `render_scene.py` resolves it from `data/maps/<version>/countries.featurecollection.geojson`. If the version isn't cached locally, it auto-runs `data/prepare_ne_countries.py --from-manifest`.
+Generated data (gitignored) goes to `data/maps/<version>/`. Downloads are cached to `data/.cache/`.
+
+When a scene action uses `country: "Morocco"` without `geojson`, `render_scene.py` resolves it by reading pre-extracted per-country files from `data/maps/<version>/countries/`. If none exist, it falls back to parsing the full `countries.featurecollection.geojson`. If the version isn't downloaded at all, it auto-runs `pipeline/prepare_maps.py --from-manifest`.
 
 Version resolution order per action: `params.version` → scene `_map_version` → `"latest"`.
+
+Available versions (see `config/map_versions.json`):
+- `latest` — Natural Earth 10m countries (Morocco + W. Sahara merged)
+- `1991_ceasefire` / `ceasefire` — Natural Earth 10m map units (Morocco + W. Sahara split)
+- `ne_10m_sovereignty` — Natural Earth 10m sovereignty units
+- `ne_50m_countries` / `fast` — Natural Earth 50m (lower res, faster)
+- `ne_110m_countries` / `global` — Natural Earth 110m (minimal, planetary overview)
 
 ### Overlay system
 
@@ -79,14 +90,14 @@ Both are reprojected on every camera `move`/`moveend` event via `MapEffects.bind
 | Path | Role |
 |---|---|
 | `pipeline/render_scene.py` | Main Python renderer, Playwright driver, country resolver |
+| `config/prepare_maps.py` | Downloads/processes Natural Earth shapefiles → versioned GeoJSON |
 | `renderer/map.html` | Mapbox GL JS page; exposes `window.playScene`, `window.loadScene`, `window.stepTo` |
 | `renderer/effects.js` | JS animation engine: timeline sequencer, all effect implementations |
 | `renderer/effects.css` | CSS animation classes (`fill-fade`, `border-marching`, `arrow-draw`, `label-slam`, etc.) |
-| `data/prepare_ne_countries.py` | Downloads/processes Natural Earth shapefiles → versioned GeoJSON |
-| `data/maps/versions.json` | Map version manifest with download sources |
-| `data/maps/aliases.json` | Short alias → canonical version name |
+| `config/map_versions.json` | Map version manifest with download sources (tracked by git) |
+| `config/map_aliases.json` | Short alias → canonical version name (tracked by git) |
 | `scripts/` | Example scene JSON files |
-| `tests/` | Browser-based HTML test pages for effects |
+| `tests/` | Browser-based HTML + pytest test files |
 
 ## Effects reference
 

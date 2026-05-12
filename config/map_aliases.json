@@ -1,0 +1,12 @@
+{
+  "ceasefire":   "1991_ceasefire",
+  "cf":          "1991_ceasefire",
+  "1991":        "1991_ceasefire",
+  "map_units":   "1991_ceasefire",
+  "sovereignty": "ne_10m_sovereignty",
+  "50m":         "ne_50m_countries",
+  "fast":        "ne_50m_countries",
+  "110m":        "ne_110m_countries",
+  "minimal":     "ne_110m_countries",
+  "global":      "ne_110m_countries"
+}
