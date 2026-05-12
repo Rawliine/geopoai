@@ -431,8 +431,8 @@
           "count": 3,
           "radius": 90,
           "width": 2.5,
-          "duration": 2.2,
-          "stagger": 0.55,
+          "duration": 5.5,
+          "ringDuration": 2.2,
           "delay": 0
         }
       },
@@ -446,8 +446,8 @@
           "count": 3,
           "radius": 90,
           "width": 2.5,
-          "duration": 2.2,
-          "stagger": 0.55,
+          "duration": 5.5,
+          "ringDuration": 2.2,
           "delay": 0
         }
       },
@@ -461,8 +461,8 @@
           "count": 3,
           "radius": 90,
           "width": 2.5,
-          "duration": 2.2,
-          "stagger": 0.55,
+          "duration": 5.5,
+          "ringDuration": 2.2,
           "delay": 0
         }
       },

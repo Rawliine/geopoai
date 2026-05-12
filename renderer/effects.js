@@ -788,10 +788,8 @@ function executeTimelineAction(map, overlayEl, entry, ctx = {}) {
           layerId: layerId2, sourceId: sourceId2,
           startT: entry.at ?? 0, startOpacity, exitDuration: exitDur,
           overlayId: `${id}-overlay`,
+          fillSvgId: `${id}-fill-svg`,   // faded together with the layer
         });
-        // Remove SVG fill overlay immediately (it was only used during entrance animation)
-        const fillSvg2 = document.getElementById(`${id}-fill-svg`);
-        if (fillSvg2) fillSvg2.remove();
       } else {
         if (map.getLayer(layerId2)) {
           const startOpacity = map.getPaintProperty(layerId2, 'fill-opacity') ?? 0.6;
@@ -811,7 +809,11 @@ function executeTimelineAction(map, overlayEl, entry, ctx = {}) {
         const overlayFill = document.getElementById(`${id}-overlay`);
         if (overlayFill) overlayFill.remove();
         const fillSvg3 = document.getElementById(`${id}-fill-svg`);
-        if (fillSvg3) fillSvg3.remove();
+        if (fillSvg3) {
+          fillSvg3.style.transition = `opacity ${exitDur}s ease-out`;
+          fillSvg3.style.opacity = '0';
+          setTimeout(() => { if (fillSvg3.parentNode) fillSvg3.remove(); }, exitDur * 1000 + 50);
+        }
       }
       break;
     }
@@ -959,7 +961,8 @@ function drawArrow(map, overlayEl, arrowSpec) {
   path.setAttribute('stroke', color);
   path.setAttribute('stroke-width', width);
   path.setAttribute('stroke-linecap', 'round');
-  if (headed) path.setAttribute('marker-end', `url(#arrowhead-${id})`);
+  // marker-end for arrow-draw is deferred until draw-on completes (see below)
+  if (headed && effect !== 'arrow-draw') path.setAttribute('marker-end', `url(#arrowhead-${id})`);
 
   svg.appendChild(path);
 
@@ -1001,10 +1004,17 @@ function drawArrow(map, overlayEl, arrowSpec) {
     }, (delay + entranceDur) * 1000 + 50);
 
   } else if (effect === 'arrow-draw') {
+    overlayEl.appendChild(svg);       // append first so reflow is real
     void path.getBoundingClientRect();
     path.classList.add('arrow-draw');
-    if (headed) path.classList.add('arrow-draw-headed');
-    overlayEl.appendChild(svg);
+    // Defer arrowhead: SVG marker-end is always at the geometric endpoint,
+    // not at the current dashoffset position, so it must appear only after
+    // the draw-on animation finishes.
+    if (headed) {
+      setTimeout(() => {
+        if (path.parentNode) path.setAttribute('marker-end', `url(#arrowhead-${id})`);
+      }, (delay + duration) * 1000 + 50);
+    }
 
   } else {
     // arrow-glow: draw on first, then switch to glow pulse
@@ -1430,11 +1440,14 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
       const p = Math.min(1, elapsed / item.exitDuration);
       if (map.getLayer(item.layerId))
         map.setPaintProperty(item.layerId, 'fill-opacity', item.startOpacity * (1 - p));
+      const fillSvg = item.fillSvgId ? document.getElementById(item.fillSvgId) : null;
+      if (fillSvg) fillSvg.style.opacity = String(1 - p);
       if (p < 1) return true;
       if (map.getLayer(item.layerId))  map.removeLayer(item.layerId);
       if (map.getSource(item.sourceId)) map.removeSource(item.sourceId);
       const ov = document.getElementById(item.overlayId);
       if (ov) ov.remove();
+      if (fillSvg) fillSvg.remove();
       return false;
     });
     runtime.pendingBorderExits = runtime.pendingBorderExits.filter(item => {
