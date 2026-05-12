@@ -1,37 +1,46 @@
 # GeoPoAI
 
-Geopolitical map animation pipeline. Renders scene JSON files into MP4 clips by driving a headless Mapbox GL JS page via Playwright and encoding with ffmpeg.
+Two-engine pipeline for short-form geopolitical / game-theory video clips. Both engines consume scene JSON and produce MP4.
+
+- **Mapbox engine** (`pipeline/render_scene.py`) — Mapbox GL JS in headless Chromium, driven by Playwright. Renders maps, country fills, borders, arrows, ripples.
+- **Manim engine** (`pipeline/render_manim.py`) — Manim Community Edition. Renders payoff matrices, game trees, charts, system diagrams. Phase 0 (foundation) is live; component library lands in Phase 1.
+
+A unified dispatcher (`pipeline/render.py`) routes by the `"renderer"` field on each scene JSON.
 
 ## Setup
 
-**1. Install dependencies**
 ```bash
 pip install -r requirements.txt
 playwright install chromium
 ```
 
-**2. Add your Mapbox token**
+`.env` at project root (Mapbox only):
 ```
-# .env
 MAPBOX_TOKEN=pk.eyJ1...
 ```
 
 ## Render a scene
 
 ```bash
+# unified dispatcher (reads "renderer" field)
+python pipeline/render.py scripts/map/MA_AG.json my_clip          # → output/my_clip.mp4
+python pipeline/render.py scripts/manim/hello.json hello          # → output/manim/hello.mp4
+
+# direct entries (also still work)
 python pipeline/render_scene.py scripts/map/MA_AG.json my_clip
-# → output/my_clip.mp4
+python pipeline/render_manim.py scripts/manim/hello.json hello
 ```
 
 Programmatic usage:
 ```python
 import asyncio
-from pipeline.render_scene import render_scene
-
-path = asyncio.run(render_scene(scene_dict, "clip_name"))
+from pipeline.render import render
+path = asyncio.run(render(scene_dict, "clip_name"))
 ```
 
-## Map data
+## Mapbox engine
+
+### Map data
 
 Country geometry is downloaded on first use (auto-provisioned). To download manually:
 
@@ -55,86 +64,111 @@ Downloaded data goes to `data/maps/<version>/` (gitignored). Downloads are cache
 
 To add a new dataset: add one entry to `config/map_versions.json`. No code changes needed.
 
-## Scene JSON format
+### Scene JSON shape
 
 ```json
 {
+  "renderer": "mapbox",
   "duration": 20,
   "_deterministic": true,
   "_fps": 60,
   "map_style": "dark",
   "camera": { "center": [-5.0, 30.0], "zoom": 3.0, "pitch": 25, "bearing": 0 },
   "timeline": [
-    { "at": 0.0,  "action": "showLabel",   "params": { "id": "title", "text": "...", "position": { "x": 960, "y": 80 }, "effect": "label-slam", "fontSize": "1.5rem", "color": "#f0c040" } },
-    { "at": 1.5,  "action": "flyTo",       "params": { "center": [-8.0, 28.0], "zoom": 4.5, "pitch": 25, "duration": 1.5 } },
-    { "at": 3.5,  "action": "applyBorder", "params": { "id": "ma-border", "country": "Morocco", "version": "ceasefire", "color": "#f1c40f", "width": 3, "effect": "border-trim", "duration": 1.2 } },
-    { "at": 4.0,  "action": "applyFill",   "params": { "id": "ma-fill", "country": "Morocco", "color": "#f1c40f", "opacity": 0.35, "effect": "fill-fade", "duration": 1.0 } },
-    { "at": 8.0,  "action": "drawArrow",   "params": { "id": "arrow1", "from": [-6.84, 33.97], "to": [-13.2, 27.15], "color": "#c0392b", "width": 2.5, "effect": "arrow-draw", "curved": true, "headed": true, "duration": 2.0 } },
-    { "at": 11.0, "action": "removeArrow", "params": { "id": "arrow1" } },
-    { "at": 12.0, "action": "pulseRing",   "params": { "id": "pulse1", "center": [-13.2, 27.15], "color": "#e67e22", "count": 3, "radius": 90, "duration": 4.0, "ringDuration": 1.8 } },
-    { "at": 15.0, "action": "removeLabel", "params": { "id": "title" } }
+    { "at": 0.0,  "action": "showLabel",   "params": { "id": "title", "text": "...", "position": { "x": 960, "y": 80 }, "effect": "label-slam" } },
+    { "at": 1.5,  "action": "flyTo",       "params": { "center": [-8.0, 28.0], "zoom": 4.5, "duration": 1.5 } },
+    { "at": 3.5,  "action": "applyBorder", "params": { "country": "Morocco", "version": "ceasefire", "effect": "border-trim" } },
+    { "at": 8.0,  "action": "drawArrow",   "params": { "from": [-6.84, 33.97], "to": [-13.2, 27.15], "effect": "arrow-draw" } }
   ]
 }
 ```
 
-**Coordinates are always `[longitude, latitude]`** — never `[lat, lng]`.
+`renderer` defaults to `"mapbox"` if omitted. Coordinates are always `[longitude, latitude]`.
 
-### Country shorthand
+**Timeline actions:** `showLabel`, `removeLabel`, `applyFill`, `removeLayer`, `applyBorder`, `removeBorder`, `drawArrow`, `removeArrow`, `pulseRing`, `flyTo`, `cameraShake`, `clearOverlay`.
 
-Use `country: "Name"` instead of inlining GeoJSON. Version can be overridden per action:
+**Effects:** `fill-fade`, `fill-wipe`, `fill-ripple`, `fill-contested` · `border-trim`, `border-glow`, `border-marching`, `border-breathe` · `arrow-draw`, `arrow-travel`, `arrow-glow` · `label-slam`, `label-typewriter`, `label-fade`. See `map_animation_skill.md` for the full authoring guide.
 
-```json
-{ "action": "applyFill", "params": { "country": "Western Sahara", "version": "ceasefire", ... } }
-```
-
-Version resolution order: `params.version` → scene `_map_version` → `"latest"`.
-
-### Timeline actions
-
-| Action | Purpose |
-|---|---|
-| `showLabel` | Text label (screen-fixed or geo-anchored) |
-| `removeLabel` | Fade out a label |
-| `applyFill` | Colored fill over a country/region |
-| `removeLayer` | Fade out a fill |
-| `applyBorder` | Animated border stroke |
-| `removeBorder` | Fade/erase a border |
-| `drawArrow` | Animated arrow between two geo points |
-| `removeArrow` | Erase an arrow |
-| `pulseRing` | Radar-style expanding rings from a geo point |
-| `flyTo` | Camera move |
-| `cameraShake` | Brief impact shake |
-| `clearOverlay` | Remove all arrows and labels instantly |
-
-### Effects
-
-**Fill:** `fill-fade` · `fill-wipe` · `fill-wipe-rtl` · `fill-wipe-ttb` · `fill-wipe-btt` · `fill-ripple` · `fill-contested`  
-**Border:** `border-trim` · `border-glow` · `border-marching` · `border-breathe`  
-**Arrow:** `arrow-draw` · `arrow-travel` · `arrow-glow`  
-**Label:** `label-slam` · `label-typewriter` · `label-fade`
-
-See `map_animation_skill.md` for the full authoring guide.
-
-## Render modes
+### Render modes
 
 **Realtime** (default): records WebM via Playwright → converts to MP4. Fast.
 
 **Deterministic** (`_deterministic: true`): one screenshot per frame via `stepTo(t)`. Consistent quality, slower. Use for final delivery.
 
+## Manim engine
+
+JSON-authored Manim scenes for diagrams that don't sit on a map (payoff matrices, charts, system maps). The schema bans raw coordinates — composition uses named **layouts** and (in Phase 1) relative anchors.
+
+```bash
+python pipeline/render.py scripts/manim/hello.json hello
+# → output/manim/hello.mp4
+```
+
+### Scene JSON shape
+
 ```json
-{ "_deterministic": true, "_fps": 60, "_seed": 1, "_x264_crf": 14 }
+{
+  "renderer": "manim",
+  "format": "horizontal",          // "horizontal" (16:9) or "vertical" (9:16)
+  "quality": "preview",             // "preview" | "draft" | "full"
+  "scene": { "layout": "hero", "duration": 3, "theme": "dark" },
+  "slots": {
+    "main": { "at": 0.0, "action": "showTextCard",
+              "params": { "id": "hello", "text": "GeoPoAI", "timing": "normal", "effect": "fade-in" } }
+  },
+  "overlays": [],
+  "timeline": []
+}
+```
+
+- **`slots`** — primary content, one per named slot defined by the chosen layout. The renderer positions the component at the slot's rect center.
+- **`overlays`** — annotations/callouts (Phase 1: anchored to slot IDs).
+- **`timeline`** — scene-level events that don't belong to a slot (camera moves, custom scenes).
+
+**Available layouts (Phase 0):** `hero` (horizontal + vertical). More land in Phase 1.
+
+**Available actions (Phase 0):** `showTextCard` (centered fade-in text — smoke component).
+
+**Quality modes:** `preview` → 480p / 15fps · `draft` → 720p / 30fps · `full` → 1080p / 60fps. Vertical swaps width and height.
+
+Every scene is validated before render. The validator runs three tiers (structural / per-action params / semantic) and rejects raw coordinate keys (`x`, `y`, `position`, …) anywhere in the JSON.
+
+```bash
+python -m manim_renderer.schema.validator scripts/manim/hello.json
+```
+
+### Engine layout
+
+```
+manim_renderer/
+  scene.py          # JSONScene(MovingCameraScene) — the runner
+  registry.py       # action name → component class
+  theme/            # palette, typography, timing, easing (no raw values in components)
+  layouts/          # named layouts per format (Phase 0: hero)
+  components/       # base.py + one component per file
+  effects/          # entrances/emphasis/exits/transitions (Phase 2)
+  resolvers/        # anchor + size + camera (Phase 1)
+  schema/           # scene_schema.json + per-action schemas + validator.py
+  escape_hatch/     # hand-authored scenes for the 5% case (Phase 3+)
+  tests/            # one test per component, plus golden frames + fuzz harness
+```
+
+See `manim md files/AGENT.md`, `plan.md`, `recap.md` for the full design and roadmap, and `phase_0_status.md` for what's currently shippable.
+
+## Tests
+
+```bash
+pytest                                                # full suite
+pytest tests/test_data_pipeline.py -v                 # Mapbox data prep
+pytest manim_renderer/tests/components/ -v            # Manim components
 ```
 
 ## Config files (tracked by git)
 
 | Path | Purpose |
 |---|---|
-| `config/map_versions.json` | Dataset registry — source URLs and metadata |
-| `config/map_aliases.json` | Short aliases (`ceasefire`, `fast`, `global`, …) |
-| `config/prepare_maps.py` | Download + process Natural Earth datasets |
-
-## Tests
-
-```bash
-pytest tests/test_data_pipeline.py -v
-```
+| `config/map_versions.json` | Mapbox dataset registry |
+| `config/map_aliases.json` | Short aliases (`ceasefire`, `fast`, …) |
+| `config/prepare_maps.py` | Download + process Natural Earth |
+| `manim_renderer/theme/palette.py` | Colors — must mirror `renderer/effects.css` |
+| `manim_renderer/schema/scene_schema.json` | Top-level Manim scene contract |
