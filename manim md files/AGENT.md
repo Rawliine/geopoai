@@ -116,6 +116,10 @@ These are not style preferences. Breaking them breaks the pipeline.
 
 13. **Components exposing child ids implement `extra_id_registrations()` AND a matching id_extractor.** When a wrapper component (e.g. MetricGroup) declares ids on its children that should be addressable as anchor targets, it (a) returns `{child_id: child_mob}` from `extra_id_registrations()` so the scene runner can register them, AND (b) registers a function in `validator.py:_ACTION_ID_EXTRACTORS` so the validator's anchor-target and duplicate-id checks see those ids too. The two MUST stay in sync — runtime registration without validator visibility lets bad scenes pass validation; validator visibility without runtime registration lets valid scenes fail at render.
 
+14. **Mutation actions duck-type on small handle interfaces, not isinstance checks.** When a mutation needs structural info from its target (PayoffMatrix's `cell_dims()`, `n_rows()`, `n_cols()`, `row_player_color()`, `col_player_color()`), it calls `hasattr(target, ...)` before invoking — never `isinstance(target, PayoffMatrix)`. This keeps mutations reusable: a future `HeatmapGrid` exposing the same handles can be driven by `highlightCell`/`crossOut` without extra wiring. Each mutation file documents its required handle set at the top.
+
+15. **Mutation overlays are ephemeral.** Highlights, crossouts, and best-response arrows added by mutation actions are NOT registered in `id_to_mobject`. They survive in the rendered scene but cannot be removed by a later `removeComponent`. If a scene needs to clear a highlight, it must remove the entire host component and re-show it. Phase 2 will add removable overlays via an opt-in id param.
+
 ---
 
 ## The data flow, in detail

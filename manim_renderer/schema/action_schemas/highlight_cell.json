@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "highlightCell.params",
+  "description": "Lay a colored translucent overlay on a PayoffMatrix cell.",
+  "type": "object",
+  "required": ["target", "index"],
+  "properties": {
+    "target": { "$ref": "../scene_schema.json#/definitions/id_string" },
+    "index": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": { "type": "integer", "minimum": 0, "maximum": 5 }
+    },
+    "color":  { "$ref": "../scene_schema.json#/definitions/color_role" },
+    "timing": { "$ref": "../scene_schema.json#/definitions/timing_name" }
+  },
+  "additionalProperties": false
+}

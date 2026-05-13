@@ -41,30 +41,39 @@ Exit criteria: hello.json renders to MP4 in both horizontal and vertical. JSON s
 
 ---
 
-## Phase 1 — Core component library (≈2 weeks)
+## Phase 1 — Core component library ✓ DONE
 
-Goal: ship the 8 highest-ROI components and 5 layouts. Enough to make a real video.
+Status: **complete**. Exit criteria met — `scripts/manim/prisoners_dilemma.json` and
+`prisoners_dilemma_vertical.json` render a 60-second narrative end-to-end using
+only this library.
 
-Components, in build order:
-1. **StatBlock** — easiest, validates Theme + count-up animation, useful in every video.
-2. **CalloutBox** — text + leader line, used by everything for annotation.
-3. **BarChart** — first data viz, validates axes/labels/value formatting.
-4. **LineChart** — extends BarChart's axis system, adds path tracing.
-5. **HorizontalTimeline** / **VerticalTimeline** — format-aware twins, validates that format flag actually drives behavior.
-6. **PayoffMatrix** — the signature game-theory component. Cell highlight, best-response arrows, IESDS crossout.
-7. **GameTree** — recursive layout, format-aware (vertical needs depth caps).
-8. **AllianceWeb** — first force-directed layout, complements the map's border highlights.
+Shipped components (build order followed plan.md's spec):
+1. **StatBlock** ✓ — value + label + optional unit/trend/sparkline; `count-up` entrance
+2. **MetricGroup** ✓ — bundle of StatBlocks; row/column orientation; staggered entrance
+3. **CalloutBox** ✓ — bubble + leader line via `position_finalized`; format-aware leader edges
+4. **BarChart** ✓ — categorical bars; per-bar count-up + grow-up; palette color rotation
+5. **LineChart** ✓ — continuous multi-series; `draw-out` (Create) path animation; series-end anchors
+6. **Timeline** ✓ — single component, format-aware (L→R horizontal / T→B vertical with depth cap)
+7. **GameTree** ✓ — recursive layered layout; vertical depth-capped; `node:<path>` anchors
+8. **AllianceWeb** ✓ — deterministic circular layout (Phase 1 simplification, see handoff.md);
+   alliance/rivalry/neutral edge kinds
+9. **PayoffMatrix** ✓ — 2×2 through 6×6; cell/row/col anchors; level-by-level entrance
+10. **TextCard** ✓ (from Phase 0; refactored to use base defaults in PR 1.0)
 
-Layouts (per format):
-- `hero` (built in Phase 0)
-- `split` ↔ `stacked`
-- `data-left` ↔ `data-top`
-- `trio` ↔ `trio-stack`
-- `title-body`
+Layouts (5 per format, 8 total): `hero`, `split`/`stacked`, `data-left`/`data-top`,
+`trio`/`trio-stack`, `title-body`. Format/layout compatibility enforced by validator.
 
-Anchor resolver: implement `below:id`, `above:id`, `right-of:id`, `left-of:id`. Resolves after components are measured. Auto-maps to format-appropriate axes (`right-of` becomes `below` in vertical).
+Mutation actions: `removeComponent`, `highlightCell`, `crossOut`, `bestResponseArrow`.
 
-Exit criteria: render a 60-second video about Prisoner's Dilemma using only this library and the Mapbox engine, end-to-end. No hand-tweaked Python.
+Effects vocabulary (Phase 1 subset of the eventual 35): 11 entrances, 2 emphasis,
+2 exits. EffectSpec dispatch shape locked.
+
+Resolvers: `anchor` (5 tokens, vertical auto-flip), `size` (5 kinds × 2 formats × 3 roles).
+
+Validation: 4-tier (structural + coords-banned + per-action $ref + semantic incl
+anchor + duplicate-id with extractors).
+
+Architecture seams documented in handoff.md for Phase 2.
 
 ---
 

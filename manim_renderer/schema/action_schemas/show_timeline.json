@@ -1,0 +1,39 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "showTimeline.params",
+  "description": "Single-axis timeline. Horizontal: L→R. Vertical: T→B with depth cap. Same params for both formats.",
+  "type": "object",
+  "required": ["id", "events"],
+  "properties": {
+    "id": { "$ref": "../scene_schema.json#/definitions/id_string" },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "required": ["label"],
+        "properties": {
+          "id":       { "$ref": "../scene_schema.json#/definitions/id_string" },
+          "label":    { "type": "string", "minLength": 1, "maxLength": 48 },
+          "at_label": { "type": "string", "maxLength": 24 },
+          "color":    { "$ref": "../scene_schema.json#/definitions/color_role" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "size": { "$ref": "../scene_schema.json#/definitions/size_role" },
+    "max_visible": {
+      "type": "integer",
+      "minimum": 3,
+      "maximum": 20,
+      "description": "Vertical-format cap on rendered events (default 8). Ignored in horizontal."
+    },
+    "anchor": { "$ref": "../scene_schema.json#/definitions/anchor_string" },
+    "timing": { "$ref": "../scene_schema.json#/definitions/timing_name" },
+    "effect": {
+      "enum": ["fade-in", "level-by-level"]
+    }
+  },
+  "additionalProperties": false
+}

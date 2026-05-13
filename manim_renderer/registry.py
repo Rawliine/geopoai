@@ -23,21 +23,42 @@ from typing import Callable, Optional
 
 from manim import Animation
 
-from manim_renderer.actions import ActionContext, remove_component
+from manim_renderer.actions import (
+    ActionContext,
+    best_response_arrow,
+    cross_out,
+    highlight_cell,
+    remove_component,
+)
+from manim_renderer.components.data_viz.bar_chart import BarChart
+from manim_renderer.components.data_viz.line_chart import LineChart
 from manim_renderer.components.data_viz.metric_group import MetricGroup
 from manim_renderer.components.data_viz.stat_block import StatBlock
+from manim_renderer.components.game_theory.game_tree import GameTree
+from manim_renderer.components.game_theory.payoff_matrix import PayoffMatrix
+from manim_renderer.components.geopolitical.alliance_web import AllianceWeb
 from manim_renderer.components.narrative.callout_box import CalloutBox
+from manim_renderer.components.narrative.timeline import Timeline
 from manim_renderer.components.text_card import TextCard
 
 COMPONENT_REGISTRY: dict = {
-    "showTextCard":    TextCard,
-    "showStatBlock":   StatBlock,
-    "showMetricGroup": MetricGroup,
-    "showCalloutBox":  CalloutBox,
+    "showTextCard":      TextCard,
+    "showStatBlock":     StatBlock,
+    "showMetricGroup":   MetricGroup,
+    "showCalloutBox":    CalloutBox,
+    "showBarChart":      BarChart,
+    "showLineChart":     LineChart,
+    "showTimeline":      Timeline,
+    "showGameTree":      GameTree,
+    "showAllianceWeb":   AllianceWeb,
+    "showPayoffMatrix":  PayoffMatrix,
 }
 
 ACTION_REGISTRY: dict[str, Callable[[ActionContext], Optional[Animation]]] = {
-    "removeComponent": remove_component,
+    "removeComponent":    remove_component,
+    "highlightCell":      highlight_cell,
+    "crossOut":           cross_out,
+    "bestResponseArrow":  best_response_arrow,
 }
 
 # Back-compat alias — same dict identity. Will be removed once nothing imports it.

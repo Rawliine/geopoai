@@ -432,6 +432,80 @@ Areas where the right answer will emerge from doing the work:
 
 ---
 
+## 22a. Phase 1 implementation decisions (added Phase 1)
+
+These are decisions made mid-Phase 1 that future agents need to know about.
+All `[LOCKED]` unless tagged otherwise.
+
+### Anchor coord sampling rule
+When an anchored event fires, `resolve_anchor` reads the target's **current**
+state — not its post-animation state. Documented as AGENT.md rule 9.
+Rationale: deterministic and obvious from the sort order. The alternative
+(post-animation sampling) would require a two-pass dependency graph and
+break the single-pass scene-runner design.
+
+### Two-registry dispatch pattern
+`COMPONENT_REGISTRY` instantiates new mobjects; `ACTION_REGISTRY` mutates or
+removes existing ones. Phase 2 camera actions plug into ACTION_REGISTRY
+without disturbing component dispatch. AGENT.md rule 10.
+
+### EffectSpec dispatch shape
+Each effect is `EffectSpec(name, factory, required, optional)`. `required`/
+`optional` drive `_skill.md` autogen (future) and schema enum generation, and
+produce clean error messages when an LLM omits a required param. Free-form
+`**kwargs` factories would not have scaled. AGENT.md rule 11.
+
+### `position_finalized` two-phase positioning
+Components that need to draw geometry in *absolute* coordinates (CalloutBox's
+leader line, future ConnectionLine, BadgeAnchor) cannot do it in `build()`
+because the component is at origin then. The scene runner fires
+`position_finalized(anchor, target, format)` between `move_to(slot|anchor)`
+and the entrance animation. AGENT.md rule 12.
+
+### `extra_id_registrations` + `_ACTION_ID_EXTRACTORS` sync
+Wrapper components (MetricGroup, Timeline, AllianceWeb) expose child ids as
+top-level anchor targets. The runtime registration (`extra_id_registrations`)
+and validator visibility (`_ACTION_ID_EXTRACTORS`) MUST be added in the same
+PR — otherwise either bad scenes pass validation or valid scenes fail at
+render. AGENT.md rule 13.
+
+### Mutation actions duck-type on small handle interfaces
+Mutations target *PayoffMatrix-shaped* components, not PayoffMatrix
+specifically. The implicit interface is `get_anchor("cell:i,j") + cell_dims()
++ n_rows() + n_cols() + row_player_color() + col_player_color()`. Future
+matrix-like components (HeatmapGrid, etc.) reuse the mutations by
+implementing the same handles — no isinstance checks anywhere. AGENT.md
+rule 14.
+
+### Ephemeral mutation overlays
+Highlights, crossouts, and best-response arrows added by mutations are NOT
+registered in `id_to_mobject` and cannot be `removeComponent`'d. Tradeoff
+chosen for Phase 1 simplicity. Phase 2 will add removable overlays via an
+opt-in `id` param. AGENT.md rule 15.
+
+### AllianceWeb: deterministic circular layout, not force-directed `[FLUID]`
+Phase 1 ships circular layout (nodes at 2π·i/n + seed_rotation) rather than
+force-directed Fruchterman-Reingold. Rationale: for the small node counts
+typical of geopolitical content (3–10), circular reads cleaner and never
+produces overlapping pathological layouts. Force-directed is in the Phase 2+
+punch-list if/when content needs it.
+
+### Charts: shared `_axes_common.py` private module
+BarChart and LineChart share a private `_axes_common.py` with the
+plot-area math, value mappers, and `Axes2D` mobject. Pure-math layer
+(`compute_plot_area`, `make_value_to_y`, `nice_ticks`) is unit-tested
+without Manim object construction. The shared module is private (leading
+underscore) — not for direct use by JSON authors.
+
+### `_text_fit.auto_fit_text` shared helper for slot-bounded text
+Text-bearing components placed in slots (TextCard, future title-bearing
+components) receive `_slot_bounds: (w, h)` in `params` from the scene
+runner. The helper scales `Text` down to fit within `target_width × margin`
+(default 8% gutter), clamped at `min_scale`. Single-line scale-down is the
+editorial convention; multi-line wrap is component-specific (CalloutBox).
+
+---
+
 ## 22. Decision log
 
 A compact list of what we decided and where the reasoning lives in this doc.

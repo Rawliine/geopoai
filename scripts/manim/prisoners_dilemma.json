@@ -4,7 +4,7 @@
   "quality": "preview",
   "scene": {
     "layout": "title-body",
-    "duration": 18,
+    "duration": 60,
     "theme": "dark"
   },
   "slots": {
@@ -33,75 +33,106 @@
         "child_effect": "count-up",
         "timing": "slow",
         "stats": [
-          {
-            "id": "k-cooperate",
-            "value": 28.4,
-            "label": "Cooperate",
-            "value_format": "decimal",
-            "decimals": 1,
-            "unit": "%",
+          { "id": "k-cooperate", "value": 28.4, "label": "Cooperate",
+            "value_format": "decimal", "decimals": 1, "unit": "%",
             "trend": { "delta": -8.2, "direction": "down", "unit": "%" },
-            "sparkline": [62, 55, 48, 42, 35, 31, 28]
-          },
-          {
-            "id": "k-defect",
-            "value": 71.6,
-            "label": "Defect",
-            "value_format": "decimal",
-            "decimals": 1,
-            "unit": "%",
+            "sparkline": [62, 55, 48, 42, 35, 31, 28] },
+          { "id": "k-defect", "value": 71.6, "label": "Defect",
+            "value_format": "decimal", "decimals": 1, "unit": "%",
             "trend": { "delta": 8.2, "direction": "up", "unit": "%" },
-            "sparkline": [38, 45, 52, 58, 65, 69, 72]
-          },
-          {
-            "id": "k-payoff",
-            "value": 1200000,
-            "label": "Mutual loss",
-            "value_format": "currency",
-            "symbol": "$",
-            "suffix": "auto",
+            "sparkline": [38, 45, 52, 58, 65, 69, 72] },
+          { "id": "k-payoff", "value": 1200000, "label": "Mutual loss",
+            "value_format": "currency", "symbol": "$", "suffix": "auto",
             "trend": { "delta": 240000, "direction": "up", "unit": "/yr" },
-            "sparkline": [400, 520, 640, 760, 900, 1050, 1200]
-          }
+            "sparkline": [400, 520, 640, 760, 900, 1050, 1200] }
         ]
       }
     }
   },
   "overlays": [
-    {
-      "at": 5.0,
-      "action": "showCalloutBox",
-      "params": {
-        "id": "callout-defect",
-        "text": "Defection dominates: each player's best response erodes cooperation.",
-        "anchor": "below:k-cooperate",
-        "width": 3.6,
-        "timing": "normal",
-        "effect": "fade-in"
-      }
-    },
-    {
-      "at": 10.0,
-      "action": "showCalloutBox",
-      "params": {
-        "id": "callout-cost",
-        "text": "Mutual defection is a Pareto-inferior Nash equilibrium.",
-        "anchor": "below:k-payoff",
-        "width": 3.6,
-        "timing": "normal",
-        "effect": "fade-in"
-      }
-    },
-    {
-      "at": 15.5,
-      "action": "removeComponent",
-      "params": { "target": "callout-defect", "effect": "fade-out", "timing": "fast" }
-    },
-    {
-      "at": 16.0,
-      "action": "removeComponent",
-      "params": { "target": "callout-cost", "effect": "fade-out", "timing": "fast" }
-    }
+    { "at": 5.0, "action": "showCalloutBox",
+      "params": { "id": "callout-trend",
+        "text": "Defection has steadily eroded cooperation.",
+        "anchor": "below:k-cooperate", "width": 3.6, "timing": "normal" } },
+
+    { "at": 9.5, "action": "removeComponent",
+      "params": { "target": "callout-trend", "effect": "fade-out", "timing": "fast" } },
+    { "at": 10.0, "action": "removeComponent",
+      "params": { "target": "kpis", "effect": "fade-out", "timing": "normal" } },
+
+    { "at": 11.0, "action": "showPayoffMatrix",
+      "params": { "id": "pd",
+        "anchor": "below:title",
+        "players": [
+          { "name": "P1", "color": "actor_a" },
+          { "name": "P2", "color": "actor_b" }
+        ],
+        "strategies": [["Cooperate", "Defect"], ["Cooperate", "Defect"]],
+        "cells": [
+          [{ "a": 3, "b": 3 }, { "a": 0, "b": 5 }],
+          [{ "a": 5, "b": 0 }, { "a": 1, "b": 1 }]
+        ],
+        "size": "medium", "timing": "slow", "effect": "level-by-level" } },
+
+    { "at": 16.0, "action": "showCalloutBox",
+      "params": { "id": "callout-pd-intro",
+        "text": "Each player's dominant strategy is to defect.",
+        "anchor": "right-of:pd", "width": 3.0, "timing": "normal" } },
+
+    { "at": 20.5, "action": "highlightCell",
+      "params": { "target": "pd", "index": [1, 0], "color": "actor_a", "timing": "fast" } },
+    { "at": 21.0, "action": "bestResponseArrow",
+      "params": { "target": "pd", "from": [0, 0], "to": [1, 0], "actor": "actor_a", "timing": "normal" } },
+
+    { "at": 23.5, "action": "highlightCell",
+      "params": { "target": "pd", "index": [0, 1], "color": "actor_b", "timing": "fast" } },
+    { "at": 24.0, "action": "bestResponseArrow",
+      "params": { "target": "pd", "from": [0, 0], "to": [0, 1], "actor": "actor_b", "timing": "normal" } },
+
+    { "at": 27.0, "action": "removeComponent",
+      "params": { "target": "callout-pd-intro", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 27.5, "action": "crossOut",
+      "params": { "target": "pd", "axis": "row", "index": 0, "style": "dashed", "timing": "normal" } },
+    { "at": 29.0, "action": "crossOut",
+      "params": { "target": "pd", "axis": "col", "index": 0, "style": "dashed", "timing": "normal" } },
+
+    { "at": 31.0, "action": "highlightCell",
+      "params": { "target": "pd", "index": [1, 1], "color": "highlight", "timing": "normal" } },
+
+    { "at": 32.5, "action": "showCalloutBox",
+      "params": { "id": "callout-ne",
+        "text": "Mutual defection is the Nash equilibrium — and it is Pareto-inferior.",
+        "anchor": "below:pd", "width": 5.5, "timing": "normal" } },
+
+    { "at": 38.0, "action": "removeComponent",
+      "params": { "target": "callout-ne", "effect": "fade-out", "timing": "fast" } },
+    { "at": 38.5, "action": "removeComponent",
+      "params": { "target": "pd", "effect": "fade-out", "timing": "normal" } },
+
+    { "at": 40.0, "action": "showBarChart",
+      "params": { "id": "payoffs",
+        "anchor": "below:title",
+        "data": [
+          { "label": "C, C", "value": 3, "color": "positive" },
+          { "label": "C, D", "value": 0, "color": "negative" },
+          { "label": "D, C", "value": 5, "color": "actor_a" },
+          { "label": "D, D", "value": 1, "color": "neutral" }
+        ],
+        "size": "medium", "value_format": "int", "show_value_labels": true,
+        "y_axis": { "min": 0, "max": 6, "ticks": 4, "label": "Total payoff" },
+        "x_axis": { "label": "Outcome" },
+        "timing": "slow", "effect": "count-up" } },
+
+    { "at": 47.0, "action": "showCalloutBox",
+      "params": { "id": "callout-bar",
+        "text": "Cooperation maximizes joint payoff — but defection dominates individually.",
+        "anchor": "below:payoffs", "width": 6.0, "timing": "normal" } },
+
+    { "at": 53.0, "action": "removeComponent",
+      "params": { "target": "callout-bar", "effect": "fade-out", "timing": "fast" } },
+    { "at": 53.5, "action": "removeComponent",
+      "params": { "target": "payoffs", "effect": "fade-out", "timing": "normal" } }
   ],
   "timeline": []
 }

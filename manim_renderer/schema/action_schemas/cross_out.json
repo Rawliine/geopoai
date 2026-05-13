@@ -1,0 +1,15 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "crossOut.params",
+  "description": "Strike a line through a PayoffMatrix row or column (IESDS visual).",
+  "type": "object",
+  "required": ["target", "axis", "index"],
+  "properties": {
+    "target": { "$ref": "../scene_schema.json#/definitions/id_string" },
+    "axis":   { "enum": ["row", "col"] },
+    "index":  { "type": "integer", "minimum": 0, "maximum": 5 },
+    "style":  { "enum": ["strike", "dashed"] },
+    "timing": { "$ref": "../scene_schema.json#/definitions/timing_name" }
+  },
+  "additionalProperties": false
+}

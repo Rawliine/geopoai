@@ -68,8 +68,18 @@ def _ids_from_metric_group(params: dict) -> list[str]:
     return [s["id"] for s in params.get("stats", []) if isinstance(s, dict) and s.get("id")]
 
 
+def _ids_from_timeline(params: dict) -> list[str]:
+    return [e["id"] for e in params.get("events", []) if isinstance(e, dict) and e.get("id")]
+
+
+def _ids_from_alliance_web(params: dict) -> list[str]:
+    return [n["id"] for n in params.get("nodes", []) if isinstance(n, dict) and n.get("id")]
+
+
 _ACTION_ID_EXTRACTORS: dict[str, callable] = {
-    "showMetricGroup": _ids_from_metric_group,
+    "showMetricGroup":  _ids_from_metric_group,
+    "showTimeline":     _ids_from_timeline,
+    "showAllianceWeb":  _ids_from_alliance_web,
 }
 
 

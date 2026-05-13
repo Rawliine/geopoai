@@ -1,0 +1,61 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "showPayoffMatrix.params",
+  "description": "N×N normal-form game matrix (default 2×2). Anchors: cell:i,j, row:i, col:j, plus standard 9.",
+  "type": "object",
+  "required": ["id", "players", "strategies", "cells"],
+  "properties": {
+    "id": { "$ref": "../scene_schema.json#/definitions/id_string" },
+    "players": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name":  { "type": "string", "minLength": 1, "maxLength": 16 },
+          "color": { "$ref": "../scene_schema.json#/definitions/color_role" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "strategies": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 6,
+        "items": { "type": "string", "minLength": 1, "maxLength": 24 }
+      }
+    },
+    "cells": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 6,
+      "items": {
+        "type": "array",
+        "minItems": 2,
+        "maxItems": 6,
+        "items": {
+          "type": "object",
+          "required": ["a", "b"],
+          "properties": {
+            "a": { "type": "number" },
+            "b": { "type": "number" }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "size":   { "$ref": "../scene_schema.json#/definitions/size_role" },
+    "anchor": { "$ref": "../scene_schema.json#/definitions/anchor_string" },
+    "timing": { "$ref": "../scene_schema.json#/definitions/timing_name" },
+    "effect": {
+      "enum": ["fade-in", "level-by-level"]
+    }
+  },
+  "additionalProperties": false
+}

@@ -225,6 +225,83 @@ entrance, tunable via `stagger` + `child_effect`).
 
 ---
 
+### `showBarChart`
+Categorical bar chart with themed axes. Use for side-by-side numeric comparison
+(country GDP, party seat counts, scenario payoffs). Y-axis starts at 0 by
+default — bar charts with truncated y-axes are misleading.
+
+```json
+{
+  "at": 0.0,
+  "action": "showBarChart",
+  "params": {
+    "id": "gdp",
+    "data": [
+      { "label": "USA",   "value": 23000, "color": "actor_a" },
+      { "label": "China", "value": 17000, "color": "actor_b" }
+    ],
+    "size": "medium",
+    "value_format": "k",        // labels show "23.0K" etc.
+    "show_value_labels": true,
+    "y_axis": { "min": 0, "max": 25000, "ticks": 5, "label": "GDP ($B)" },
+    "x_axis": { "label": "Country" },
+    "timing": "slow",
+    "effect": "count-up"        // bar grows + value label counts up, per-bar
+  }
+}
+```
+
+Required: `id`, `data` (1–12 items, each `{label, value, color?}`).
+Color defaults rotate through `actor_a..e` if omitted. Auto y-range: 0 to
+1.15× max value when `y_axis.min`/`max` are not given.
+Custom anchors: `bar:<i_or_label>` — top-center of that bar. Index is 0-based.
+Effects: `fade-in`, `grow-up`, `level-by-level`, `count-up`.
+
+---
+
+### `showLineChart`
+Multi-series continuous-x line chart. Use for trends over time and projections.
+
+```json
+{
+  "at": 0.0,
+  "action": "showLineChart",
+  "params": {
+    "id": "trade",
+    "series": [
+      {
+        "label": "USA", "color": "actor_a",
+        "points": [[2010, 14], [2015, 18], [2020, 21]]
+      },
+      {
+        "label": "China", "color": "actor_b",
+        "points": [[2010, 6], [2015, 11], [2020, 17]]
+      }
+    ],
+    "size": "medium",
+    "value_format": "decimal",  // y-axis tick format
+    "x_format": "int",          // x-axis tick format (default 'int')
+    "show_points": true,
+    "x_axis": { "min": 2010, "max": 2020, "ticks": 6, "label": "Year" },
+    "y_axis": { "min": 0,    "max": 25,   "ticks": 5, "label": "GDP ($T)" },
+    "timing": "slow",
+    "effect": "draw-out"        // Create() draws each polyline path
+  }
+}
+```
+
+Required: `id`, `series` (1–8 series, each with `points` of length ≥ 2).
+Points are **`[x, y]` arrays**, not `{x, y}` objects — this keeps the
+project-wide "no coordinate keys" rule (AGENT.md rule 1) simple, since the
+validator's coords-banned tier rejects `x`/`y` keys anywhere in the JSON.
+Color defaults rotate `actor_a..e`. Auto ranges from union of points with 5% padding.
+Custom anchors:
+  * `series:<i_or_label>.end`   — right-most point of a series (great for trailing labels).
+  * `series:<i_or_label>.start` — left-most point.
+Effects: `fade-in`, `draw-out`, `level-by-level`.
+
+---
+
 ### `showCalloutBox`
 Text bubble + leader line pointing at an anchor target. The first component
 that uses the anchor resolver — `params.anchor` is required.
@@ -254,6 +331,164 @@ for both the bubble position AND the leader endpoints.
 
 ---
 
+### `showTimeline`
+Single-axis timeline of dated events. Format-aware: horizontal runs L→R with
+labels alternating above/below the axis; vertical runs T→B with labels right
+of dots and dates left. Same JSON for both formats.
+
+```json
+{
+  "at": 0.0,
+  "action": "showTimeline",
+  "params": {
+    "id": "tl",
+    "events": [
+      { "id": "wwii", "at_label": "1939", "label": "WWII begins" },
+      { "id": "vj",   "at_label": "1945", "label": "VJ Day",
+        "color": "highlight" }
+    ],
+    "size": "medium",
+    "max_visible": 8,      // vertical-only cap (default 8)
+    "timing": "normal",
+    "effect": "level-by-level"
+  }
+}
+```
+
+Required: `id`, `events` (1–20 items, each `{label, id?, at_label?, color?}`).
+Custom anchors:
+  * `event:<i_or_id>`       — that event's dot center
+  * `event:<i_or_id>.label` — label text center
+  * `event:<i_or_id>.date`  — date text center (only when `at_label` set)
+Each event's own optional `id` is also exposed as a top-level anchor target —
+write `below:wwii` to anchor against the wwii event's dot.
+Effects: `fade-in`, `level-by-level`.
+
+---
+
+### `showGameTree`
+Recursive decision-tree visualization. Horizontal format renders root on the
+left, leaves on the right (uses 16:9 width well). Vertical format renders root
+on top, leaves on bottom, with a depth cap (`max_depth`, default 4).
+
+```json
+{
+  "at": 0.0,
+  "action": "showGameTree",
+  "params": {
+    "id": "tree",
+    "nodes": {
+      "label": "P1",
+      "children": [
+        { "label": "Cooperate", "edge": "C", "children": [
+          { "label": "(3,3)", "edge": "C" },
+          { "label": "(0,5)", "edge": "D" }
+        ]},
+        { "label": "Defect", "edge": "D" }
+      ]
+    },
+    "size": "large",
+    "max_depth": 4,
+    "timing": "normal",
+    "effect": "level-by-level"
+  }
+}
+```
+
+Required: `id`, `nodes` (recursive `{label, edge?, color?, children?}`).
+`edge` is the label rendered on the connection from PARENT to this node
+(not on its outgoing edges).
+Custom anchors:
+  * `node:<path>` — dot-separated 0-based indices: `node:root`, `node:root.0`,
+    `node:root.1.0` (root → its 2nd child → that child's 1st child).
+Effects: `fade-in`, `level-by-level` (reveals depth by depth).
+
+---
+
+### `showAllianceWeb`
+Geopolitical relations graph. Nodes (countries/actors) placed on a deterministic
+circle; edges colored by kind (`alliance`/`rivalry`/`neutral`). `seed` rotates
+the whole ring deterministically — same JSON renders identically across runs.
+
+```json
+{
+  "at": 0.0,
+  "action": "showAllianceWeb",
+  "params": {
+    "id": "web",
+    "nodes": [
+      { "id": "usa", "label": "USA",    "color": "actor_a" },
+      { "id": "rus", "label": "Russia", "color": "actor_b" },
+      { "id": "chn", "label": "China",  "color": "actor_c" }
+    ],
+    "edges": [
+      { "from": "usa", "to": "rus", "kind": "rivalry" },
+      { "from": "rus", "to": "chn", "kind": "alliance" },
+      { "from": "usa", "to": "chn", "kind": "neutral" }
+    ],
+    "size": "medium",
+    "seed": 42,
+    "timing": "slow",
+    "effect": "level-by-level"
+  }
+}
+```
+
+Required: `id`, `nodes` (2–12 items, each `{id, label?, color?}`).
+Edges optional, max 64.
+Each node's `id` is exposed as a top-level anchor target — `below:usa` works.
+Custom anchors:
+  * `node:<id>` — that node's center.
+Edge kinds:
+  * `alliance` — `positive` color, solid stroke
+  * `rivalry`  — `negative` color, dashed stroke
+  * `neutral`  — `neutral` color, thin stroke
+Effects: `fade-in`, `level-by-level` (nodes first staggered, then edges).
+
+---
+
+### `showPayoffMatrix`
+The signature game-theory component. N×N normal-form matrix with player names,
+strategy labels, and payoff pairs. Cells colored by player (row player's
+payoff in their color, column player's in theirs).
+
+```json
+{
+  "at": 0.0,
+  "action": "showPayoffMatrix",
+  "params": {
+    "id": "pd",
+    "players": [
+      { "name": "P1", "color": "actor_a" },
+      { "name": "P2", "color": "actor_b" }
+    ],
+    "strategies": [
+      ["Cooperate", "Defect"],
+      ["Cooperate", "Defect"]
+    ],
+    "cells": [
+      [{ "a": 3, "b": 3 }, { "a": 0, "b": 5 }],
+      [{ "a": 5, "b": 0 }, { "a": 1, "b": 1 }]
+    ],
+    "size": "medium",
+    "timing": "normal",
+    "effect": "level-by-level"
+  }
+}
+```
+
+Required: `id`, `players` (exactly 2), `strategies` (2 lists), `cells`
+(2D array of `{a, b}` payoffs). Supported sizes: 2×2 through 6×6.
+Custom anchors:
+  * `cell:i,j` — center of cell (row i, col j). 0-based.
+  * `row:i`    — left edge of row i (next to its strategy label).
+  * `col:j`    — top edge of column j.
+Effects: `fade-in`, `level-by-level` (reveals row by row).
+
+This is the target of the three mutation actions below.
+
+---
+
 ## Generic actions (mutate or remove existing components)
 
 ### `removeComponent`
@@ -269,6 +504,62 @@ Fade or dissolve an existing component out and unregister its id.
 
 Required: `target` (id of an earlier-declared component).
 Default effect: `fade-out`. Default timing: `fast`.
+
+---
+
+### `highlightCell`
+Lay a translucent colored overlay on a PayoffMatrix cell. Target must be a
+PayoffMatrix.
+
+```json
+{
+  "at": 6.0,
+  "action": "highlightCell",
+  "params": { "target": "pd", "index": [1, 1], "color": "highlight", "timing": "fast" }
+}
+```
+
+Required: `target`, `index` ([row, col]). `color` defaults to `highlight`.
+**Phase 1 limit:** the overlay is ephemeral — it has no id, so it can't be
+removed via `removeComponent`. To "clear" a highlight, overlay a different
+color or design around the limitation.
+
+---
+
+### `crossOut`
+Strike a line through a PayoffMatrix row or column. Used for iterated
+elimination of strictly dominated strategies (IESDS).
+
+```json
+{
+  "at": 8.0,
+  "action": "crossOut",
+  "params": { "target": "pd", "axis": "row", "index": 0, "style": "strike" }
+}
+```
+
+Required: `target`, `axis` (`"row"` | `"col"`), `index` (0-based).
+`style` is `"strike"` (default, solid) or `"dashed"`. Line is `negative` (red).
+
+---
+
+### `bestResponseArrow`
+Draw an arrow between two PayoffMatrix cells, colored by actor. Used to
+visualize a player's best response ("given opponent plays X, I prefer Y").
+
+```json
+{
+  "at": 9.0,
+  "action": "bestResponseArrow",
+  "params": {
+    "target": "pd",
+    "from": [0, 0], "to": [0, 1],
+    "actor": "actor_a", "timing": "normal"
+  }
+}
+```
+
+Required: `target`, `from` ([row, col]), `to` ([row, col]), `actor` (palette key).
 
 ---
 
