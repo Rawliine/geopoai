@@ -34,10 +34,14 @@ _BANNED_COORD_KEYS = {"x", "y", "position", "coords", "coordinate", "coordinates
 # Format/layout compatibility — single source of truth used by both validator
 # and tests. Add new layouts here AND in layouts/{horizontal,vertical}.py.
 LAYOUT_FORMATS: dict[str, set[str]] = {
-    "hero": {"horizontal", "vertical"},
-    # Phase 1 PR 1.1 will append: split (horizontal), stacked (vertical),
-    # data-left (horizontal), data-top (vertical), trio (horizontal),
-    # trio-stack (vertical), title-body (both).
+    "hero":       {"horizontal", "vertical"},
+    "split":      {"horizontal"},
+    "stacked":    {"vertical"},
+    "data-left":  {"horizontal"},
+    "data-top":   {"vertical"},
+    "trio":       {"horizontal"},
+    "trio-stack": {"vertical"},
+    "title-body": {"horizontal", "vertical"},
 }
 
 # Match the scene runner's _PHASE_* constants exactly.

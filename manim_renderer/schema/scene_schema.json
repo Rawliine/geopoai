@@ -11,7 +11,7 @@
       "type": "object",
       "required": ["layout", "duration"],
       "properties": {
-        "layout": { "type": "string" },
+        "layout": { "$ref": "#/definitions/layout_name" },
         "duration": { "type": "number", "exclusiveMinimum": 0 },
         "theme": { "type": "string" }
       },
@@ -77,6 +77,16 @@
     },
     "exit_effect": {
       "enum": ["fade-out", "dissolve"]
+    },
+    "layout_name": {
+      "enum": [
+        "hero",
+        "split", "stacked",
+        "data-left", "data-top",
+        "trio", "trio-stack",
+        "title-body"
+      ],
+      "description": "Layout name. Some are format-specific (split=horizontal, stacked=vertical); the validator's LAYOUT_FORMATS map enforces compatibility."
     }
   }
 }

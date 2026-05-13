@@ -141,12 +141,24 @@ Default effect: `fade-out`. Default timing: `fast`.
 
 ## Layouts
 
-| Name     | Format(s)         | Slots         |
-|----------|-------------------|---------------|
-| `hero`   | horizontal, vertical | `main`     |
+Pick a layout that fits the composition. Format-only layouts come in pairs —
+use the right name for the format. The validator rejects mismatches.
 
-PR 1.1 adds: `split` (horizontal), `stacked` (vertical), `data-left`/`data-top`,
-`trio`/`trio-stack`, `title-body`.
+| Name         | Format(s)            | Slots                  | Use for |
+|--------------|----------------------|------------------------|---------|
+| `hero`       | horizontal, vertical | `main`                 | One focal element |
+| `split`      | horizontal           | `left`, `right`        | Two side-by-side panels |
+| `stacked`    | vertical             | `top`, `bottom`        | Vertical twin of `split` |
+| `data-left`  | horizontal           | `data` (small), `body` (large) | Stat sidebar + main content |
+| `data-top`   | vertical             | `data` (top), `body` (rest) | Vertical twin of `data-left` |
+| `trio`       | horizontal           | `A`, `B`, `C` (3 columns) | Three parallel comparisons |
+| `trio-stack` | vertical             | `A`, `B`, `C` (3 rows) | Vertical twin of `trio` |
+| `title-body` | horizontal, vertical | `title` (top strip), `body` | Chapter card + content beneath |
+
+**Picking the right layout:** for two-element compositions in horizontal use
+`split`; in vertical use `stacked`. The format-only design forces explicit
+choice — anchors auto-flip lateral direction (`right-of` → `below` in vertical),
+but layout *names* don't.
 
 ---
 
