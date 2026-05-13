@@ -4,3 +4,11 @@ tmp/
 data/
 # Manim LaTeX/SVG cache (regenerated per render)
 media/
+
+# Python bytecode (regenerated on import; never source-of-truth)
+__pycache__/
+*.pyc
+*.pyo
+
+# Claude Code workspace (per-developer plans, memory, settings)
+.claude/
