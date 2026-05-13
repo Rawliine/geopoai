@@ -23,8 +23,7 @@ from manim import MovingCameraScene
 from manim_renderer.actions import ActionContext
 from manim_renderer.layouts.resolver import resolve_layout
 from manim_renderer.registry import ACTION_REGISTRY, COMPONENT_REGISTRY
-from manim_renderer.resolvers.anchor import resolve_anchor
-from manim_renderer.resolvers.size import resolve_size
+from manim_renderer.resolvers.anchor import parse_anchor, resolve_anchor
 
 # Phase ordering for sort tiebreaks at the same `at`.
 _PHASE_SLOT = 0
@@ -89,13 +88,10 @@ class JSONScene(MovingCameraScene):
     ):
         ComponentCls = COMPONENT_REGISTRY[action]
 
-        # Optional size resolution — components that take dims handle them
-        # via params; we surface resolved dims as `_resolved_size` for use
-        # in build(). Components without a size param ignore.
-        size_role = params.get("size")
-        if isinstance(size_role, str):
-            kind = params.get("size_kind", "default")
-            params = {**params, "_resolved_size": resolve_size(size_role, fmt, kind)}
+        # Components that consume sizes call `resolve_size` themselves in
+        # build(). The scene runner doesn't pre-resolve — `params.size` means
+        # different things in different schemas (typography role for TextCard,
+        # resolve_size role for charts).
 
         component = ComponentCls(params, format=fmt)
 
@@ -103,12 +99,15 @@ class JSONScene(MovingCameraScene):
         # primary composition layer; anchors are for overlays). Anchor only
         # applies when slot_name is None.
         anchor = params.get("anchor")
+        anchor_target = None
         if slot_name is not None:
             rect = self._layout.slot(slot_name)
             component.move_to(rect.center)
         elif anchor:
             coord = resolve_anchor(anchor, self._id_to_mobject, fmt)
             component.move_to(coord)
+            _, target_id = parse_anchor(anchor)
+            anchor_target = self._id_to_mobject.get(target_id)
 
         # Defense in depth: validator already rejects duplicate ids. Assert here
         # so a bypass during dev fails loudly rather than silently overwriting.
@@ -118,6 +117,25 @@ class JSONScene(MovingCameraScene):
                 f"validator should have caught this"
             )
             self._id_to_mobject[component.id] = component
+
+        # Merge child-component ids the parent exposes (e.g. MetricGroup's
+        # named stats). Same duplicate guard applies — collisions either with
+        # the parent or with existing ids fail loudly.
+        for child_id, child_mob in component.extra_id_registrations().items():
+            assert child_id not in self._id_to_mobject, (
+                f"duplicate id {child_id!r} from {component.__class__.__name__}."
+                f"extra_id_registrations() reached scene runner; "
+                f"validator should have caught this"
+            )
+            self._id_to_mobject[child_id] = child_mob
+
+        # Post-positioning hook — components like CalloutBox use this to
+        # add a leader line whose endpoint depends on absolute coords.
+        component.position_finalized(
+            anchor=anchor,
+            target=anchor_target,
+            format=fmt,
+        )
 
         return component.entrance(
             params.get("effect", "fade-in"),

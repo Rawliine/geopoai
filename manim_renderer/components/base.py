@@ -77,6 +77,52 @@ class BaseComponent(VGroup):
             if attr.startswith(prefix) and callable(getattr(self, attr))
         )
 
+    # --- child registration --------------------------------------------------
+
+    def extra_id_registrations(self) -> dict:
+        """Map of additional id -> mobject this component declares.
+
+        Returns child-component ids that should be reachable as anchor targets
+        from JSON (e.g. MetricGroup exposes its inner StatBlocks as `id1`,
+        `id2`, ...). Default: no extras.
+
+        The scene runner merges these into `id_to_mobject` after the parent
+        has been registered. Collisions with already-registered ids fail the
+        scene runner's duplicate-id assert (the validator should catch them
+        first via the corresponding id_extractor — see schema/validator.py).
+        """
+        return {}
+
+    # --- post-positioning hook -----------------------------------------------
+
+    def position_finalized(
+        self,
+        *,
+        anchor: str | None = None,
+        target=None,
+        format: str = "horizontal",
+    ) -> None:
+        """Hook called by the scene runner AFTER the component has been moved
+        to its slot or anchor coord, AFTER its id has been registered, but
+        BEFORE its entrance animation plays.
+
+        Override for components that need to know either:
+          * Their final on-screen position (e.g. to add a leader line whose
+            endpoint depends on absolute coords), or
+          * The mobject they were anchored against (CalloutBox, ConnectionLine,
+            BadgeAnchor, etc.).
+
+        Args:
+            anchor: the anchor string the component was positioned with, or
+                None if the component was placed in a slot or has no anchor.
+            target: the mobject the anchor pointed at, if any. Already
+                resolved against `id_to_mobject`. None if no anchor.
+            format: scene format ("horizontal" | "vertical").
+
+        Default: no-op.
+        """
+        return None
+
     # --- bounds ---------------------------------------------------------------
 
     def measure(self) -> dict:

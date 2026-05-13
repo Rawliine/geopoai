@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "showStatBlock.params",
+  "description": "Big number + label, with optional unit, trend indicator, and inline sparkline.",
+  "type": "object",
+  "required": ["id", "value", "label"],
+  "properties": {
+    "id":           { "$ref": "../scene_schema.json#/definitions/id_string" },
+    "value":        { "type": "number" },
+    "label":        { "type": "string", "minLength": 1 },
+    "unit":         { "type": "string", "maxLength": 8 },
+    "value_format": { "$ref": "../scene_schema.json#/definitions/value_format" },
+    "decimals":     { "type": "integer", "minimum": 0, "maximum": 6 },
+    "symbol":       { "type": "string", "maxLength": 4,
+                      "description": "Currency symbol (only used by value_format=currency)." },
+    "suffix":       { "enum": ["K", "M", "B", "auto"],
+                      "description": "Magnitude suffix (only used by value_format=currency)." },
+    "color":        { "$ref": "../scene_schema.json#/definitions/color_role" },
+    "size":         { "$ref": "../scene_schema.json#/definitions/size_role" },
+    "trend": {
+      "type": "object",
+      "required": ["delta", "direction"],
+      "properties": {
+        "delta":     { "type": "number" },
+        "direction": { "enum": ["up", "down", "flat"] },
+        "color":     { "$ref": "../scene_schema.json#/definitions/color_role" },
+        "decimals":  { "type": "integer", "minimum": 0, "maximum": 6 },
+        "unit":      { "type": "string", "maxLength": 8 }
+      },
+      "additionalProperties": false
+    },
+    "sparkline": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 64,
+      "items": { "type": "number" }
+    },
+    "anchor": { "$ref": "../scene_schema.json#/definitions/anchor_string" },
+    "timing": { "$ref": "../scene_schema.json#/definitions/timing_name" },
+    "effect": {
+      "anyOf": [
+        { "$ref": "../scene_schema.json#/definitions/entrance_effect" }
+      ]
+    }
+  },
+  "additionalProperties": false
+}

@@ -55,6 +55,37 @@ _ANCHOR_PARAM_KEYS = ("anchor",)
 _ID_REF_PARAM_KEYS = ("target",)
 
 
+# --- per-action id extractors ------------------------------------------------
+#
+# Some components register additional child ids at runtime via
+# `BaseComponent.extra_id_registrations`. The validator needs to see these to
+# (a) include them in the duplicate-id check, and (b) treat them as valid
+# anchor targets. Each entry maps action name -> callable(params) -> list[id].
+# Entries here MUST stay in sync with the matching component's
+# `extra_id_registrations` implementation.
+
+def _ids_from_metric_group(params: dict) -> list[str]:
+    return [s["id"] for s in params.get("stats", []) if isinstance(s, dict) and s.get("id")]
+
+
+_ACTION_ID_EXTRACTORS: dict[str, callable] = {
+    "showMetricGroup": _ids_from_metric_group,
+}
+
+
+def _ids_declared_by(action: str, params: dict) -> list[str]:
+    """Return the full list of ids an event declares: its own id (if any) plus
+    any nested child ids from a registered extractor."""
+    out: list[str] = []
+    own = params.get("id")
+    if own:
+        out.append(own)
+    extractor = _ACTION_ID_EXTRACTORS.get(action)
+    if extractor:
+        out.extend(extractor(params))
+    return out
+
+
 def _load(path: Path) -> dict:
     with path.open() as f:
         return json.load(f)
@@ -185,8 +216,8 @@ def validate(scene: dict) -> tuple[bool, list[str]]:
                 f"[semantic-at] {ev_path}.at={at} exceeds scene.duration={duration}"
             )
         params = ev.get("params") or {}
-        ident = params.get("id")
-        if ident:
+        action = ev.get("action")
+        for ident in _ids_declared_by(action, params):
             if ident in seen_ids:
                 errors.append(f"[semantic-id] duplicate id {ident!r} at {ev_path}")
             seen_ids.add(ident)
@@ -240,10 +271,12 @@ def _validate_anchors(scene: dict) -> list[str]:
                     f"by any earlier event (known so far: {sorted(declared)})"
                 )
 
-        # Declare this event's id (if any) AFTER checking refs — so an event
-        # cannot anchor against itself.
-        ident = params.get("id")
-        if ident:
+        # Declare this event's id(s) AFTER checking refs — so an event cannot
+        # anchor against itself OR against ids it declares (e.g. a callout
+        # in the same MetricGroup event can't target a stat declared in the
+        # same params block).
+        action = ev.get("action")
+        for ident in _ids_declared_by(action, params):
             declared.add(ident)
 
     return errors

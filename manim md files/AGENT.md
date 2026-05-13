@@ -112,6 +112,10 @@ These are not style preferences. Breaking them breaks the pipeline.
 
 11. **Effects are EffectSpecs, not free-form callables.** Adding an entrance/emphasis/exit means appending an `EffectSpec(name, factory, required, optional)` to the relevant module's dict and adding the name to `scene_schema.json`'s effect enum. The `required`/`optional` fields drive schema generation and `_skill.md` autogen — `**kwargs`-only factories don't scale to 35 effects.
 
+12. **Components needing absolute coords use `position_finalized`, not `build()`.** `build()` runs at construction time when the component is at origin; `position_finalized(anchor, target, format)` runs after the scene runner moves the component to its slot/anchor and registers its id. Use it for leader lines (CalloutBox), connection lines, badges anchored to other components — anything whose geometry depends on where another mobject ended up.
+
+13. **Components exposing child ids implement `extra_id_registrations()` AND a matching id_extractor.** When a wrapper component (e.g. MetricGroup) declares ids on its children that should be addressable as anchor targets, it (a) returns `{child_id: child_mob}` from `extra_id_registrations()` so the scene runner can register them, AND (b) registers a function in `validator.py:_ACTION_ID_EXTRACTORS` so the validator's anchor-target and duplicate-id checks see those ids too. The two MUST stay in sync — runtime registration without validator visibility lets bad scenes pass validation; validator visibility without runtime registration lets valid scenes fail at render.
+
 ---
 
 ## The data flow, in detail
@@ -135,13 +139,18 @@ pipeline/render.py
                        │
                        ├── construct():
                        │     ├── resolve layout (manim_renderer/layouts/)
-                       │     ├── sort timeline by "at"
+                       │     ├── collect events (slots + overlays + timeline)
+                       │     ├── sort by (at, phase) — slots fire before overlays before timeline
                        │     ├── for each event:
-                       │     │     ├── lookup action in REGISTRY
-                       │     │     ├── instantiate/lookup component
-                       │     │     ├── resolve anchors + sizes
-                       │     │     ├── pick entrance effect from effects/
-                       │     │     └── self.play(animation, run_time=TIMING[...])
+                       │     │     ├── action in COMPONENT_REGISTRY?
+                       │     │     │     ├── instantiate component
+                       │     │     │     ├── slot.move_to() OR resolve_anchor → move_to
+                       │     │     │     ├── register own id + child ids (extra_id_registrations)
+                       │     │     │     ├── component.position_finalized(anchor, target, format)
+                       │     │     │     └── component.entrance(effect, timing) → self.play(...)
+                       │     │     └── action in ACTION_REGISTRY?
+                       │     │           ├── build ActionContext(params, id_to_mobject, format, scene)
+                       │     │           └── callable(ctx) → Animation | None → self.play(...)
                        │     └── wait for inter-event gaps
                        │
                        ▼

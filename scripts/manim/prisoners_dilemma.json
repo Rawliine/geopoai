@@ -1,0 +1,115 @@
+{
+  "renderer": "manim",
+  "format": "horizontal",
+  "quality": "preview",
+  "scene": {
+    "layout": "data-left",
+    "duration": 18,
+    "theme": "dark"
+  },
+  "slots": {
+    "data": {
+      "at": 0.0,
+      "action": "showMetricGroup",
+      "params": {
+        "id": "kpis",
+        "orientation": "column",
+        "spacing": 0.4,
+        "color_scheme": "actors",
+        "size": "small",
+        "effect": "staggered",
+        "stagger": "normal",
+        "child_effect": "count-up",
+        "timing": "normal",
+        "stats": [
+          {
+            "id": "k-cooperate",
+            "value": 28.4,
+            "label": "Cooperate rate",
+            "value_format": "decimal",
+            "decimals": 1,
+            "unit": "%",
+            "trend": { "delta": -8.2, "direction": "down", "unit": "%" },
+            "sparkline": [62, 55, 48, 42, 35, 31, 28]
+          },
+          {
+            "id": "k-defect",
+            "value": 71.6,
+            "label": "Defect rate",
+            "value_format": "decimal",
+            "decimals": 1,
+            "unit": "%",
+            "trend": { "delta": 8.2, "direction": "up", "unit": "%" },
+            "sparkline": [38, 45, 52, 58, 65, 69, 72]
+          },
+          {
+            "id": "k-payoff",
+            "value": 1200000,
+            "label": "Mutual loss",
+            "value_format": "currency",
+            "symbol": "$",
+            "suffix": "auto",
+            "trend": { "delta": 240000, "direction": "up", "unit": "/yr" },
+            "sparkline": [400, 520, 640, 760, 900, 1050, 1200]
+          }
+        ]
+      }
+    },
+    "body": {
+      "at": 0.0,
+      "action": "showTextCard",
+      "params": {
+        "id": "title",
+        "text": "Prisoner's Dilemma",
+        "size": "title",
+        "timing": "slow",
+        "effect": "fade-in"
+      }
+    }
+  },
+  "overlays": [
+    {
+      "at": 4.5,
+      "action": "showCalloutBox",
+      "params": {
+        "id": "callout-defect",
+        "text": "Defection dominates: each player's best response erodes cooperation.",
+        "anchor": "right-of:k-defect",
+        "width": 4.5,
+        "timing": "normal",
+        "effect": "fade-in"
+      }
+    },
+    {
+      "at": 10.0,
+      "action": "showCalloutBox",
+      "params": {
+        "id": "callout-cost",
+        "text": "Mutual defection is a Nash equilibrium — and a Pareto-inferior one.",
+        "anchor": "right-of:k-payoff",
+        "width": 4.5,
+        "timing": "normal",
+        "effect": "fade-in"
+      }
+    },
+    {
+      "at": 15.5,
+      "action": "removeComponent",
+      "params": {
+        "target": "callout-defect",
+        "effect": "fade-out",
+        "timing": "fast"
+      }
+    },
+    {
+      "at": 16.0,
+      "action": "removeComponent",
+      "params": {
+        "target": "callout-cost",
+        "effect": "fade-out",
+        "timing": "fast"
+      }
+    }
+  ],
+  "timeline": []
+}

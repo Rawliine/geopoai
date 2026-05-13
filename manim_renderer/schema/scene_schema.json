@@ -78,6 +78,21 @@
     "exit_effect": {
       "enum": ["fade-out", "dissolve"]
     },
+    "value_format": {
+      "enum": [
+        "int", "decimal", "pct", "k", "m",
+        "currency", "signed", "duration", "ratio", "scientific"
+      ],
+      "description": "Numeric display format. See manim_renderer/components/data_viz/_value_format.py."
+    },
+    "color_role": {
+      "enum": [
+        "actor_a", "actor_b", "actor_c", "actor_d", "actor_e",
+        "positive", "negative", "neutral", "highlight", "contested",
+        "text_primary", "text_secondary", "text_accent", "border", "surface"
+      ],
+      "description": "Palette key. Resolved against ACTORS+SEMANTIC+UI in theme/palette.py."
+    },
     "layout_name": {
       "enum": [
         "hero",

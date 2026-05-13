@@ -23,6 +23,7 @@ from manim import (
     UP,
 )
 
+from manim_renderer.effects._animations import CountUpAnimation
 from manim_renderer.effects._spec import EffectSpec
 from manim_renderer.theme.timing import TIMING
 
@@ -82,20 +83,19 @@ def _level_by_level(m, *, run_time, lag=0.15, **_):
 def _count_up(m, *, run_time, target_value, start_value=0, **_):
     """Numeric count-up.
 
-    Components hosting count-up must expose `value_mobject` — the DecimalNumber
-    (or similar object with `set_value` + `.animate`) that holds the displayed
-    number. The effect updates that child, not the host VGroup.
+    Components hosting count-up must implement `set_value(value: float)` on
+    themselves OR expose `value_mobject` whose `set_value` accepts the value.
+    The animation calls `set_value` once per frame with the interpolated value;
+    the implementation chooses how to redraw (text replacement, decimal update,
+    bar height, etc.).
     """
     target = getattr(m, "value_mobject", m)
-    if not hasattr(target, "set_value") or not hasattr(target, "animate"):
-        raise TypeError(
-            f"count-up requires a mobject (or .value_mobject) with set_value and "
-            f".animate; got {type(target).__name__}"
-        )
-    target.set_value(start_value)
-    anim = target.animate.set_value(target_value).build()
-    anim.run_time = run_time
-    return anim
+    return CountUpAnimation(
+        target,
+        start_value=start_value,
+        target_value=target_value,
+        run_time=run_time,
+    )
 
 
 # --- registry ----------------------------------------------------------------
