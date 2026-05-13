@@ -49,11 +49,17 @@ class CountUpAnimation(Animation):
         self.start_value = float(start_value)
         self.target_value = float(target_value)
 
+    def interpolate_mobject(self, alpha: float) -> None:
+        # Manim's base interpolate_mobject iterates submobjects and calls
+        # interpolate_submobject — that path can't re-render a numeric text
+        # display. Override to drive the host's set_value(v) directly each
+        # frame. When overriding interpolate_mobject (not the per-submobject
+        # template), the Manim docs require manually applying rate_func.
+        eased = self.rate_func(alpha)
+        current = self.start_value + (self.target_value - self.start_value) * eased
+        self.mobject.set_value(current)
+
 
 def _class_defines(cls: type, name: str) -> bool:
     """True if `name` is defined directly anywhere in `cls`'s MRO."""
     return any(name in c.__dict__ for c in cls.__mro__)
-
-    def interpolate_mobject(self, alpha: float) -> None:
-        current = self.start_value + (self.target_value - self.start_value) * alpha
-        self.mobject.set_value(current)

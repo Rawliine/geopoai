@@ -28,9 +28,9 @@ def test_no_target_no_scaling():
 def test_fits_when_text_already_within_target():
     """Short text in a wide slot → not scaled."""
     natural = auto_fit_text("hi", font=FONTS["primary"], font_size=48,
-                             color="#fff", target_width=None)
+                             color="#ffffff", target_width=None)
     fitted = auto_fit_text("hi", font=FONTS["primary"], font_size=48,
-                            color="#fff", target_width=10.0)
+                            color="#ffffff", target_width=10.0)
     # Same text, wide slot → identical width
     assert abs(natural.width - fitted.width) < 1e-6
 
@@ -43,11 +43,11 @@ def test_scales_down_when_too_wide_and_target_reachable():
     """
     natural = auto_fit_text(
         "Wide but reachable",
-        font=FONTS["primary"], font_size=84, color="#fff", target_width=None,
+        font=FONTS["primary"], font_size=84, color="#ffffff", target_width=None,
     )
     fitted = auto_fit_text(
         "Wide but reachable",
-        font=FONTS["primary"], font_size=84, color="#fff",
+        font=FONTS["primary"], font_size=84, color="#ffffff",
         target_width=natural.width * 0.6,
     )
     # Confirm scaling happened
@@ -61,11 +61,11 @@ def test_min_scale_floor_clamps_extreme_targets():
     """An impossibly narrow target hits the min_scale floor and stops shrinking."""
     natural = auto_fit_text(
         "Lorem ipsum dolor sit amet" * 5,
-        font=FONTS["primary"], font_size=84, color="#fff", target_width=None,
+        font=FONTS["primary"], font_size=84, color="#ffffff", target_width=None,
     )
     fitted = auto_fit_text(
         "Lorem ipsum dolor sit amet" * 5,
-        font=FONTS["primary"], font_size=84, color="#fff",
+        font=FONTS["primary"], font_size=84, color="#ffffff",
         target_width=0.5,  # impossibly narrow
         min_scale=0.4,
     )
@@ -78,12 +78,12 @@ def test_height_constraint_triggers_scaling():
     """target_height also triggers scaling when it would shrink more than width."""
     natural = auto_fit_text(
         "TallText",
-        font=FONTS["primary"], font_size=120, color="#fff",
+        font=FONTS["primary"], font_size=120, color="#ffffff",
         target_width=None,
     )
     fitted = auto_fit_text(
         "TallText",
-        font=FONTS["primary"], font_size=120, color="#fff",
+        font=FONTS["primary"], font_size=120, color="#ffffff",
         target_width=None,
         target_height=natural.height * 0.5,
     )
@@ -95,13 +95,13 @@ def test_width_and_height_both_apply_smaller_scale_wins():
     """When both axes would scale, the smaller scale factor wins."""
     natural = auto_fit_text(
         "Wide and tall text",
-        font=FONTS["primary"], font_size=84, color="#fff", target_width=None,
+        font=FONTS["primary"], font_size=84, color="#ffffff", target_width=None,
     )
     # Pick targets that demand DIFFERENT scales; the smaller one should win.
     # width target needs scale ~0.7; height target needs scale ~0.4.
     fitted = auto_fit_text(
         "Wide and tall text",
-        font=FONTS["primary"], font_size=84, color="#fff",
+        font=FONTS["primary"], font_size=84, color="#ffffff",
         target_width=natural.width * 0.7,
         target_height=natural.height * 0.4,
     )

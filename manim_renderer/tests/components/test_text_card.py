@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 
+@pytest.mark.render
 def test_text_card_renders_horizontal(tmp_path):
     from pipeline.render_manim import render_manim_sync
 
