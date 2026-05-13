@@ -37,6 +37,21 @@ _VERTICAL_FLIP = {
     "left-of": "above",
 }
 
+# Unit-vector for each token (None for `inside`, which overlays at center).
+# Used by `place_at_anchor` to drive Manim's next_to.
+_ANCHOR_DIRECTION = {
+    "above":    np.array([0.0,  1.0, 0.0]),
+    "below":    np.array([0.0, -1.0, 0.0]),
+    "left-of":  np.array([-1.0, 0.0, 0.0]),
+    "right-of": np.array([1.0,  0.0, 0.0]),
+    "inside":   None,
+}
+
+# Default gap between an anchored component and its target. Small enough that
+# the components feel related, large enough that any leader line drawn between
+# them (e.g. CalloutBox's arrow) is visibly outside both bounding boxes.
+DEFAULT_ANCHOR_BUFF = 0.5
+
 
 def parse_anchor(anchor: str) -> tuple[str, str]:
     """Split `'<token>:<id>'` -> `(token, id)`. Raises ValueError on bad input."""
@@ -104,3 +119,36 @@ def resolve_anchor(
         return edge + np.array([-padding, 0.0, 0.0])
     # Defense in depth — parse_anchor should have caught this.
     raise ValueError(f"anchor token {token!r} unhandled (after format flip)")
+
+
+def place_at_anchor(
+    component,
+    target,
+    anchor: str,
+    format: str,
+    *,
+    buff: float = DEFAULT_ANCHOR_BUFF,
+    strict_axis: bool = False,
+) -> None:
+    """Position `component` adjacent to `target` per the anchor token, using
+    Manim's `next_to` so the appropriate edge of `component` sits at `buff`
+    units from the matching edge of `target` — no overlap.
+
+    Use this in the scene runner instead of `resolve_anchor + move_to`. The
+    coord-returning `resolve_anchor` is kept for callers that need a literal
+    point (e.g. drawing a line endpoint), not for placing a sized component.
+
+    For `inside:`, places `component` at `target`'s center (overlay).
+
+    In vertical format, lateral tokens (`right-of`, `left-of`) auto-flip to
+    `below`/`above`, mirroring `resolve_anchor`. Pass `strict_axis=True` to
+    disable.
+    """
+    token, _ = parse_anchor(anchor)
+    if format == "vertical" and not strict_axis:
+        token = _VERTICAL_FLIP.get(token, token)
+    direction = _ANCHOR_DIRECTION[token]
+    if direction is None:
+        component.move_to(target.get_center())
+    else:
+        component.next_to(target, direction, buff=buff)

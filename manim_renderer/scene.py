@@ -23,7 +23,7 @@ from manim import MovingCameraScene
 from manim_renderer.actions import ActionContext
 from manim_renderer.layouts.resolver import resolve_layout
 from manim_renderer.registry import ACTION_REGISTRY, COMPONENT_REGISTRY
-from manim_renderer.resolvers.anchor import parse_anchor, resolve_anchor
+from manim_renderer.resolvers.anchor import parse_anchor, place_at_anchor
 
 # Phase ordering for sort tiebreaks at the same `at`.
 _PHASE_SLOT = 0
@@ -93,21 +93,38 @@ class JSONScene(MovingCameraScene):
         # different things in different schemas (typography role for TextCard,
         # resolve_size role for charts).
 
+        # Slot-bounds hint: when a component is placed in a slot, expose the
+        # slot's (width, height) so text-bearing components can auto-fit. Pass
+        # via params with a leading-underscore key to mark it as internal
+        # (validator runs before this; it never sees `_slot_bounds`).
+        slot_rect = self._layout.slot(slot_name) if slot_name is not None else None
+        if slot_rect is not None:
+            params = {**params, "_slot_bounds": (slot_rect.width, slot_rect.height)}
+
         component = ComponentCls(params, format=fmt)
 
         # Position: slot wins if both slot and anchor are present (slots are the
         # primary composition layer; anchors are for overlays). Anchor only
         # applies when slot_name is None.
+        #
+        # For anchored placement we use `place_at_anchor` (next_to-based) so the
+        # component's edge sits at the target's edge with a clean buff gap —
+        # NOT `resolve_anchor + move_to`, which centers the component at the
+        # target edge and causes overlap (the component extends half its size
+        # back into the target).
         anchor = params.get("anchor")
         anchor_target = None
-        if slot_name is not None:
-            rect = self._layout.slot(slot_name)
-            component.move_to(rect.center)
+        if slot_rect is not None:
+            component.move_to(slot_rect.center)
         elif anchor:
-            coord = resolve_anchor(anchor, self._id_to_mobject, fmt)
-            component.move_to(coord)
             _, target_id = parse_anchor(anchor)
             anchor_target = self._id_to_mobject.get(target_id)
+            if anchor_target is None:
+                raise ValueError(
+                    f"anchor {anchor!r}: target id {target_id!r} not in "
+                    f"registry (validator should have caught this)"
+                )
+            place_at_anchor(component, anchor_target, anchor, fmt)
 
         # Defense in depth: validator already rejects duplicate ids. Assert here
         # so a bypass during dev fails loudly rather than silently overwriting.

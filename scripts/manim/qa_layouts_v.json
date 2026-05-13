@@ -1,0 +1,29 @@
+{
+  "renderer": "manim",
+  "format": "vertical",
+  "quality": "preview",
+  "scene": {
+    "layout": "trio-stack",
+    "duration": 4,
+    "theme": "dark"
+  },
+  "slots": {
+    "A": {
+      "at": 0.0,
+      "action": "showTextCard",
+      "params": { "id": "tc-a", "text": "Slot A (top)", "size": "body", "timing": "fast", "effect": "fade-in" }
+    },
+    "B": {
+      "at": 0.0,
+      "action": "showTextCard",
+      "params": { "id": "tc-b", "text": "Slot B (middle)", "size": "body", "timing": "fast", "effect": "fade-in" }
+    },
+    "C": {
+      "at": 0.0,
+      "action": "showTextCard",
+      "params": { "id": "tc-c", "text": "Slot C (bottom)", "size": "body", "timing": "fast", "effect": "fade-in" }
+    }
+  },
+  "overlays": [],
+  "timeline": []
+}

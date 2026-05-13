@@ -3,29 +3,40 @@
   "format": "horizontal",
   "quality": "preview",
   "scene": {
-    "layout": "data-left",
+    "layout": "title-body",
     "duration": 18,
     "theme": "dark"
   },
   "slots": {
-    "data": {
+    "title": {
       "at": 0.0,
+      "action": "showTextCard",
+      "params": {
+        "id": "title",
+        "text": "Prisoner's Dilemma",
+        "size": "title",
+        "timing": "slow",
+        "effect": "fade-in"
+      }
+    },
+    "body": {
+      "at": 0.5,
       "action": "showMetricGroup",
       "params": {
         "id": "kpis",
-        "orientation": "column",
-        "spacing": 0.4,
+        "orientation": "row",
+        "spacing": 0.8,
         "color_scheme": "actors",
-        "size": "small",
+        "size": "medium",
         "effect": "staggered",
         "stagger": "normal",
         "child_effect": "count-up",
-        "timing": "normal",
+        "timing": "slow",
         "stats": [
           {
             "id": "k-cooperate",
             "value": 28.4,
-            "label": "Cooperate rate",
+            "label": "Cooperate",
             "value_format": "decimal",
             "decimals": 1,
             "unit": "%",
@@ -35,7 +46,7 @@
           {
             "id": "k-defect",
             "value": 71.6,
-            "label": "Defect rate",
+            "label": "Defect",
             "value_format": "decimal",
             "decimals": 1,
             "unit": "%",
@@ -54,28 +65,17 @@
           }
         ]
       }
-    },
-    "body": {
-      "at": 0.0,
-      "action": "showTextCard",
-      "params": {
-        "id": "title",
-        "text": "Prisoner's Dilemma",
-        "size": "title",
-        "timing": "slow",
-        "effect": "fade-in"
-      }
     }
   },
   "overlays": [
     {
-      "at": 4.5,
+      "at": 5.0,
       "action": "showCalloutBox",
       "params": {
         "id": "callout-defect",
         "text": "Defection dominates: each player's best response erodes cooperation.",
-        "anchor": "right-of:k-defect",
-        "width": 4.5,
+        "anchor": "below:k-cooperate",
+        "width": 3.6,
         "timing": "normal",
         "effect": "fade-in"
       }
@@ -85,9 +85,9 @@
       "action": "showCalloutBox",
       "params": {
         "id": "callout-cost",
-        "text": "Mutual defection is a Nash equilibrium — and a Pareto-inferior one.",
-        "anchor": "right-of:k-payoff",
-        "width": 4.5,
+        "text": "Mutual defection is a Pareto-inferior Nash equilibrium.",
+        "anchor": "below:k-payoff",
+        "width": 3.6,
         "timing": "normal",
         "effect": "fade-in"
       }
@@ -95,20 +95,12 @@
     {
       "at": 15.5,
       "action": "removeComponent",
-      "params": {
-        "target": "callout-defect",
-        "effect": "fade-out",
-        "timing": "fast"
-      }
+      "params": { "target": "callout-defect", "effect": "fade-out", "timing": "fast" }
     },
     {
       "at": 16.0,
       "action": "removeComponent",
-      "params": {
-        "target": "callout-cost",
-        "effect": "fade-out",
-        "timing": "fast"
-      }
+      "params": { "target": "callout-cost", "effect": "fade-out", "timing": "fast" }
     }
   ],
   "timeline": []

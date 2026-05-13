@@ -3,51 +3,12 @@
   "format": "vertical",
   "quality": "preview",
   "scene": {
-    "layout": "data-top",
+    "layout": "title-body",
     "duration": 18,
     "theme": "dark"
   },
   "slots": {
-    "data": {
-      "at": 0.0,
-      "action": "showMetricGroup",
-      "params": {
-        "id": "kpis",
-        "orientation": "row",
-        "spacing": 0.4,
-        "color_scheme": "actors",
-        "size": "small",
-        "effect": "staggered",
-        "stagger": "normal",
-        "child_effect": "count-up",
-        "timing": "normal",
-        "stats": [
-          {
-            "id": "k-cooperate",
-            "value": 28.4,
-            "label": "Coop %",
-            "value_format": "decimal",
-            "decimals": 1
-          },
-          {
-            "id": "k-defect",
-            "value": 71.6,
-            "label": "Defect %",
-            "value_format": "decimal",
-            "decimals": 1
-          },
-          {
-            "id": "k-payoff",
-            "value": 1200000,
-            "label": "Loss",
-            "value_format": "currency",
-            "symbol": "$",
-            "suffix": "auto"
-          }
-        ]
-      }
-    },
-    "body": {
+    "title": {
       "at": 0.0,
       "action": "showTextCard",
       "params": {
@@ -57,42 +18,83 @@
         "timing": "slow",
         "effect": "fade-in"
       }
+    },
+    "body": {
+      "at": 0.5,
+      "action": "showMetricGroup",
+      "params": {
+        "id": "kpis",
+        "orientation": "column",
+        "spacing": 0.6,
+        "color_scheme": "actors",
+        "size": "medium",
+        "effect": "staggered",
+        "stagger": "normal",
+        "child_effect": "count-up",
+        "timing": "slow",
+        "stats": [
+          {
+            "id": "k-cooperate",
+            "value": 28.4,
+            "label": "Cooperate",
+            "value_format": "decimal",
+            "decimals": 1,
+            "unit": "%"
+          },
+          {
+            "id": "k-defect",
+            "value": 71.6,
+            "label": "Defect",
+            "value_format": "decimal",
+            "decimals": 1,
+            "unit": "%"
+          },
+          {
+            "id": "k-payoff",
+            "value": 1200000,
+            "label": "Mutual loss",
+            "value_format": "currency",
+            "symbol": "$",
+            "suffix": "auto"
+          }
+        ]
+      }
     }
   },
   "overlays": [
     {
-      "at": 4.5,
+      "at": 6.5,
       "action": "showCalloutBox",
       "params": {
         "id": "callout-1",
-        "text": "Defection dominates: best responses erode cooperation.",
-        "anchor": "below:k-defect",
+        "text": "Defection dominates — best responses erode cooperation.",
+        "anchor": "below:k-payoff",
         "width": 5.0,
         "timing": "normal",
         "effect": "fade-in"
       }
     },
     {
-      "at": 10.0,
+      "at": 11.0,
+      "action": "removeComponent",
+      "params": { "target": "callout-1", "effect": "fade-out", "timing": "fast" }
+    },
+    {
+      "at": 11.5,
       "action": "showCalloutBox",
       "params": {
         "id": "callout-2",
-        "text": "Mutual defection is a Pareto-inferior Nash equilibrium.",
-        "anchor": "above:k-payoff",
+        "text": "Result: a Pareto-inferior Nash equilibrium.",
+        "anchor": "below:k-payoff",
         "width": 5.0,
         "timing": "normal",
         "effect": "fade-in"
       }
-    },
-    {
-      "at": 15.5,
-      "action": "removeComponent",
-      "params": { "target": "callout-1", "effect": "fade-out" }
     },
     {
       "at": 16.0,
       "action": "removeComponent",
-      "params": { "target": "callout-2", "effect": "fade-out" }
+      "params": { "target": "callout-2", "effect": "fade-out", "timing": "fast" }
     }
   ],
   "timeline": []

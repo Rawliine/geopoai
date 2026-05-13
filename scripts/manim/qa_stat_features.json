@@ -1,0 +1,34 @@
+{
+  "renderer": "manim",
+  "format": "horizontal",
+  "quality": "preview",
+  "scene": {
+    "layout": "hero",
+    "duration": 6,
+    "theme": "dark"
+  },
+  "slots": {
+    "main": {
+      "at": 0.0,
+      "action": "showStatBlock",
+      "params": {
+        "id": "demo-stat",
+        "value": 42500,
+        "label": "Annual cost",
+        "value_format": "currency",
+        "symbol": "$",
+        "suffix": "auto",
+        "decimals": 1,
+        "unit": "/yr",
+        "color": "actor_a",
+        "size": "large",
+        "trend": { "delta": 12.3, "direction": "up", "unit": "%", "color": "negative" },
+        "sparkline": [10, 12, 16, 19, 24, 31, 42],
+        "timing": "dramatic",
+        "effect": "count-up"
+      }
+    }
+  },
+  "overlays": [],
+  "timeline": []
+}
