@@ -1,10 +1,15 @@
-"""Three-tier scene validator: structural, action-level, semantic.
+"""Four-tier scene validator: structural, action-level, semantic, anchor.
 
-Tiers (recap §15):
+Tiers:
   1. Structural   — jsonschema against scene_schema.json
-  2. Action-level — jsonschema against schema/action_schemas/<snake_action>.json
-  3. Semantic    — layout/slot resolution, at <= duration, unique ids,
-                    coordinate-key ban (AGENT.md rule 1)
+  1b. Coords-banned — AGENT.md rule 1: x/y/position/coords keys forbidden anywhere
+  2. Action-level — jsonschema against schema/action_schemas/<snake_action>.json,
+                    with $ref resolution into scene_schema.json's definitions block
+  3. Semantic     — layout/slot resolution, format/layout compatibility, at <= duration,
+                    unique ids
+  4. Anchors      — every `params.anchor` (or `params.target` for actions) references
+                    an id declared by a strictly-earlier event in (at, phase) order
+                    matching the scene runner's traversal
 """
 
 from __future__ import annotations
@@ -15,13 +20,35 @@ from pathlib import Path
 from typing import Iterable
 
 import jsonschema
+import referencing
+import referencing.jsonschema
 
-from manim_renderer.layouts.resolver import available_layouts, resolve_layout
+from manim_renderer.layouts.resolver import resolve_layout
+from manim_renderer.resolvers.anchor import parse_anchor
 
 _SCHEMA_DIR = Path(__file__).parent
 _ACTION_DIR = _SCHEMA_DIR / "action_schemas"
 
 _BANNED_COORD_KEYS = {"x", "y", "position", "coords", "coordinate", "coordinates"}
+
+# Format/layout compatibility — single source of truth used by both validator
+# and tests. Add new layouts here AND in layouts/{horizontal,vertical}.py.
+LAYOUT_FORMATS: dict[str, set[str]] = {
+    "hero": {"horizontal", "vertical"},
+    # Phase 1 PR 1.1 will append: split (horizontal), stacked (vertical),
+    # data-left (horizontal), data-top (vertical), trio (horizontal),
+    # trio-stack (vertical), title-body (both).
+}
+
+# Match the scene runner's _PHASE_* constants exactly.
+_PHASE_SLOT = 0
+_PHASE_OVERLAY = 1
+_PHASE_TIMELINE = 2
+
+# Param keys that hold an anchor string (as opposed to a bare id).
+_ANCHOR_PARAM_KEYS = ("anchor",)
+# Param keys that hold a bare id reference to an existing component.
+_ID_REF_PARAM_KEYS = ("target",)
 
 
 def _load(path: Path) -> dict:
@@ -44,14 +71,25 @@ def _action_schema(action: str) -> dict | None:
     return _load(path)
 
 
-def _iter_events(scene: dict) -> Iterable[tuple[str, dict, str | None]]:
-    """Yields (json_path, event, slot_name_or_None)."""
+def _make_registry() -> referencing.Registry:
+    """Registry that resolves ../scene_schema.json refs from action schemas."""
+    scene = referencing.Resource.from_contents(_scene_schema())
+    # Action schemas use "../scene_schema.json#/definitions/..." — register
+    # under that exact relative URI plus the bare filename for both styles.
+    return referencing.Registry().with_resources([
+        ("../scene_schema.json", scene),
+        ("scene_schema.json", scene),
+    ])
+
+
+def _iter_events(scene: dict) -> Iterable[tuple[str, dict, str | None, int]]:
+    """Yields (json_path, event, slot_name_or_None, phase)."""
     for slot_name, ev in (scene.get("slots") or {}).items():
-        yield f"slots.{slot_name}", ev, slot_name
+        yield f"slots.{slot_name}", ev, slot_name, _PHASE_SLOT
     for i, ev in enumerate(scene.get("overlays") or []):
-        yield f"overlays[{i}]", ev, None
+        yield f"overlays[{i}]", ev, None, _PHASE_OVERLAY
     for i, ev in enumerate(scene.get("timeline") or []):
-        yield f"timeline[{i}]", ev, None
+        yield f"timeline[{i}]", ev, None, _PHASE_TIMELINE
 
 
 def _walk(obj, path="$"):
@@ -83,8 +121,9 @@ def validate(scene: dict) -> tuple[bool, list[str]]:
                 "use slots or anchors (e.g. 'below:id')"
             )
 
-    # Tier 2: per-action params
-    for ev_path, ev, _slot in _iter_events(scene):
+    # Tier 2: per-action params (with $ref resolution into scene_schema.json)
+    registry = _make_registry()
+    for ev_path, ev, _slot, _phase in _iter_events(scene):
         if not isinstance(ev, dict):
             continue
         action = ev.get("action")
@@ -95,7 +134,9 @@ def validate(scene: dict) -> tuple[bool, list[str]]:
             errors.append(f"[action-unknown] {ev_path}.action: {action!r} has no schema")
             continue
         try:
-            jsonschema.validate(ev.get("params") or {}, a_schema)
+            jsonschema.Draft7Validator(a_schema, registry=registry).validate(
+                ev.get("params") or {}
+            )
         except jsonschema.ValidationError as e:
             relpath = "/".join(str(p) for p in e.absolute_path) or ""
             errors.append(f"[action-params] {ev_path}.params/{relpath}: {e.message}")
@@ -113,6 +154,14 @@ def validate(scene: dict) -> tuple[bool, list[str]]:
         except ValueError as e:
             errors.append(f"[layout-unknown] scene.layout: {e}")
 
+        # Format/layout compatibility check (separate from "layout exists")
+        compat = LAYOUT_FORMATS.get(layout_name)
+        if compat is not None and fmt not in compat:
+            errors.append(
+                f"[layout-format] scene.layout={layout_name!r} does not support "
+                f"format={fmt!r}; supported: {sorted(compat)}"
+            )
+
     if layout is not None:
         for slot_name in (scene.get("slots") or {}).keys():
             if not layout.has_slot(slot_name):
@@ -123,7 +172,7 @@ def validate(scene: dict) -> tuple[bool, list[str]]:
                 )
 
     seen_ids: set[str] = set()
-    for ev_path, ev, _slot in _iter_events(scene):
+    for ev_path, ev, _slot, _phase in _iter_events(scene):
         if not isinstance(ev, dict):
             continue
         at = float(ev.get("at", 0.0))
@@ -138,7 +187,62 @@ def validate(scene: dict) -> tuple[bool, list[str]]:
                 errors.append(f"[semantic-id] duplicate id {ident!r} at {ev_path}")
             seen_ids.add(ident)
 
+    # Tier 4: anchors
+    errors.extend(_validate_anchors(scene))
+
     return (len(errors) == 0, errors)
+
+
+def _validate_anchors(scene: dict) -> list[str]:
+    """Every anchor target (or id-ref param) must reference an id declared by an
+    earlier event under the runner's (at, phase) ordering."""
+    errors: list[str] = []
+    sorted_events = sorted(
+        _iter_events(scene),
+        key=lambda t: (float(t[1].get("at", 0.0)), t[3]),
+    )
+
+    declared: set[str] = set()
+    for ev_path, ev, _slot, _phase in sorted_events:
+        if not isinstance(ev, dict):
+            continue
+        params = ev.get("params") or {}
+
+        # Check anchor-shaped refs
+        for key in _ANCHOR_PARAM_KEYS:
+            anchor = params.get(key)
+            if not isinstance(anchor, str):
+                continue
+            try:
+                _token, ref_id = parse_anchor(anchor)
+            except ValueError as e:
+                errors.append(f"[anchor-shape] {ev_path}.params.{key}: {e}")
+                continue
+            if ref_id not in declared:
+                errors.append(
+                    f"[anchor-target] {ev_path}.params.{key}={anchor!r}: "
+                    f"id {ref_id!r} not declared by any earlier event "
+                    f"(known so far: {sorted(declared)})"
+                )
+
+        # Check bare id-ref params (target on actions like removeComponent)
+        for key in _ID_REF_PARAM_KEYS:
+            ref_id = params.get(key)
+            if not isinstance(ref_id, str):
+                continue
+            if ref_id not in declared:
+                errors.append(
+                    f"[id-ref] {ev_path}.params.{key}={ref_id!r}: id not declared "
+                    f"by any earlier event (known so far: {sorted(declared)})"
+                )
+
+        # Declare this event's id (if any) AFTER checking refs — so an event
+        # cannot anchor against itself.
+        ident = params.get("id")
+        if ident:
+            declared.add(ident)
+
+    return errors
 
 
 def _cli():

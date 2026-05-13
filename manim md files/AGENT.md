@@ -98,13 +98,19 @@ These are not style preferences. Breaking them breaks the pipeline.
 
 4. **One component per file.** `payoff_matrix.py` defines exactly one component. Helpers go in private functions inside the same file unless they're reused.
 
-5. **Every new component:** inherits `BaseComponent`, registers in `REGISTRY`, gets a schema in `schema/action_schemas/`, gets a test in `tests/components/`. No exceptions. The LLM authoring layer relies on schema coverage being complete.
+5. **Every new component:** inherits `BaseComponent`, registers in `COMPONENT_REGISTRY`, gets a schema in `schema/action_schemas/`, gets a test in `tests/components/`, and gets an entry in `scripts/manim/_skill.md`. No exceptions. The LLM authoring layer relies on schema coverage being complete.
 
 6. **Manim Community Edition only.** No ManimGL imports. Pinned in `requirements.txt`.
 
-7. **Format-awareness is mandatory.** Every component must render correctly in both horizontal (`16:9`, 1920×1080) and vertical (`9:16`, 1080×1920). Use the `format` flag passed at init.
+7. **Format-awareness is mandatory.** Every component must render correctly in both horizontal (`16:9`, 1920×1080) and vertical (`9:16`, 1080×1920). Use the `format` flag passed at init. Components stay format-agnostic; resolvers (`resolve_size`, `resolve_anchor`) absorb format differences.
 
 8. **Do not modify the Mapbox engine** (`renderer/`, `pipeline/render_scene.py`, `config/`) while building Manim. It is complete and shipping. Touch it only for the shared dispatcher and for color-palette synchronization.
+
+9. **Anchor coords sample at call time.** When an anchored event fires, `resolve_anchor` reads the target's *current* state — not its post-animation state. If the target is mid-animation, the anchor sees the in-flight position. Don't anchor against actively-moving targets.
+
+10. **Two registries, two dispatch paths.** `COMPONENT_REGISTRY` instantiates new mobjects (the `showXxx` family). `ACTION_REGISTRY` mutates or removes existing ones (the `removeComponent`, `highlight*`, `crossOut`, future `cameraXxx` family). Mutations never instantiate; they take an `ActionContext` and return `Animation | None`. Don't bury mutation logic inside a component class.
+
+11. **Effects are EffectSpecs, not free-form callables.** Adding an entrance/emphasis/exit means appending an `EffectSpec(name, factory, required, optional)` to the relevant module's dict and adding the name to `scene_schema.json`'s effect enum. The `required`/`optional` fields drive schema generation and `_skill.md` autogen — `**kwargs`-only factories don't scale to 35 effects.
 
 ---
 
@@ -151,12 +157,12 @@ pipeline/render.py
 
 1. Pick a category subdir (`game_theory`, `data_viz`, `systems`, `narrative`, `geopolitical`).
 2. Create `<snake_case_name>.py`.
-3. Subclass `BaseComponent`. Implement `build()`, `entrance(effect, timing)`, `exit(effect)`, `get_anchor(name)`, `measure()`.
-4. Read sizes from `theme.typography` and `resolvers.size` — never hardcode pixel or unit values.
-5. Register in `manim_renderer/registry.py`: `"showFooBar": FooBar`.
-6. Create `manim_renderer/schema/action_schemas/show_foo_bar.json` with full param schema.
-7. Create `manim_renderer/tests/components/test_foo_bar.py` — minimum: one valid render at `-ql`.
-8. Add a 1–2 line entry to `scripts/manim/_skill.md` describing the action for the LLM.
+3. Subclass `BaseComponent`. Implement `build()`. Override `entrance(effect, timing, **extra)` and `exit(effect, timing, **extra)` ONLY for bespoke behavior — the base class already dispatches to `effects.entrances.get_entrance` / `effects.exits.get_exit`. Add `_get_anchor_<token>(arg)` methods for any custom anchors (the standard 9 — `top`/`bottom`/`left`/`right`/`center`/4 corners — come from the base).
+4. Read sizes from `theme.typography` and `resolvers.size` — never hardcode pixel or unit values. If your component takes a `size` param, the runner passes resolved dims as `params["_resolved_size"]`.
+5. Register in `manim_renderer/registry.py:COMPONENT_REGISTRY`: `"showFooBar": FooBar`.
+6. Create `manim_renderer/schema/action_schemas/show_foo_bar.json` with full param schema. Use `$ref` into `scene_schema.json#/definitions/` for `id_string`, `timing_name`, `anchor_string`, `size_role`, `color_key`, `entrance_effect`, etc. Set `additionalProperties: false`.
+7. Create `manim_renderer/tests/components/test_foo_bar.py` — render both formats at `-ql`. Add unit tests for any non-trivial logic (no rendering required).
+8. Add a section to `scripts/manim/_skill.md` describing the action — required params, accepted effects, one minimal JSON example.
 
 The schema is the contract. If it's not in the schema, the LLM doesn't know about it and won't generate it.
 
@@ -174,12 +180,12 @@ The schema is the contract. If it's not in the schema, the LLM doesn't know abou
 
 ## How to add an effect
 
-Effects are pure factory functions: `(mobject, **params) -> Animation`.
+Effects are factory functions wrapped in `EffectSpec`: `(mobject, *, run_time, **params) -> Animation`.
 
 1. Pick the right module (`entrances`, `emphasis`, `exits`, `transitions`).
-2. Add the function. Use only `rate_func` values from `theme.easing.EASE`.
-3. Register in the module's `EFFECTS: dict[str, Callable]`.
-4. Add the effect name to the schema's effect enum.
+2. Add the function. Use only `rate_func` values from `theme.easing.EASE`. Required params are listed in the `EffectSpec`'s `required` tuple; defaults go in `optional`.
+3. Register in the module's dict (`ENTRANCES`, `EMPHASIS`, `EXITS`) as an `EffectSpec(name, factory, required, optional)`.
+4. Add the effect name to the matching enum in `scene_schema.json#/definitions/` (`entrance_effect`, `emphasis_effect`, `exit_effect`).
 
 Effect names are global. Two components can use `"write-in"` and it must mean the same thing visually.
 
@@ -229,11 +235,12 @@ Custom scenes bypass the layout system but must still respect the theme palette 
 
 ## Schema validation
 
-`schema/validator.py` is called by `pipeline/render_manim.py` before any rendering. It runs three checks:
+`schema/validator.py` is called by `pipeline/render_manim.py` before any rendering. It runs four tiers:
 
-1. **Structural** — does the JSON match `scene_schema.json`?
-2. **Action-level** — does each action's `params` match `action_schemas/<action>.json`?
-3. **Semantic** — do anchor references resolve? Are `at` values within `duration`? Are referenced component IDs declared?
+1. **Structural** — JSON matches `scene_schema.json` (and coords-banned keys absent anywhere).
+2. **Action-level** — each action's `params` matches `action_schemas/<action>.json`. Per-action schemas use `$ref` into `scene_schema.json#/definitions/` for shared enums (timing, effects, anchor pattern, color keys); centralized resolution via `referencing.Registry`.
+3. **Semantic** — layout exists for the format (`LAYOUT_FORMATS` map), declared slots match the layout, `at` values within `duration`, no duplicate ids.
+4. **Anchors** — every `params.anchor` and `params.target` references an id declared by an event with strictly-earlier sort key (`at`, then phase). Walks events in the same `(at, phase)` order as the scene runner.
 
 Validation errors include the JSON path and a human-readable explanation. The LLM authoring loop reads these to self-correct.
 

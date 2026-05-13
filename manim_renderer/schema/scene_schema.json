@@ -41,6 +41,42 @@
         "params": { "type": "object" }
       },
       "additionalProperties": false
+    },
+
+    "id_string": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Kebab-case ID (lowercase alphanumeric + hyphens)."
+    },
+    "anchor_string": {
+      "type": "string",
+      "pattern": "^(above|below|left-of|right-of|inside):[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Token + ':' + kebab-case id of an existing component."
+    },
+    "timing_name": {
+      "enum": ["instant", "snap", "fast", "normal", "slow", "dramatic", "crawl"]
+    },
+    "size_role": {
+      "enum": ["small", "medium", "large"]
+    },
+    "color_key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Palette key (e.g. 'actor_a', 'highlight'). Hex codes are not allowed."
+    },
+    "entrance_effect": {
+      "enum": [
+        "fade-in", "write-in", "draw-out",
+        "grow-up", "grow-down",
+        "slide-left", "slide-right", "slide-up", "slide-down",
+        "level-by-level", "count-up"
+      ]
+    },
+    "emphasis_effect": {
+      "enum": ["pulse", "highlight"]
+    },
+    "exit_effect": {
+      "enum": ["fade-out", "dissolve"]
     }
   }
 }
