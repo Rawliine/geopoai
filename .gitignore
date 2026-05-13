@@ -2,3 +2,5 @@
 output/
 tmp/
 data/
+# Manim LaTeX/SVG cache (regenerated per render)
+media/
