@@ -131,6 +131,8 @@ class _BarValueLabel(VGroup):
 class BarChart(BaseComponent):
     """Categorical bars with themed axes."""
 
+    SIZE_KIND = "chart"
+
     def build(self) -> None:
         p = self.params
 

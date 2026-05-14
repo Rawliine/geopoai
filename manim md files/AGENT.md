@@ -96,7 +96,7 @@ These are not style preferences. Breaking them breaks the pipeline.
 
 3. **Timings are pulled from `theme/timing.py`, never raw floats in component code.** `TIMING["normal"]` not `0.6`.
 
-4. **One component per file.** `payoff_matrix.py` defines exactly one component. Helpers go in private functions inside the same file unless they're reused.
+4. **One component per file.** `payoff_matrix.py` defines exactly one component. Helpers go in private functions inside the same file unless they're reused. Visual-variant spec dicts (e.g., callout style specs in `components/narrative/_callout_styles.py`) live in a leading-underscore module beside the component — keeps the dispatch additive, mirrors the `EffectSpec` pattern.
 
 5. **Every new component:** inherits `BaseComponent`, registers in `COMPONENT_REGISTRY`, gets a schema in `schema/action_schemas/`, gets a test in `tests/components/`, and gets an entry in `scripts/manim/_skill.md`. No exceptions. The LLM authoring layer relies on schema coverage being complete.
 
@@ -118,7 +118,9 @@ These are not style preferences. Breaking them breaks the pipeline.
 
 14. **Mutation actions duck-type on small handle interfaces, not isinstance checks.** When a mutation needs structural info from its target (PayoffMatrix's `cell_dims()`, `n_rows()`, `n_cols()`, `row_player_color()`, `col_player_color()`), it calls `hasattr(target, ...)` before invoking — never `isinstance(target, PayoffMatrix)`. This keeps mutations reusable: a future `HeatmapGrid` exposing the same handles can be driven by `highlightCell`/`crossOut` without extra wiring. Each mutation file documents its required handle set at the top.
 
-15. **Mutation overlays are ephemeral.** Highlights, crossouts, and best-response arrows added by mutation actions are NOT registered in `id_to_mobject`. They survive in the rendered scene but cannot be removed by a later `removeComponent`. If a scene needs to clear a highlight, it must remove the entire host component and re-show it. Phase 2 will add removable overlays via an opt-in id param.
+15. **Mutation overlays are tracked by host.** Highlights, crossouts, and best-response arrows are registered against their host id in `JSONScene._overlays_by_host`. When `removeComponent` fires on the host, all overlays fade out with it (single `AnimationGroup`). Overlays MAY opt into a top-level id via `params.id`, in which case they're registered in `id_to_mobject` like any component and can be `removeComponent`'d on their own. Auto-cleanup still applies — removing the host removes its overlays even if they had ids. See `actions/_context.py:ActionContext.register_overlay`.
+
+16. **Every BaseComponent subclass implements `measure(params, format)` as a class method.** Pure-math estimator returning `(width, height)` in Manim units WITHOUT constructing the mobject. Consumed by the validator's overflow checks (`schema/_dry_run.py`) and reserved for the future layout solver (roles+restaging). The default implementation reads `params.size` and the class's `SIZE_KIND` attribute (default `"default"`); components with content-driven sizing (text-bearing, group bundles) override with their own estimator. See `components/base.py`.
 
 ---
 
@@ -172,6 +174,7 @@ pipeline/render.py
 2. Create `<snake_case_name>.py`.
 3. Subclass `BaseComponent`. Implement `build()`. Override `entrance(effect, timing, **extra)` and `exit(effect, timing, **extra)` ONLY for bespoke behavior — the base class already dispatches to `effects.entrances.get_entrance` / `effects.exits.get_exit`. Add `_get_anchor_<token>(arg)` methods for any custom anchors (the standard 9 — `top`/`bottom`/`left`/`right`/`center`/4 corners — come from the base).
 4. Read sizes from `theme.typography` and `resolvers.size` — never hardcode pixel or unit values. If your component takes a `size` param, the runner passes resolved dims as `params["_resolved_size"]`.
+4b. Implement `measure(params, format)` class method (rule 16) OR set `SIZE_KIND` class attribute if the default (`resolve_size(role, format, kind=SIZE_KIND)`) suffices. Content-driven components (text-bearing, group bundles) override `measure`; chart/matrix/tree/web components just set `SIZE_KIND`.
 5. Register in `manim_renderer/registry.py:COMPONENT_REGISTRY`: `"showFooBar": FooBar`.
 6. Create `manim_renderer/schema/action_schemas/show_foo_bar.json` with full param schema. Use `$ref` into `scene_schema.json#/definitions/` for `id_string`, `timing_name`, `anchor_string`, `size_role`, `color_key`, `entrance_effect`, etc. Set `additionalProperties: false`.
 7. Create `manim_renderer/tests/components/test_foo_bar.py` — render both formats at `-ql`. Add unit tests for any non-trivial logic (no rendering required).

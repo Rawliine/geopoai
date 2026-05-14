@@ -76,4 +76,6 @@ def cross_out(ctx: ActionContext) -> Optional[Animation]:
     color = SEMANTIC["negative"]
     cls = DashedLine if style == "dashed" else Line
     line = cls(start=start, end=end, color=color, stroke_width=_STROKE_WIDTH)
+    # Phase 1.5: track overlay against host so removeComponent cleans it.
+    ctx.register_overlay(target_id, line, overlay_id=ctx.params.get("id"))
     return Create(line, run_time=run_time)

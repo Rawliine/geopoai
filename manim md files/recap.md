@@ -506,6 +506,77 @@ editorial convention; multi-line wrap is component-specific (CalloutBox).
 
 ---
 
+## 22b. Phase 1.5 implementation decisions
+
+Decisions made building the post-PD-scene polish + validator + QA work.
+All `[LOCKED]` unless tagged. See `plan.md` Phase 1.5 for the shipped list.
+
+### CalloutBox style spec dispatch
+Four visual variants (`neon`, `card`, `glass`, `bracket`) are descriptors
+in `components/narrative/_callout_styles.py:CALLOUT_STYLES`, mirroring the
+`EffectSpec` pattern. Each `CalloutStyleSpec` is a frozen dataclass with
+`build_bubble` + `entrance` + `exit` factories. Rationale: an `if/elif`
+chain inside `CalloutBox.build()` would not scale to future variants;
+the dispatch table is additive and trivially testable per style. The
+non-default styles ship as schema enum values so the LLM author can pick.
+
+### Overlay tracking architecture
+`_overlays_by_host: dict[str, list[Mobject]]` lives on `JSONScene`, not on
+the host mobject. Rationale: mutation actions stay stateless (they accept
+`ActionContext`, return `Animation`, never store state); the restage pass
+in roles+restaging will iterate the single dict rather than crawl mobject
+trees. `ActionContext.register_overlay(host_id, mob, overlay_id=None)` is
+the only writer; `remove_component.py` is the only reader. Opt-in
+`overlay_id` writes to `id_to_mobject` (same namespace as components) so
+the host's removal also drops the overlay id automatically.
+
+### `measure()` class method as foundational sizing API
+`BaseComponent.measure(params, format) -> (w, h)` is a class method, not
+an instance method or a free function. Class method because: (a) the
+validator calls it without instantiating (cheap), (b) subclasses override
+naturally per type, (c) the future layout solver reuses it verbatim with
+an added `role` arg. Default reads `SIZE_KIND` class attribute and calls
+`resolve_size`. Content-driven components (TextCard, StatBlock, MetricGroup,
+CalloutBox) override with estimators that are slightly conservative — the
+validator's overflow check tolerates 0.1 unit slack to absorb estimator
+error without spurious false positives.
+
+### Validator dry-run walk — three tiers, not one combined check
+`_dry_run.py` ships 4a (slot-fit), 4c (anchor-overflow), 4b (collision)
+as separate functions even though 4b geometrically subsumes the others.
+Rationale: each produces a SPECIFIC actionable error message (`[layout-fit]`,
+`[anchor-overflow]`, `[collision-overlap]`, `[frame-overflow]`). Merging
+into one would lose the specificity that lets the LLM authoring loop
+self-correct. Cost is dominated by `measure()` calls (pure Python,
+sub-millisecond per event); a 60-event scene runs all three checks in
+~10ms.
+
+### Auto-contrast via W3C relative luminance, not WCAG ratio
+`pick_text_color(bg_hex)` in `theme.palette` computes W3C relative
+luminance, returning `UI["text_primary"]` if bg < 0.5 luminance,
+`UI["background"]` otherwise. Rationale: we need a BINARY decision (light
+vs dark text), not a contrast ratio. WCAG would over-engineer for the
+two-color outcome. Single threshold at 0.5 is empirically fine for the
+dark scene background (#0e1116, luminance ≈ 0.006) — clearly light text.
+Callers needing finer contrast can call `_relative_luminance` directly.
+
+### Manim Text(color=hex) is unreliable — use set_color() after
+Empirical: `Text("x", color="#ecf0f1")` in Manim CE silently produces a
+black text. `Text("x"); t.set_color("#ecf0f1")` works. CalloutBox now
+uses the two-step pattern. Other components (StatBlock) appear to render
+correctly with the kwarg only because their Manim color path differs
+internally — investigated and not chased further; the explicit set_color
+pattern is the safe form. Documented in `callout_box.py:_build_bubble`.
+
+### SIZE_TABLE: "large" fits hero in both formats
+Phase 1's SIZE_TABLE had `large` matrix/tree/web/default values that fit
+NO layout (e.g. matrix.large = (7, 7) exceeded every slot). Phase 1.5
+re-tuned `large` to fit the most permissive layout (`hero`) per format.
+Rationale: `large` should mean "biggest reasonable size", not aspirational.
+Smaller slots correctly reject `large` via the validator's slot-fit check.
+
+---
+
 ## 22. Decision log
 
 A compact list of what we decided and where the reasoning lives in this doc.
@@ -530,5 +601,10 @@ A compact list of what we decided and where the reasoning lives in this doc.
 | Three-layer test strategy | §16 | FLUID |
 | Three quality modes, preview default | §17 | LOCKED |
 | Escape hatch for custom scenes | §18 | LOCKED |
+| CalloutBox style spec dispatch (4 variants) | §22b | LOCKED |
+| Overlay tracking via `_overlays_by_host` | §22b | LOCKED |
+| `measure()` class method as foundational sizing API | §22b | LOCKED |
+| Three-tier validator dry-run (4a/4c/4b) | §22b | LOCKED |
+| Auto-contrast via W3C relative luminance | §22b | FLUID (threshold tunable) |
 
 `LOCKED` = changing it late forces cascading rewrites. `FLUID` = revisit on signal.

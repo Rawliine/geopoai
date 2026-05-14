@@ -1,0 +1,99 @@
+{
+    "renderer": "manim",
+    "format": "vertical",
+    "quality": "preview",
+    "scene": {
+      "layout": "data-top",
+      "duration": 18,
+      "theme": "dark"
+    },
+    "slots": {
+      "data": {
+        "at": 0.0,
+        "action": "showMetricGroup",
+        "params": {
+          "id": "kpis",
+          "orientation": "row",
+          "spacing": 0.4,
+          "color_scheme": "actors",
+          "size": "small",
+          "effect": "staggered",
+          "stagger": "normal",
+          "child_effect": "count-up",
+          "timing": "normal",
+          "stats": [
+            {
+              "id": "k-cooperate",
+              "value": 28.4,
+              "label": "Coop %",
+              "value_format": "decimal",
+              "decimals": 1
+            },
+            {
+              "id": "k-defect",
+              "value": 71.6,
+              "label": "Defect %",
+              "value_format": "decimal",
+              "decimals": 1
+            },
+            {
+              "id": "k-payoff",
+              "value": 1200000,
+              "label": "Loss",
+              "value_format": "currency",
+              "symbol": "$",
+              "suffix": "auto"
+            }
+          ]
+        }
+      },
+      "body": {
+        "at": 0.0,
+        "action": "showTextCard",
+        "params": {
+          "id": "title",
+          "text": "Prisoner's Dilemma",
+          "size": "title",
+          "timing": "slow",
+          "effect": "fade-in"
+        }
+      }
+    },
+    "overlays": [
+      {
+        "at": 4.5,
+        "action": "showCalloutBox",
+        "params": {
+          "id": "callout-1",
+          "text": "Defection dominates: best responses erode cooperation.",
+          "anchor": "below:k-defect",
+          "width": 5.0,
+          "timing": "normal",
+          "effect": "fade-in"
+        }
+      },
+      {
+        "at": 10.0,
+        "action": "showCalloutBox",
+        "params": {
+          "id": "callout-2",
+          "text": "Mutual defection is a Pareto-inferior Nash equilibrium.",
+          "anchor": "above:k-payoff",
+          "width": 5.0,
+          "timing": "normal",
+          "effect": "fade-in"
+        }
+      },
+      {
+        "at": 15.5,
+        "action": "removeComponent",
+        "params": { "target": "callout-1", "effect": "fade-out" }
+      },
+      {
+        "at": 16.0,
+        "action": "removeComponent",
+        "params": { "target": "callout-2", "effect": "fade-out" }
+      }
+    ],
+    "timeline": []
+  }

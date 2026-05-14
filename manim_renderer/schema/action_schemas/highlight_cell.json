@@ -5,6 +5,7 @@
   "type": "object",
   "required": ["target", "index"],
   "properties": {
+    "id":     { "$ref": "../scene_schema.json#/definitions/id_string" },
     "target": { "$ref": "../scene_schema.json#/definitions/id_string" },
     "index": {
       "type": "array",

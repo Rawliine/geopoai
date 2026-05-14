@@ -316,9 +316,12 @@ that uses the anchor resolver — `params.anchor` is required.
     "anchor": "right-of:k-defect",
     "width": 4.5,                  // max bubble width in Manim units (1.0–8.0)
     "arrow": true,                 // arrowhead at leader tip
-    "color": "highlight",          // optional bubble text color (palette key)
+    "color": "highlight",          // accent color (palette key) — drives border
+                                   //   stroke for neon/glass/bracket, text for card
+    "style": "neon",               // "neon" (default) | "card" | "glass" | "bracket"
     "timing": "normal",
-    "effect": "fade-in"            // bubble fades, then leader draws
+    "effect": "fade-in"            // overrides style's signature animation when set
+                                   //   to a generic entrance (fade-in, grow-up, etc.)
   }
 }
 ```
@@ -328,6 +331,31 @@ Custom anchors exposed: `head` (leader tip) and `tail` (leader root) — useful
 when chaining callouts. Long text auto-wraps to fit `width`.
 Format-aware: in vertical scenes, `right-of`/`left-of` flip to `below`/`above`
 for both the bubble position AND the leader endpoints.
+
+**Style (Phase 1.5):**
+- `neon` (default) — no fill; accent-colored stroke traces in via `Create`,
+  then text fades. Outer glow halo. Exit reverses: text fades, border erases
+  via `Uncreate`. Use for highlight callouts, dramatic emphasis.
+- `card` — surface fill + thin border, bubble + text fade together (legacy).
+  Use for neutral annotations.
+- `glass` — translucent dark fill + brighter accent border. Lower-third feel.
+- `bracket` — no rectangle; thick left-edge accent bar + text. Bar grows
+  from bottom, text fades alongside. NYT/FT-style annotation.
+
+Text color auto-contrasts against the scene background for the
+transparent styles (neon, glass, bracket): light text on dark backgrounds.
+Card style honors explicit `color` or uses `text_primary`.
+
+Example with style variants:
+```json
+{ "action": "showCalloutBox", "params": {
+    "id": "cb-neon", "text": "Accent border traces in.",
+    "anchor": "above:bars", "width": 5.0, "style": "neon", "color": "highlight" } }
+
+{ "action": "showCalloutBox", "params": {
+    "id": "cb-bracket", "text": "NYT-style side bar.",
+    "anchor": "right-of:pd", "width": 3.0, "style": "bracket", "color": "actor_a" } }
+```
 
 ---
 
@@ -491,8 +519,18 @@ This is the target of the three mutation actions below.
 
 ## Generic actions (mutate or remove existing components)
 
+**Overlay tracking (Phase 1.5):** all three mutation actions below
+(`highlightCell`, `crossOut`, `bestResponseArrow`) auto-register their
+overlay against the host id. When you `removeComponent(target=host)` the
+host fades AND every overlay attached to it fades in the same animation.
+You do NOT have to clean up overlays manually. If you want to remove an
+overlay BEFORE its host, pass an optional `id` on the mutation — that
+exposes the overlay as a top-level id so `removeComponent(target=<id>)`
+works on it directly.
+
 ### `removeComponent`
-Fade or dissolve an existing component out and unregister its id.
+Fade or dissolve an existing component out and unregister its id. Also
+fades any overlays registered against this id (PR B / Phase 1.5).
 
 ```json
 {
@@ -502,7 +540,8 @@ Fade or dissolve an existing component out and unregister its id.
 }
 ```
 
-Required: `target` (id of an earlier-declared component).
+Required: `target` (id of an earlier-declared component OR an overlay
+id from a mutation with opt-in `id`).
 Default effect: `fade-out`. Default timing: `fast`.
 
 ---
@@ -515,14 +554,19 @@ PayoffMatrix.
 {
   "at": 6.0,
   "action": "highlightCell",
-  "params": { "target": "pd", "index": [1, 1], "color": "highlight", "timing": "fast" }
+  "params": {
+    "id": "hl-1",                  // optional — exposes overlay as top-level id
+    "target": "pd",
+    "index": [1, 1],
+    "color": "highlight",
+    "timing": "fast"
+  }
 }
 ```
 
 Required: `target`, `index` ([row, col]). `color` defaults to `highlight`.
-**Phase 1 limit:** the overlay is ephemeral — it has no id, so it can't be
-removed via `removeComponent`. To "clear" a highlight, overlay a different
-color or design around the limitation.
+Optional `id` makes the overlay individually removable. Auto-cleanup with
+host applies in either case.
 
 ---
 
@@ -534,12 +578,16 @@ elimination of strictly dominated strategies (IESDS).
 {
   "at": 8.0,
   "action": "crossOut",
-  "params": { "target": "pd", "axis": "row", "index": 0, "style": "strike" }
+  "params": {
+    "id": "x-row0",                // optional
+    "target": "pd", "axis": "row", "index": 0, "style": "strike"
+  }
 }
 ```
 
 Required: `target`, `axis` (`"row"` | `"col"`), `index` (0-based).
 `style` is `"strike"` (default, solid) or `"dashed"`. Line is `negative` (red).
+Optional `id` exposes the line as a top-level id.
 
 ---
 
@@ -552,6 +600,7 @@ visualize a player's best response ("given opponent plays X, I prefer Y").
   "at": 9.0,
   "action": "bestResponseArrow",
   "params": {
+    "id": "br-a",                  // optional
     "target": "pd",
     "from": [0, 0], "to": [0, 1],
     "actor": "actor_a", "timing": "normal"
@@ -560,6 +609,7 @@ visualize a player's best response ("given opponent plays X, I prefer Y").
 ```
 
 Required: `target`, `from` ([row, col]), `to` ([row, col]), `actor` (palette key).
+Optional `id` exposes the arrow as a top-level id.
 
 ---
 

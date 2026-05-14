@@ -78,4 +78,7 @@ def highlight_cell(ctx: ActionContext) -> Optional[Animation]:
         fill_opacity=0.30,
     )
     overlay.move_to(np.asarray(cell_center))
+    # Phase 1.5: track overlay against host so removeComponent cleans it.
+    # Optional `id` exposes the overlay as a top-level id (3b).
+    ctx.register_overlay(target_id, overlay, overlay_id=ctx.params.get("id"))
     return FadeIn(overlay, run_time=run_time)

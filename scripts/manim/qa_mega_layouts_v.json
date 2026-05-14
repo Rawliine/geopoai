@@ -1,0 +1,103 @@
+{
+  "renderer": "manim",
+  "format": "vertical",
+  "quality": "preview",
+  "scene": {
+    "layout": "stacked",
+    "duration": 60,
+    "theme": "dark"
+  },
+  "slots": {
+    "top": {
+      "at": 0.0,
+      "action": "showPayoffMatrix",
+      "params": {
+        "id": "pd-top",
+        "size": "small",
+        "players": [
+          { "name": "A", "color": "actor_a" },
+          { "name": "B", "color": "actor_b" }
+        ],
+        "strategies": [["C", "D"], ["C", "D"]],
+        "cells": [
+          [{ "a": 3, "b": 3 }, { "a": 0, "b": 5 }],
+          [{ "a": 5, "b": 0 }, { "a": 1, "b": 1 }]
+        ],
+        "timing": "slow", "effect": "level-by-level"
+      }
+    },
+    "bottom": {
+      "at": 0.5,
+      "action": "showBarChart",
+      "params": {
+        "id": "bars-bottom",
+        "size": "small",
+        "data": [
+          { "label": "Coop", "value": 3, "color": "actor_a" },
+          { "label": "Defect", "value": 5, "color": "actor_b" }
+        ],
+        "y_axis": { "min": 0, "max": 6, "ticks": 4, "label": "Payoff" },
+        "x_axis": { "label": "Strategy" },
+        "value_format": "int", "show_value_labels": true,
+        "timing": "slow", "effect": "count-up"
+      }
+    }
+  },
+  "overlays": [
+    { "at": 5.0, "action": "showCalloutBox",
+      "params": { "id": "cb-inside-1", "text": "Inside the top component.",
+        "anchor": "inside:pd-top", "width": 3.5,
+        "style": "neon", "color": "highlight", "timing": "normal" } },
+    { "at": 9.0, "action": "removeComponent",
+      "params": { "target": "cb-inside-1", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 10.0, "action": "showCalloutBox",
+      "params": { "id": "cb-inside-bottom", "text": "Inside the bottom component.",
+        "anchor": "inside:bars-bottom", "width": 3.5,
+        "style": "card", "timing": "normal" } },
+    { "at": 14.0, "action": "removeComponent",
+      "params": { "target": "cb-inside-bottom", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 15.0, "action": "showCalloutBox",
+      "params": { "id": "cb-right-flipped", "text": "right-of auto-flips to below.",
+        "anchor": "right-of:pd-top", "width": 4.5,
+        "style": "glass", "color": "highlight", "timing": "normal" } },
+    { "at": 19.0, "action": "removeComponent",
+      "params": { "target": "cb-right-flipped", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 20.0, "action": "showCalloutBox",
+      "params": { "id": "cb-inside", "text": "Inside overlay.",
+        "anchor": "inside:pd-top", "width": 3.0,
+        "style": "bracket", "color": "actor_c", "timing": "normal" } },
+    { "at": 24.0, "action": "removeComponent",
+      "params": { "target": "cb-inside", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 25.0, "action": "showCalloutBox",
+      "params": { "id": "cb-cross", "text": "Cross-slot anchor — top to bottom.",
+        "anchor": "above:bars-bottom", "width": 4.5,
+        "style": "neon", "color": "actor_d", "timing": "normal" } },
+    { "at": 30.0, "action": "removeComponent",
+      "params": { "target": "cb-cross", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 31.0, "action": "highlightCell",
+      "params": { "id": "hl-cell", "target": "pd-top", "index": [1, 1], "color": "highlight", "timing": "fast" } },
+    { "at": 33.0, "action": "showCalloutBox",
+      "params": { "id": "cb-multi-a", "text": "Two simultaneous callouts.",
+        "anchor": "inside:pd-top", "width": 3.5,
+        "style": "neon", "color": "actor_a", "timing": "normal" } },
+    { "at": 34.0, "action": "showCalloutBox",
+      "params": { "id": "cb-multi-b", "text": "Both anchored to different hosts.",
+        "anchor": "inside:bars-bottom", "width": 3.5,
+        "style": "neon", "color": "actor_b", "timing": "normal" } },
+    { "at": 39.0, "action": "removeComponent",
+      "params": { "target": "cb-multi-a", "effect": "fade-out", "timing": "fast" } },
+    { "at": 39.5, "action": "removeComponent",
+      "params": { "target": "cb-multi-b", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 41.0, "action": "removeComponent",
+      "params": { "target": "pd-top", "effect": "fade-out", "timing": "normal" } },
+    { "at": 42.0, "action": "removeComponent",
+      "params": { "target": "bars-bottom", "effect": "fade-out", "timing": "normal" } }
+  ],
+  "timeline": []
+}

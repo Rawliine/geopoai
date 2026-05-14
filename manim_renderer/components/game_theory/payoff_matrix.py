@@ -84,6 +84,8 @@ def _resolve_color(key: str | None, fallback: str = "text_primary") -> str:
 class PayoffMatrix(BaseComponent):
     """N×N normal-form game matrix."""
 
+    SIZE_KIND = "matrix"
+
     def build(self) -> None:
         p = self.params
 

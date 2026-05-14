@@ -3,7 +3,7 @@
 Two-engine pipeline for short-form geopolitical / game-theory video clips. Both engines consume scene JSON and produce MP4.
 
 - **Mapbox engine** (`pipeline/render_scene.py`) — Mapbox GL JS in headless Chromium, driven by Playwright. Renders maps, country fills, borders, arrows, ripples.
-- **Manim engine** (`pipeline/render_manim.py`) — Manim Community Edition. Renders payoff matrices, game trees, charts, system diagrams. Phase 0 (foundation) is live; component library lands in Phase 1.
+- **Manim engine** (`pipeline/render_manim.py`) — Manim Community Edition. Renders payoff matrices, game trees, charts, system diagrams. Phases 0–1.5 live: dispatcher, 10 components, 8 layouts, 4 mutations with auto-cleanup overlays, 4 callout styles (neon default), validator overflow detection.
 
 A unified dispatcher (`pipeline/render.py`) routes by the `"renderer"` field on each scene JSON.
 
@@ -25,6 +25,9 @@ MAPBOX_TOKEN=pk.eyJ1...
 # unified dispatcher (reads "renderer" field)
 python pipeline/render.py scripts/map/MA_AG.json my_clip          # → output/my_clip.mp4
 python pipeline/render.py scripts/manim/hello.json hello          # → output/manim/hello.mp4
+
+# Manim QA smoke test — exercises every component, effect, callout style, mutation
+python pipeline/render.py scripts/manim/qa_mega_h.json qa_mega_h
 
 # direct entries (also still work)
 python pipeline/render_scene.py scripts/map/MA_AG.json my_clip

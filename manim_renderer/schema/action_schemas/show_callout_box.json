@@ -11,6 +11,7 @@
     "width":  { "type": "number", "minimum": 1.0, "maximum": 8.0 },
     "arrow":  { "type": "boolean" },
     "color":  { "$ref": "../scene_schema.json#/definitions/color_role" },
+    "style":  { "$ref": "../scene_schema.json#/definitions/callout_style" },
     "timing": { "$ref": "../scene_schema.json#/definitions/timing_name" },
     "effect": { "$ref": "../scene_schema.json#/definitions/entrance_effect" }
   },

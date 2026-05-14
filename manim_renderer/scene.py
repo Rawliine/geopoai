@@ -44,6 +44,10 @@ class JSONScene(MovingCameraScene):
 
         self._layout = resolve_layout(layout_name, fmt)
         self._id_to_mobject: dict = {}
+        # Overlay tracking (Phase 1.5): mutation actions register overlays
+        # against their host id here; `removeComponent` consumes the list to
+        # fade host + overlays together. See `actions/_context.py`.
+        self._overlays_by_host: dict[str, list] = {}
 
         events = self._collect_events(scene)
 

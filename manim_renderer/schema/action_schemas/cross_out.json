@@ -5,6 +5,7 @@
   "type": "object",
   "required": ["target", "axis", "index"],
   "properties": {
+    "id":     { "$ref": "../scene_schema.json#/definitions/id_string" },
     "target": { "$ref": "../scene_schema.json#/definitions/id_string" },
     "axis":   { "enum": ["row", "col"] },
     "index":  { "type": "integer", "minimum": 0, "maximum": 5 },

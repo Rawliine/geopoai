@@ -224,6 +224,8 @@ def _layout_vertical(
 class GameTree(BaseComponent):
     """Recursive game tree, format-aware."""
 
+    SIZE_KIND = "tree"
+
     def build(self) -> None:
         p = self.params
 

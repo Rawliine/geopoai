@@ -88,6 +88,8 @@ def _resolve_color(key: str | None, fallback: str = "text_primary") -> str:
 class AllianceWeb(BaseComponent):
     """Circular node arrangement with kind-colored edges."""
 
+    SIZE_KIND = "web"
+
     def build(self) -> None:
         p = self.params
 

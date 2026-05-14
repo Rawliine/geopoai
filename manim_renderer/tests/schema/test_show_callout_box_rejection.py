@@ -108,3 +108,29 @@ def test_unknown_property_rejected():
     )
     assert not ok
     assert any("rotation" in e for e in errs)
+
+
+# --- Phase 1.5: style enum --------------------------------------------------
+
+
+def test_neon_style_passes():
+    ok, errs = validate(_with_overlay_params(
+        {"id": "cb", "text": "x", "anchor": "below:card", "style": "neon"}
+    ))
+    assert ok, errs
+
+
+def test_all_styles_pass():
+    for style in ("neon", "card", "glass", "bracket"):
+        ok, errs = validate(_with_overlay_params(
+            {"id": "cb", "text": "x", "anchor": "below:card", "style": style}
+        ))
+        assert ok, (style, errs)
+
+
+def test_unknown_style_rejected():
+    ok, errs = validate(_with_overlay_params(
+        {"id": "cb", "text": "x", "anchor": "below:card", "style": "wireframe"}
+    ))
+    assert not ok
+    assert any("style" in e or "wireframe" in e for e in errs), errs

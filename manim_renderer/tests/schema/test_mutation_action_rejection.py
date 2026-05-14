@@ -142,3 +142,107 @@ def test_best_response_arrow_bad_coord_shape():
         },
     }))
     assert not ok
+
+
+# --- Phase 1.5: opt-in overlay ids ----------------------------------------
+
+
+def test_highlight_cell_with_id_passes():
+    ok, errs = validate(_scene_with_matrix_and_overlay({
+        "at": 2.0, "action": "highlightCell",
+        "params": {"id": "h1", "target": "m", "index": [1, 1]},
+    }))
+    assert ok, errs
+
+
+def test_cross_out_with_id_passes():
+    ok, errs = validate(_scene_with_matrix_and_overlay({
+        "at": 2.0, "action": "crossOut",
+        "params": {"id": "x1", "target": "m", "axis": "row", "index": 0},
+    }))
+    assert ok, errs
+
+
+def test_best_response_arrow_with_id_passes():
+    ok, errs = validate(_scene_with_matrix_and_overlay({
+        "at": 2.0, "action": "bestResponseArrow",
+        "params": {
+            "id": "a1", "target": "m", "from": [0, 0], "to": [0, 1], "actor": "actor_a",
+        },
+    }))
+    assert ok, errs
+
+
+def test_overlay_id_collides_with_component_id_rejected():
+    """An overlay id collision with the host or any other component id should
+    surface via the validator's duplicate-id check (`[semantic-id]`)."""
+    scene = {
+        "renderer": "manim",
+        "format": "horizontal",
+        "quality": "preview",
+        "scene": {"layout": "hero", "duration": 5},
+        "slots": {
+            "main": {
+                "at": 0.0,
+                "action": "showPayoffMatrix",
+                "params": {
+                    "id": "m",
+                    "players": [{"name": "P1"}, {"name": "P2"}],
+                    "strategies": [["C", "D"], ["C", "D"]],
+                    "cells": [
+                        [{"a": 1, "b": 1}, {"a": 0, "b": 5}],
+                        [{"a": 5, "b": 0}, {"a": 2, "b": 2}],
+                    ],
+                },
+            }
+        },
+        "overlays": [
+            {
+                "at": 2.0,
+                "action": "highlightCell",
+                "params": {"id": "m", "target": "m", "index": [0, 0]},
+            }
+        ],
+        "timeline": [],
+    }
+    ok, errs = validate(scene)
+    assert not ok
+    assert any("[semantic-id]" in e and "'m'" in e for e in errs), errs
+
+
+def test_overlay_can_be_removed_by_id():
+    """An opt-in id overlay can be the target of removeComponent."""
+    scene = {
+        "renderer": "manim",
+        "format": "horizontal",
+        "quality": "preview",
+        "scene": {"layout": "hero", "duration": 10},
+        "slots": {
+            "main": {
+                "at": 0.0,
+                "action": "showPayoffMatrix",
+                "params": {
+                    "id": "m",
+                    "players": [{"name": "P1"}, {"name": "P2"}],
+                    "strategies": [["C", "D"], ["C", "D"]],
+                    "cells": [
+                        [{"a": 1, "b": 1}, {"a": 0, "b": 5}],
+                        [{"a": 5, "b": 0}, {"a": 2, "b": 2}],
+                    ],
+                },
+            }
+        },
+        "overlays": [
+            {
+                "at": 2.0, "action": "highlightCell",
+                "params": {"id": "hl", "target": "m", "index": [0, 0]},
+            },
+            {
+                "at": 4.0, "action": "removeComponent",
+                "params": {"target": "hl", "effect": "fade-out"},
+            },
+        ],
+        "timeline": [],
+    }
+    ok, errs = validate(scene)
+    assert ok, errs

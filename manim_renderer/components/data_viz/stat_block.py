@@ -82,6 +82,37 @@ _TREND_DIRECTIONS = {
 class StatBlock(BaseComponent):
     """Big number + label, with optional unit, trend, and inline sparkline."""
 
+    # Conservative upper-bound bbox estimates per (format, size_role) BEFORE
+    # optional features. Each row covers (width, height) of value+label stack.
+    # Optional features add to the base:
+    #   trend     → +0.4 height (arrow + delta text below label)
+    #   sparkline → +0.5 height (mini chart below)
+    # These are estimates for the validator's overflow check, not exact bounds.
+    _MEASURE_BASE: dict[str, dict[str, tuple[float, float]]] = {
+        "horizontal": {
+            "small":  (2.5, 1.8),
+            "medium": (3.5, 2.5),
+            "large":  (4.5, 3.2),
+        },
+        "vertical": {
+            "small":  (3.0, 2.5),
+            "medium": (4.0, 3.5),
+            "large":  (5.0, 4.5),
+        },
+    }
+
+    @classmethod
+    def measure(cls, params: dict, format: str) -> tuple[float, float]:
+        size_role = params.get("size", "medium")
+        w, h = cls._MEASURE_BASE[format].get(
+            size_role, cls._MEASURE_BASE[format]["medium"]
+        )
+        if "trend" in params:
+            h += 0.4
+        if "sparkline" in params:
+            h += 0.5
+        return (w, h)
+
     # --- params parsing ------------------------------------------------------
 
     def build(self) -> None:

@@ -267,3 +267,140 @@ def test_leader_edges_table_complete_for_all_tokens():
         assert tok in _LEADER_EDGES_HORIZONTAL, (
             f"Anchor token {tok!r} has no leader-edges mapping in CalloutBox"
         )
+
+
+# --- Phase 1.5: style system -------------------------------------------------
+
+
+@pytest.mark.parametrize("style", ["neon", "card", "glass", "bracket"])
+def test_each_style_constructs(style):
+    cb = CalloutBox(
+        {"id": "c", "text": "demo", "anchor": "below:t", "style": style},
+        format="horizontal",
+    )
+    assert cb._style_name == style
+    assert cb._bubble_mob is not None
+    assert cb._text_mob is not None
+
+
+def test_default_style_is_neon():
+    cb = CalloutBox(
+        {"id": "c", "text": "demo", "anchor": "below:t"},
+        format="horizontal",
+    )
+    assert cb._style_name == "neon"
+
+
+def test_unknown_style_rejected():
+    with pytest.raises(ValueError, match="unknown"):
+        CalloutBox(
+            {"id": "c", "text": "demo", "anchor": "below:t", "style": "puce"},
+            format="horizontal",
+        )
+
+
+def test_neon_entrance_uses_succession_with_text():
+    """Neon's signature entrance traces border then fades text — Succession."""
+    from manim import Succession
+    cb = CalloutBox(
+        {"id": "c", "text": "demo", "anchor": "below:t", "style": "neon"},
+        format="horizontal",
+    )
+    # No leader (no target passed to position_finalized).
+    cb.position_finalized(anchor=None, target=None, format="horizontal")
+    # Pass a non-generic effect name so it routes to the style entrance.
+    anim = cb.entrance("draw-out", "normal")
+    assert isinstance(anim, Succession)
+
+
+def test_card_entrance_uses_fade_in_group():
+    """Card's signature entrance fades bubble + text as one."""
+    from manim import FadeIn
+    cb = CalloutBox(
+        {"id": "c", "text": "demo", "anchor": "below:t", "style": "card"},
+        format="horizontal",
+    )
+    cb.position_finalized(anchor=None, target=None, format="horizontal")
+    # Use an effect outside the generic list to hit the style path.
+    anim = cb.entrance("draw-out", "normal")
+    assert isinstance(anim, FadeIn)
+
+
+def test_bracket_entrance_uses_animation_group():
+    """Bracket animates bar + text in parallel — AnimationGroup."""
+    from manim import AnimationGroup
+    cb = CalloutBox(
+        {"id": "c", "text": "demo", "anchor": "below:t", "style": "bracket"},
+        format="horizontal",
+    )
+    cb.position_finalized(anchor=None, target=None, format="horizontal")
+    anim = cb.entrance("draw-out", "normal")
+    assert isinstance(anim, AnimationGroup)
+
+
+def test_explicit_fade_in_effect_overrides_style_default():
+    """When the author explicitly requests fade-in, the style's signature
+    animation is bypassed in favor of the generic entrance."""
+    from manim import FadeIn
+    cb = CalloutBox(
+        {"id": "c", "text": "demo", "anchor": "below:t", "style": "neon"},
+        format="horizontal",
+    )
+    cb.position_finalized(anchor=None, target=None, format="horizontal")
+    anim = cb.entrance("fade-in", "normal")
+    # fade-in routes through generic get_entrance → FadeIn.
+    assert isinstance(anim, FadeIn)
+
+
+def test_neon_exit_uses_succession():
+    from manim import Succession
+    cb = CalloutBox(
+        {"id": "c", "text": "demo", "anchor": "below:t", "style": "neon"},
+        format="horizontal",
+    )
+    cb.position_finalized(anchor=None, target=None, format="horizontal")
+    # Non-generic effect so it routes to style.
+    anim = cb.exit("dramatic-trace", "normal")
+    assert isinstance(anim, Succession)
+
+
+def test_fade_out_exit_routes_through_super():
+    """Generic exit effect names (fade-out, dissolve) bypass style spec."""
+    from manim import FadeOut
+    cb = CalloutBox(
+        {"id": "c", "text": "demo", "anchor": "below:t", "style": "neon"},
+        format="horizontal",
+    )
+    cb.position_finalized(anchor=None, target=None, format="horizontal")
+    anim = cb.exit("fade-out", "fast")
+    assert isinstance(anim, FadeOut)
+
+
+@pytest.mark.parametrize("style", ["neon", "glass", "bracket"])
+def test_transparent_styles_use_auto_contrast_text(style):
+    """For non-card styles (transparent background), text color is picked
+    by luminance against the scene background (#0e1116 → dark → light text)."""
+    from manim_renderer.theme.palette import UI
+    cb = CalloutBox(
+        {"id": "c", "text": "demo", "anchor": "below:t", "style": style},
+        format="horizontal",
+    )
+    # The text color should match text_primary against the dark background.
+    expected = UI["text_primary"]
+    actual_hex = cb._text_mob.color.to_hex().upper()
+    assert actual_hex.upper() == expected.upper(), (
+        f"style={style}: text color {actual_hex} != expected {expected}"
+    )
+
+
+# --- pick_text_color auto-contrast helper -----------------------------------
+
+
+def test_pick_text_color_dark_bg_returns_light():
+    from manim_renderer.theme.palette import UI, pick_text_color
+    assert pick_text_color(UI["background"]) == UI["text_primary"]
+
+
+def test_pick_text_color_light_bg_returns_dark():
+    from manim_renderer.theme.palette import UI, pick_text_color
+    assert pick_text_color("#ffffff") == UI["background"]

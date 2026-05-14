@@ -82,6 +82,12 @@ _ACTION_ID_EXTRACTORS: dict[str, callable] = {
     "showAllianceWeb":  _ids_from_alliance_web,
 }
 
+# Phase 1.5: highlightCell / crossOut / bestResponseArrow accept an optional
+# `id` exposing the overlay as a top-level addressable id. They DO NOT need
+# an extractor — `_ids_declared_by` picks up `params.id` automatically via
+# the `own = params.get("id")` path. Adding an extractor here would double-
+# count the id and trigger a spurious `[semantic-id] duplicate id` error.
+
 
 def _ids_declared_by(action: str, params: dict) -> list[str]:
     """Return the full list of ids an event declares: its own id (if any) plus
@@ -234,6 +240,14 @@ def validate(scene: dict) -> tuple[bool, list[str]]:
 
     # Tier 4: anchors
     errors.extend(_validate_anchors(scene))
+
+    # Tier 5: spatial dry-run (4a slot-fit + 4c anchor-overflow + 4b collisions).
+    # Always on; cost is pure-math (no Manim mobjects). See `_dry_run.py`.
+    # Only run if earlier tiers haven't already failed with structural errors —
+    # malformed scenes can break the dry-run walk in confusing ways.
+    if not errors:
+        from manim_renderer.schema._dry_run import run_overflow_checks
+        errors.extend(run_overflow_checks(scene))
 
     return (len(errors) == 0, errors)
 

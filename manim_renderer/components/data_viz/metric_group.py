@@ -43,6 +43,49 @@ _COLOR_SCHEMES: dict[str, list[str]] = {
 class MetricGroup(BaseComponent):
     """Row (horizontal) / column (vertical) of StatBlocks under one id."""
 
+    @classmethod
+    def measure(cls, params: dict, format: str) -> tuple[float, float]:
+        """Sum or max of child StatBlock dimensions along the orientation axis.
+
+        Row    → max(child widths), sum(child heights) is wrong — use max h, sum w.
+        Column → max(child widths), sum(child heights).
+
+        Shared style inheritance is honored so children see the same `size`
+        param the runtime uses.
+        """
+        stats = params.get("stats") or []
+        if not stats:
+            return (0.0, 0.0)
+
+        orientation = params.get(
+            "orientation",
+            "row" if format == "horizontal" else "column",
+        )
+        spacing = float(params.get("spacing", 0.6))
+
+        shared_size = params.get("size", "medium")
+        shared_value_format = params.get("value_format")
+
+        widths: list[float] = []
+        heights: list[float] = []
+        for stat_params in stats:
+            child = dict(stat_params)
+            child.setdefault("size", shared_size)
+            if shared_value_format is not None:
+                child.setdefault("value_format", shared_value_format)
+            w, h = StatBlock.measure(child, format)
+            widths.append(w)
+            heights.append(h)
+
+        n = len(stats)
+        if orientation == "row":
+            total_w = sum(widths) + spacing * max(0, n - 1)
+            total_h = max(heights)
+        else:
+            total_w = max(widths)
+            total_h = sum(heights) + spacing * max(0, n - 1)
+        return (total_w, total_h)
+
     def build(self) -> None:
         p = self.params
 

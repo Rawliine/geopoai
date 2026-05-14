@@ -103,7 +103,7 @@
     { "at": 32.5, "action": "showCalloutBox",
       "params": { "id": "callout-ne",
         "text": "Mutual defection is the Nash equilibrium — and it is Pareto-inferior.",
-        "anchor": "below:pd", "width": 5.5, "timing": "normal" } },
+        "anchor": "right-of:pd", "width": 3.0, "timing": "normal" } },
 
     { "at": 38.0, "action": "removeComponent",
       "params": { "target": "callout-ne", "effect": "fade-out", "timing": "fast" } },
@@ -119,7 +119,7 @@
           { "label": "D, C", "value": 5, "color": "actor_a" },
           { "label": "D, D", "value": 1, "color": "neutral" }
         ],
-        "size": "medium", "value_format": "int", "show_value_labels": true,
+        "size": "small", "value_format": "int", "show_value_labels": true,
         "y_axis": { "min": 0, "max": 6, "ticks": 4, "label": "Total payoff" },
         "x_axis": { "label": "Outcome" },
         "timing": "slow", "effect": "count-up" } },
@@ -127,7 +127,7 @@
     { "at": 47.0, "action": "showCalloutBox",
       "params": { "id": "callout-bar",
         "text": "Cooperation maximizes joint payoff — but defection dominates individually.",
-        "anchor": "below:payoffs", "width": 6.0, "timing": "normal" } },
+        "anchor": "below:payoffs", "width": 5.0, "timing": "normal" } },
 
     { "at": 53.0, "action": "removeComponent",
       "params": { "target": "callout-bar", "effect": "fade-out", "timing": "fast" } },

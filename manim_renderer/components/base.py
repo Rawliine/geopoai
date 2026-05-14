@@ -21,8 +21,14 @@ from __future__ import annotations
 import numpy as np
 from manim import VGroup
 
+from manim_renderer.resolvers.size import resolve_size
+
 
 class BaseComponent(VGroup):
+    # Override in subclasses whose `resolve_size` kind differs from "default".
+    # Consumed by the default `measure()` and by build() implementations.
+    SIZE_KIND: str = "default"
+
     def __init__(self, params: dict, format: str = "horizontal", **kwargs):
         super().__init__(**kwargs)
         self.params = params
@@ -34,6 +40,26 @@ class BaseComponent(VGroup):
 
     def build(self) -> None:
         raise NotImplementedError
+
+    # --- pre-build sizing estimator (used by validator + future solver) ------
+
+    @classmethod
+    def measure(cls, params: dict, format: str) -> tuple[float, float]:
+        """Return an estimated (width, height) in Manim units WITHOUT building
+        the mobject.
+
+        Pure-math estimator consumed by the validator's overflow checks (see
+        `manim_renderer/schema/_dry_run.py`) and by the future layout solver.
+        Must not construct Manim mobjects — that would defeat the point of the
+        check (cheap, runs on every validate()).
+
+        Default implementation reads `params.size` (default "medium") and the
+        class's `SIZE_KIND` and looks up `resolve_size`. Subclasses with
+        content-driven sizing (text-bearing components, group bundles) override
+        this with their own estimator.
+        """
+        role = params.get("size", "medium")
+        return resolve_size(role, format, kind=cls.SIZE_KIND)
 
     # --- default entrance/exit dispatch via effects subsystem ---------------
 
@@ -123,11 +149,3 @@ class BaseComponent(VGroup):
         """
         return None
 
-    # --- bounds ---------------------------------------------------------------
-
-    def measure(self) -> dict:
-        return {
-            "width": self.width,
-            "height": self.height,
-            "center": self.get_center(),
-        }

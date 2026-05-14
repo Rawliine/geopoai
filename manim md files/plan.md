@@ -77,9 +77,64 @@ Architecture seams documented in handoff.md for Phase 2.
 
 ---
 
+## Phase 1.5 — Visual polish + validator overflow + QA ✓ DONE
+
+Status: **complete**. Addresses quality issues surfaced by the PD scenes;
+lays architectural seed for roles+restaging.
+
+Shipped:
+- **CalloutBox style system** — 4 styles via `params.style` enum: `neon`
+  (default, accent border traces in via `Create` + `Uncreate` exit),
+  `card` (legacy fill), `glass` (translucent fill), `bracket` (left-edge
+  bar, no rectangle). Auto-contrast text via `theme.palette.pick_text_color`.
+  Style dispatch via `components/narrative/_callout_styles.py:CalloutStyleSpec`.
+- **Mutation overlay tracking** — `JSONScene._overlays_by_host` + 
+  `ActionContext.register_overlay(host_id, mob, overlay_id=...)`. `highlightCell`,
+  `crossOut`, `bestResponseArrow` auto-register against host id; `removeComponent`
+  fades host + all tracked overlays in one `AnimationGroup`. Optional `id`
+  param on mutations exposes overlay as a top-level id in `id_to_mobject`.
+  Closes Phase 1 handoff gap #9.
+- **Validator overflow detection (always on)** — three new tiers in
+  `schema/_dry_run.py`:
+  - 4a `check_slot_fits` — component bbox vs slot dims
+  - 4c `check_anchor_overflows` — anchored component bbox vs frame bounds
+  - 4b `check_collisions` — full dry-run walk, pairwise overlap + frame fit
+- **`BaseComponent.measure(params, format)` class method** — pure-math
+  estimator returning `(w, h)` without building the mobject. Default reads
+  `SIZE_KIND` class attr. Content-driven overrides on TextCard, StatBlock,
+  MetricGroup, CalloutBox. The validator and the future layout solver
+  share this API.
+- **`FRAME_BOUNDS` in `layouts/base.py`** — single source of truth for
+  per-format frame dims, consumed by validator + future solver.
+- **Auto-contrast palette helper** — `theme.palette.pick_text_color(bg_hex)`
+  uses W3C relative luminance.
+- **4 QA mega scenes** — `qa_mega_h.json` + `qa_mega_v.json` (component/
+  effect/mutation density on `title-body`) and `qa_mega_layouts_h.json` +
+  `qa_mega_layouts_v.json` (split/stacked layout edge cases, all anchor
+  sides, multi-callout, all styles).
+- **PD scene fixes** — `prisoners_dilemma.json` (right-of:pd callout, small
+  bar chart) and `prisoners_dilemma_vertical.json` (MetricGroup size=small)
+  patched to pass new validator tiers.
+- **SIZE_TABLE adjustment** — `large` sizes for matrix/tree/web/default
+  now fit `hero` in both formats (were aspirational).
+
+Architectural seams that roles+restaging will reuse verbatim:
+- `BaseComponent.measure` (solver's space allocator)
+- `_overlays_by_host` (restage pass's overlay cleanup)
+- `_dry_run.py` walk shape (solver's pre-flight pass)
+- `FRAME_BOUNDS` (frame fit checks)
+- `CalloutStyleSpec` (model for future BadgeSpec, ConnectorSpec)
+
+See handoff.md "Phase 1.5 → Phase 2 / roles+restaging" section for
+specific extension points.
+
+---
+
 ## Phase 2 — Effects, motion, camera (≈1 week)
 
 Goal: visual polish + within-scene camera, full effect vocabulary.
+Phase 1.5's `measure()` API becomes the input to the solver introduced
+in roles+restaging; do not duplicate sizing logic.
 
 - `manim_renderer/effects/` — entrances (15), emphasis (8), exits (6), transitions (5). Each is a factory function: `entrance(mobject, effect_name, timing) -> Animation`. Defined as data, dispatched via dict — not a switch statement.
 - Easing + timing constants enforced. No raw `run_time` floats in component code; everything reads from `TIMING`.

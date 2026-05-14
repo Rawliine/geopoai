@@ -10,7 +10,9 @@ and every kind row.
 from __future__ import annotations
 
 # (width_units, height_units) per (kind -> role) per format.
-# Numbers tuned to leave breathing room around the slot in each layout.
+# `large` is sized to fit the `hero` layout's slot (horizontal 12×6,
+# vertical 6.5×12). Smaller slots will reject `large` via the validator's
+# slot-fit check — that's the intended signal.
 SIZE_TABLE: dict[str, dict[str, dict[str, tuple[float, float]]]] = {
     "horizontal": {
         "default": {
@@ -21,7 +23,7 @@ SIZE_TABLE: dict[str, dict[str, dict[str, tuple[float, float]]]] = {
         "matrix": {
             "small":  (4.0, 4.0),
             "medium": (5.5, 5.5),
-            "large":  (7.0, 7.0),
+            "large":  (6.0, 6.0),
         },
         "chart": {
             "small":  (5.0, 3.0),
@@ -31,39 +33,39 @@ SIZE_TABLE: dict[str, dict[str, dict[str, tuple[float, float]]]] = {
         "tree": {
             "small":  (5.0, 3.0),
             "medium": (8.0, 5.0),
-            "large":  (12.0, 7.0),
+            "large":  (11.0, 6.0),
         },
         "web": {
             "small":  (4.5, 4.5),
             "medium": (6.5, 6.0),
-            "large":  (9.0, 7.0),
+            "large":  (9.0, 6.0),
         },
     },
     "vertical": {
         "default": {
             "small":  (3.5, 4.5),
             "medium": (5.5, 7.0),
-            "large":  (7.0, 11.0),
+            "large":  (6.5, 11.0),
         },
         "matrix": {
             "small":  (4.0, 4.0),
             "medium": (5.5, 5.5),
-            "large":  (7.0, 7.0),
+            "large":  (6.0, 6.0),
         },
         "chart": {
             "small":  (4.5, 3.5),
             "medium": (6.5, 5.0),
-            "large":  (7.5, 7.0),
+            "large":  (6.5, 7.0),
         },
         "tree": {
             "small":  (5.0, 5.0),
             "medium": (6.5, 8.0),
-            "large":  (7.5, 11.0),
+            "large":  (6.5, 11.0),
         },
         "web": {
             "small":  (4.5, 4.5),
             "medium": (6.0, 6.0),
-            "large":  (7.5, 9.0),
+            "large":  (6.5, 9.0),
         },
     },
 }

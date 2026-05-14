@@ -80,6 +80,8 @@ def _resolve_color(key: str | None, fallback: str) -> str:
 class LineChart(BaseComponent):
     """Multi-series continuous-x line chart with themed axes."""
 
+    SIZE_KIND = "chart"
+
     def build(self) -> None:
         p = self.params
 

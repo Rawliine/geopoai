@@ -74,4 +74,6 @@ def best_response_arrow(ctx: ActionContext) -> Optional[Animation]:
         buff=0.35,  # leave room around cell centers so the arrow doesn't overlap text
         max_tip_length_to_length_ratio=0.18,
     )
+    # Phase 1.5: track overlay against host so removeComponent cleans it.
+    ctx.register_overlay(target_id, arrow, overlay_id=ctx.params.get("id"))
     return Create(arrow, run_time=run_time)

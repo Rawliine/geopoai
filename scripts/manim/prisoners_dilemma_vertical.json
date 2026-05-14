@@ -27,7 +27,7 @@
         "orientation": "column",
         "spacing": 0.6,
         "color_scheme": "actors",
-        "size": "medium",
+        "size": "small",
         "effect": "staggered",
         "stagger": "normal",
         "child_effect": "count-up",

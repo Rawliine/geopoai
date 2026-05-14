@@ -5,16 +5,22 @@ JSON shape:
       "params": { "target": "matrix-1", "effect": "fade-out", "timing": "fast" } }
 
 Default effect: `fade-out`. Default timing: `fast`. Both override-able from JSON.
+
+Phase 1.5 — overlay cleanup:
+  If the target has overlays registered against it in
+  `scene._overlays_by_host[target]`, all overlays fade out in parallel with
+  the host. Overlay ids (if any) are dropped from `id_to_mobject`.
 """
 
 from __future__ import annotations
 
 from typing import Optional
 
-from manim import Animation
+from manim import Animation, AnimationGroup, FadeOut
 
 from manim_renderer.actions._context import ActionContext
 from manim_renderer.effects.exits import get_exit
+from manim_renderer.theme.timing import TIMING
 
 
 def remove_component(ctx: ActionContext) -> Optional[Animation]:
@@ -30,9 +36,27 @@ def remove_component(ctx: ActionContext) -> Optional[Animation]:
 
     effect = ctx.params.get("effect", "fade-out")
     timing = ctx.params.get("timing", "fast")
-    anim = get_exit(effect, mob, timing)
+    host_anim = get_exit(effect, mob, timing)
 
-    # Drop from registry so subsequent anchor lookups fail cleanly rather than
-    # pointing at a faded-out ghost.
+    # Drop the host id first so subsequent anchor lookups fail cleanly.
     del ctx.id_to_mobject[target_id]
-    return anim
+
+    # Pull any overlays registered against this host. The scene may not
+    # have the attribute if the action was invoked from a unit test that
+    # didn't initialize JSONScene; treat as "no overlays".
+    overlays_map = getattr(ctx.scene, "_overlays_by_host", None) or {}
+    overlays = overlays_map.pop(target_id, [])
+    if not overlays:
+        return host_anim
+
+    # Drop any id-bearing overlays from id_to_mobject too. We walk the dict
+    # because overlay ids aren't stored back-referenced — cheap given typical
+    # registry sizes (<100 entries).
+    for ov in overlays:
+        for ident, registered in list(ctx.id_to_mobject.items()):
+            if registered is ov:
+                del ctx.id_to_mobject[ident]
+
+    overlay_run_time = TIMING[timing]
+    overlay_anims = [FadeOut(ov, run_time=overlay_run_time) for ov in overlays]
+    return AnimationGroup(host_anim, *overlay_anims)

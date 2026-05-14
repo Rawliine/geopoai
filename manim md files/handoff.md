@@ -128,9 +128,11 @@ this order.
 8. **`next-to:id` anchor token** — dropped from Phase 1 because it's
    under-specified ("which side?"). Resurrect when content authoring forces
    a clear answer.
-9. **Removable mutation overlays.** Highlights/crossouts/arrows currently
-   have no id (see AGENT.md rule 15). Phase 2 should add an optional `id`
-   param so they can be `removeComponent`'d like any other element.
+9. **Removable mutation overlays.** ✓ **Shipped in Phase 1.5.** Overlays
+   are now tracked against host id in `JSONScene._overlays_by_host` and
+   auto-clean when host is removed. Optional `params.id` exposes the
+   overlay as a top-level id for individual `removeComponent`. AGENT.md
+   rule 15 rewritten accordingly.
 10. **Force-directed AllianceWeb layout.** Phase 1 ships circular for
     determinism + readability at small node counts. Force-directed
     (Fruchterman-Reingold-lite) is a content-driven upgrade — add it when a
@@ -179,10 +181,10 @@ testable individually; pick them off in any order.
 8. **PayoffMatrix doesn't render the player-strategy axes' titles** beyond
    the player names. If a video needs explicit "Strategy" / "Strategy"
    labels, add an `axis_labels` param.
-9. **Mutation overlay z-order.** Highlights, crossouts, and arrows are added
-   via `FadeIn(overlay)` which `self.play()` adds to the scene at default
-   z. If multiple overlays overlap, the most recent wins — visually fine,
-   but if a future mutation needs to go *behind* a host component, use
+9. **Mutation overlay z-order.** Tracking is fixed in Phase 1.5 (overlays
+   auto-clean with host), but z-order behavior is unchanged — overlays
+   are added at default z via `FadeIn`. If multiple overlap, most recent
+   wins. If a future mutation needs to go *behind* a host component, use
    `self.scene.add_to_back(overlay)` explicitly.
 10. **Schema rejection tests live in `tests/schema/`; component tests in
     `tests/components/`; action tests in `tests/actions/`.** No fixture
@@ -287,3 +289,84 @@ python -m manim_renderer.schema.validator scripts/manim/qa_callout_anchors.json
 
 If any of (1) – (5) fails, **do not proceed to Phase 2** — fix or open an
 issue first. The handoff is contingent on the green baseline.
+
+---
+
+## Phase 1.5 → Phase 2 / roles+restaging handoff
+
+Phase 1.5 shipped four items (CalloutBox styles, overlay tracking,
+validator overflow detection, QA mega scenes) that lay the architectural
+seed for the roles+restaging system. The following extension points are
+intentionally exposed for that work.
+
+### `BaseComponent.measure(params, format) -> (w, h)` class method
+Every component implements it. Pure-math, no Manim mobjects. When the
+roles system lands, extend the signature with a `role: str = "primary"`
+arg — the solver allocates space by role within the layout. Backward-
+compatible because `role` has a default.
+
+**File:** `manim_renderer/components/base.py:46`. Overrides:
+`text_card.py`, `data_viz/stat_block.py`, `data_viz/metric_group.py`,
+`narrative/callout_box.py`. Other components use the default via
+`SIZE_KIND` class attribute.
+
+### `JSONScene._overlays_by_host: dict[str, list[Mobject]]`
+Initialized in `scene.py:construct()`. Mutation actions write to it via
+`ActionContext.register_overlay`. `removeComponent` reads + clears.
+
+The roles+restaging system's "restage pass" iterates this dict on each
+role change: when a host changes role, its overlays travel with it
+(parallel Transform). When a host leaves the cast, overlays leave too —
+same code path as `removeComponent` today.
+
+**File:** `manim_renderer/scene.py:48`. Writer:
+`manim_renderer/actions/_context.py:ActionContext.register_overlay`.
+
+### `manim_renderer/schema/_dry_run.py` walk shape
+The walk maintains `live: dict[id, Rect]`, processes events in `(at, phase)`
+order, and asks `measure() + place_at_anchor` for each placement. This
+is exactly the walk shape the solver's pre-flight needs — when restaging
+lands, the walk gains a "current solver" state and the geometry checks
+stay identical. Don't duplicate the walk; extend it.
+
+**File:** `manim_renderer/schema/_dry_run.py`. Entry point:
+`run_overflow_checks(scene)`.
+
+### `manim_renderer/layouts/base.py:FRAME_BOUNDS`
+Per-format frame dims, used by validator AND will be used by the future
+solver (when computing "this restage layout fits the frame"). Single
+source of truth — don't recompute from Manim config.
+
+**File:** `manim_renderer/layouts/base.py:18`.
+
+### `CalloutStyleSpec` pattern in `_callout_styles.py`
+Frozen-dataclass spec with `build_bubble + entrance + exit` factories,
+registered in a module-level dict. This is the model for future
+visual-variant components: `BadgeSpec` (annotation badges), `ConnectorSpec`
+(connection lines between components), `BarStyleSpec` (chart bar fills).
+Mirror this shape — additive enum, no `if/elif` chains.
+
+**File:** `manim_renderer/components/narrative/_callout_styles.py`.
+
+### Tolerance constants (tune as needed)
+`_dry_run.py:_FRAME_TOL = 0.10` and `_OVERLAP_TOL = 0.05` absorb estimator
+error so the validator doesn't flag near-edge cases. If the future solver
+produces tighter measurements, these can shrink. If false positives
+become a problem, they can grow.
+
+### What roles+restaging should NOT touch
+- `BaseComponent` API surface (don't break the contract).
+- The schema's `coords-banned` rule — coordinates still never appear in
+  JSON. Roles are a higher-level abstraction; solver positions are in
+  layout-space coords, hidden from authors.
+- `EffectSpec` / `CalloutStyleSpec` shape — both are stable.
+
+### What roles+restaging WILL replace
+- `layouts/{horizontal,vertical}.py` static slot dicts — likely become
+  solver classes that take a cast and return per-id Rects.
+- The static `slot.move_to(rect.center)` placement in `scene.py:_dispatch_component`
+  — becomes a solver call.
+- Anchors as primary placement mechanism — become hints the solver may
+  or may not honor.
+
+When the roles+restaging plan lands, re-read this section first.
