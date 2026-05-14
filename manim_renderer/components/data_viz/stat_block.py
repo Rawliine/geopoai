@@ -322,17 +322,21 @@ class StatBlock(BaseComponent):
 
     def set_value(self, value: float) -> None:
         """Re-render the value text in place. Called by CountUpAnimation each
-        frame; the text mobject is replaced and re-positioned identically.
+        frame; the text mobject's contents are replaced via `become()` while
+        preserving the mobject identity (no add/remove from the VGroup).
 
         This MUST be defined directly on the class (not via Manim's synthesized
         setter) — see `effects/_animations.py:_class_defines`.
+
+        Why `become()` and not remove+add (Phase 1.5 → 2.0 fix):
+        The remove+add pattern leaked the count-up's start frame ("0.0") into
+        the scene's rendered output, persisting past `removeComponent`. `become`
+        mutates the existing mobject in place — Manim's renderer sees the same
+        VMobject identity each frame, no leak.
         """
         new_mob = self._render_value_text(value)
-        # Preserve position: align new mob to old mob's center before swap.
         new_mob.move_to(self._value_mob.get_center())
-        self.remove(self._value_mob)
-        self._value_mob = new_mob
-        self.add(self._value_mob)
+        self._value_mob.become(new_mob)
 
     # --- bespoke entrance ----------------------------------------------------
 

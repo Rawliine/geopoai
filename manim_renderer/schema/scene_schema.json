@@ -104,8 +104,8 @@
       "description": "Layout name. Some are format-specific (split=horizontal, stacked=vertical); the validator's LAYOUT_FORMATS map enforces compatibility."
     },
     "callout_style": {
-      "enum": ["neon", "card", "glass", "bracket"],
-      "description": "Visual style for CalloutBox. Phase 1.5 default is 'neon'. See manim_renderer/components/narrative/_callout_styles.py."
+      "enum": ["neon", "card", "glass"],
+      "description": "Visual style for CalloutBox. Default is 'neon'. See manim_renderer/components/narrative/_callout_styles.py. (Phase 2.0 — dropped 'bracket'; new variants 'neon-bold', 'pull-quote', 'inline-tag' arrive in PR P.)"
     }
   }
 }

@@ -317,8 +317,8 @@ that uses the anchor resolver — `params.anchor` is required.
     "width": 4.5,                  // max bubble width in Manim units (1.0–8.0)
     "arrow": true,                 // arrowhead at leader tip
     "color": "highlight",          // accent color (palette key) — drives border
-                                   //   stroke for neon/glass/bracket, text for card
-    "style": "neon",               // "neon" (default) | "card" | "glass" | "bracket"
+                                   //   stroke for neon/glass, text for card
+    "style": "neon",               // "neon" (default) | "card" | "glass"
     "timing": "normal",
     "effect": "fade-in"            // overrides style's signature animation when set
                                    //   to a generic entrance (fade-in, grow-up, etc.)
@@ -332,19 +332,21 @@ when chaining callouts. Long text auto-wraps to fit `width`.
 Format-aware: in vertical scenes, `right-of`/`left-of` flip to `below`/`above`
 for both the bubble position AND the leader endpoints.
 
-**Style (Phase 1.5):**
-- `neon` (default) — no fill; accent-colored stroke traces in via `Create`,
-  then text fades. Outer glow halo. Exit reverses: text fades, border erases
-  via `Uncreate`. Use for highlight callouts, dramatic emphasis.
+**Style (Phase 1.5 + 2.0):**
+- `neon` (default) — no fill; **three-layer** accent stroke (outer glow +
+  mid glow + tight border) traces in via `Create`, then text fades. Exit
+  reverses: text fades, border erases via `Uncreate`. Use for highlight
+  callouts, dramatic emphasis.
 - `card` — surface fill + thin border, bubble + text fade together (legacy).
   Use for neutral annotations.
 - `glass` — translucent dark fill + brighter accent border. Lower-third feel.
-- `bracket` — no rectangle; thick left-edge accent bar + text. Bar grows
-  from bottom, text fades alongside. NYT/FT-style annotation.
 
-Text color auto-contrasts against the scene background for the
-transparent styles (neon, glass, bracket): light text on dark backgrounds.
-Card style honors explicit `color` or uses `text_primary`.
+(Phase 2.0 — PR E: dropped `bracket`. New variants `neon-bold`, `pull-quote`,
+`inline-tag` are scheduled for PR P alongside the roles+restaging system.)
+
+Text color auto-contrasts against the scene background for the transparent
+styles (neon, glass): light text on dark backgrounds. Card style honors
+explicit `color` or uses `text_primary`.
 
 Example with style variants:
 ```json
@@ -353,8 +355,8 @@ Example with style variants:
     "anchor": "above:bars", "width": 5.0, "style": "neon", "color": "highlight" } }
 
 { "action": "showCalloutBox", "params": {
-    "id": "cb-bracket", "text": "NYT-style side bar.",
-    "anchor": "right-of:pd", "width": 3.0, "style": "bracket", "color": "actor_a" } }
+    "id": "cb-card", "text": "Neutral reference annotation.",
+    "anchor": "right-of:pd", "width": 3.0, "style": "card" } }
 ```
 
 ---

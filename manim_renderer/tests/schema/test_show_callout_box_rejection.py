@@ -121,7 +121,7 @@ def test_neon_style_passes():
 
 
 def test_all_styles_pass():
-    for style in ("neon", "card", "glass", "bracket"):
+    for style in ("neon", "card", "glass"):
         ok, errs = validate(_with_overlay_params(
             {"id": "cb", "text": "x", "anchor": "below:card", "style": style}
         ))

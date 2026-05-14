@@ -121,11 +121,15 @@ class _BarValueLabel(VGroup):
         )
 
     def set_value(self, value: float) -> None:
+        # `become()` mutates the existing mobject in place (fixes the Phase 2.0
+        # leak from remove+add). MUST move new_text to `self._text.get_center()`
+        # — the current SCENE position — not to `self._anchor_point` (the
+        # build-time LOCAL position). Phase 2.0 / PR E2 used `_anchor_point`,
+        # which works at origin but jumps labels by `-slot.center` whenever
+        # the parent BarChart has been moved. Mirrors `StatBlock.set_value`.
         new_text = self._render(value)
-        new_text.move_to(self._anchor_point)
-        self.remove(self._text)
-        self._text = new_text
-        self.add(self._text)
+        new_text.move_to(self._text.get_center())
+        self._text.become(new_text)
 
 
 class BarChart(BaseComponent):
@@ -201,6 +205,13 @@ class BarChart(BaseComponent):
         self._value_labels: list[_BarValueLabel] = []
         label_font_size = int(FONT_SCALE[self.format]["caption"] * 0.85)
 
+        # Label-height estimate (Manim Text height ≈ font_size / 80 in units).
+        label_height_est = label_font_size / 80.0
+        # Floor for zero-value labels — sits above the x-axis tick label band
+        # so it doesn't crowd `Outcome`/axis-title text or look like an
+        # x-axis label.
+        zero_floor_y = baseline_y + label_height_est + 0.30
+
         for i, (val, hex_color) in enumerate(zip(self._values, self._colors)):
             cx = self._axes.category_to_x(i)
             top_y = self._axes.value_to_y(val)
@@ -219,6 +230,15 @@ class BarChart(BaseComponent):
             self.add(bar)
 
             if self._show_value_labels:
+                # Phase 2.0 / PR E2 — Two-rule positioning for consistency:
+                #   * value == 0 → fixed floor above the x-axis label band.
+                #   * value > 0  → always just above the bar's own top.
+                # Previous max()-based rule mixed branches per bar height,
+                # making labels feel "random" across a chart.
+                if val == 0:
+                    label_y = zero_floor_y
+                else:
+                    label_y = top_y + _VALUE_LABEL_BUFF + label_height_est / 2
                 label = _BarValueLabel(
                     val,
                     value_format=self._value_format,
@@ -226,7 +246,7 @@ class BarChart(BaseComponent):
                     font=FONTS["primary"],
                     font_size=label_font_size,
                     color=UI["text_primary"],
-                    anchor_point=np.array([cx, top_y + _VALUE_LABEL_BUFF + 0.05, 0.0]),
+                    anchor_point=np.array([cx, label_y, 0.0]),
                 )
                 self._value_labels.append(label)
                 self.add(label)

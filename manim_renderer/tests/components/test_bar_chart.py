@@ -93,6 +93,87 @@ def test_value_labels_off():
     assert bc._value_labels == []
 
 
+# --- Phase 2.0 / PR E2 — label positioning rules ----------------------------
+
+def test_nonzero_labels_sit_above_their_own_bar():
+    """Two-rule split: each non-zero label is just above its bar's top.
+    The vertical offset (label.y - bar.top) is the same for every non-zero
+    bar regardless of bar height — that's the consistency the user wanted."""
+    bc = BarChart(
+        {
+            "id": "c",
+            "data": [
+                {"label": "A", "value": 1},
+                {"label": "B", "value": 3},
+                {"label": "C", "value": 5},
+            ],
+            "y_axis": {"min": 0, "max": 6, "ticks": 4},
+        },
+        format="horizontal",
+    )
+    offsets = [
+        bc._value_labels[i].get_center()[1] - bc._bars[i].get_top()[1]
+        for i in range(3)
+    ]
+    # All non-zero bars: same vertical offset (within numeric tolerance).
+    assert max(offsets) - min(offsets) < 1e-6, (
+        f"non-zero label offsets should be uniform; got {offsets}"
+    )
+
+
+def test_count_up_preserves_label_scene_position():
+    """Phase 2.0 / PR E3 regression: `_BarValueLabel.set_value` must move
+    `new_text` to the label's CURRENT scene center, not to the
+    build-time LOCAL anchor_point. Failure mode: every count-up frame
+    snaps the label to local coords, so when the parent BarChart is
+    placed in a non-origin slot (e.g. split.right at cx=3.4), labels
+    jump by `-slot.center` and appear outside the chart."""
+    bc = BarChart(
+        {
+            "id": "c",
+            "data": [{"label": "A", "value": 3}],
+            "y_axis": {"min": 0, "max": 6, "ticks": 4},
+        },
+        format="horizontal",
+    )
+    # Simulate the scene runner placing the BarChart at split.right.
+    bc.move_to([3.4, 0.0, 0.0])
+    before = bc._value_labels[0]._text.get_center().copy()
+    # Mid count-up frame.
+    bc._value_labels[0].set_value(1.5)
+    after = bc._value_labels[0]._text.get_center()
+    # Position must be preserved. X may shift slightly if rendered widths
+    # differ, but the label CENTER must stay at the same point so the
+    # label appears above its bar, not outside the chart.
+    np.testing.assert_allclose(after, before, atol=1e-6)
+
+
+def test_zero_value_label_sits_at_floor():
+    """Zero-value bars don't have a bar top to anchor against. The label
+    sits at a fixed floor above the x-axis tick label band, NOT on the
+    x-axis line where it would collide with `Outcome`/axis-title text."""
+    bc = BarChart(
+        {
+            "id": "c",
+            "data": [{"label": "Z", "value": 0}, {"label": "P", "value": 5}],
+            "y_axis": {"min": 0, "max": 6, "ticks": 4},
+        },
+        format="horizontal",
+    )
+    # Zero-value label should be well above the baseline.
+    plot_bottom = bc._axes.plot.bottom  # local-coord baseline
+    zero_label_y = bc._value_labels[0].get_center()[1] - bc.get_center()[1]
+    # Account for BarChart's move_to(ORIGIN) and the label being measured in
+    # scene coords — translate back by component center.
+    # The floor formula: baseline + label_height_est + 0.30. We just assert
+    # the label is clearly above the baseline (not on or below it).
+    # Compare scene-space y values directly using local-space baseline_y.
+    baseline_y_scene = bc._bars[1].get_bottom()[1]  # bar #2 sits at baseline
+    assert bc._value_labels[0].get_center()[1] > baseline_y_scene + 0.10, (
+        "zero-value label must clear the x-axis label band"
+    )
+
+
 # --- anchors ----------------------------------------------------------------
 
 def test_bar_anchor_by_index():

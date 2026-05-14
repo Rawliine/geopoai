@@ -4,7 +4,7 @@
   "quality": "preview",
   "scene": {
     "layout": "stacked",
-    "duration": 60,
+    "duration": 35,
     "theme": "dark"
   },
   "slots": {
@@ -12,7 +12,7 @@
       "at": 0.0,
       "action": "showPayoffMatrix",
       "params": {
-        "id": "pd-top",
+        "id": "pd",
         "size": "small",
         "players": [
           { "name": "A", "color": "actor_a" },
@@ -30,7 +30,7 @@
       "at": 0.5,
       "action": "showBarChart",
       "params": {
-        "id": "bars-bottom",
+        "id": "bars",
         "size": "small",
         "data": [
           { "label": "Coop", "value": 3, "color": "actor_a" },
@@ -44,60 +44,33 @@
     }
   },
   "overlays": [
-    { "at": 5.0, "action": "showCalloutBox",
-      "params": { "id": "cb-inside-1", "text": "Inside the top component.",
-        "anchor": "inside:pd-top", "width": 3.5,
+    { "at": 6.0, "action": "showCalloutBox",
+      "params": { "id": "cb-pd-inside", "text": "Pareto-inferior equilibrium.",
+        "anchor": "inside:pd", "width": 4.0,
         "style": "neon", "color": "highlight", "timing": "normal" } },
-    { "at": 9.0, "action": "removeComponent",
-      "params": { "target": "cb-inside-1", "effect": "fade-out", "timing": "fast" } },
+    { "at": 11.0, "action": "removeComponent",
+      "params": { "target": "cb-pd-inside", "effect": "fade-out", "timing": "fast" } },
 
-    { "at": 10.0, "action": "showCalloutBox",
-      "params": { "id": "cb-inside-bottom", "text": "Inside the bottom component.",
-        "anchor": "inside:bars-bottom", "width": 3.5,
+    { "at": 12.0, "action": "showCalloutBox",
+      "params": { "id": "cb-pd-flip", "text": "right-of auto-flips to below in vertical.",
+        "anchor": "right-of:pd", "width": 5.0,
+        "style": "glass", "color": "actor_a", "timing": "normal" } },
+    { "at": 17.0, "action": "removeComponent",
+      "params": { "target": "cb-pd-flip", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 18.0, "action": "highlightCell",
+      "params": { "id": "hl-ne", "target": "pd", "index": [1, 1], "color": "highlight", "timing": "fast" } },
+    { "at": 19.0, "action": "showCalloutBox",
+      "params": { "id": "cb-bars-inside", "text": "Defect maximises my payoff.",
+        "anchor": "inside:bars", "width": 4.0,
         "style": "card", "timing": "normal" } },
-    { "at": 14.0, "action": "removeComponent",
-      "params": { "target": "cb-inside-bottom", "effect": "fade-out", "timing": "fast" } },
-
-    { "at": 15.0, "action": "showCalloutBox",
-      "params": { "id": "cb-right-flipped", "text": "right-of auto-flips to below.",
-        "anchor": "right-of:pd-top", "width": 4.5,
-        "style": "glass", "color": "highlight", "timing": "normal" } },
-    { "at": 19.0, "action": "removeComponent",
-      "params": { "target": "cb-right-flipped", "effect": "fade-out", "timing": "fast" } },
-
-    { "at": 20.0, "action": "showCalloutBox",
-      "params": { "id": "cb-inside", "text": "Inside overlay.",
-        "anchor": "inside:pd-top", "width": 3.0,
-        "style": "bracket", "color": "actor_c", "timing": "normal" } },
     { "at": 24.0, "action": "removeComponent",
-      "params": { "target": "cb-inside", "effect": "fade-out", "timing": "fast" } },
+      "params": { "target": "cb-bars-inside", "effect": "fade-out", "timing": "fast" } },
 
-    { "at": 25.0, "action": "showCalloutBox",
-      "params": { "id": "cb-cross", "text": "Cross-slot anchor — top to bottom.",
-        "anchor": "above:bars-bottom", "width": 4.5,
-        "style": "neon", "color": "actor_d", "timing": "normal" } },
-    { "at": 30.0, "action": "removeComponent",
-      "params": { "target": "cb-cross", "effect": "fade-out", "timing": "fast" } },
-
-    { "at": 31.0, "action": "highlightCell",
-      "params": { "id": "hl-cell", "target": "pd-top", "index": [1, 1], "color": "highlight", "timing": "fast" } },
-    { "at": 33.0, "action": "showCalloutBox",
-      "params": { "id": "cb-multi-a", "text": "Two simultaneous callouts.",
-        "anchor": "inside:pd-top", "width": 3.5,
-        "style": "neon", "color": "actor_a", "timing": "normal" } },
-    { "at": 34.0, "action": "showCalloutBox",
-      "params": { "id": "cb-multi-b", "text": "Both anchored to different hosts.",
-        "anchor": "inside:bars-bottom", "width": 3.5,
-        "style": "neon", "color": "actor_b", "timing": "normal" } },
-    { "at": 39.0, "action": "removeComponent",
-      "params": { "target": "cb-multi-a", "effect": "fade-out", "timing": "fast" } },
-    { "at": 39.5, "action": "removeComponent",
-      "params": { "target": "cb-multi-b", "effect": "fade-out", "timing": "fast" } },
-
-    { "at": 41.0, "action": "removeComponent",
-      "params": { "target": "pd-top", "effect": "fade-out", "timing": "normal" } },
-    { "at": 42.0, "action": "removeComponent",
-      "params": { "target": "bars-bottom", "effect": "fade-out", "timing": "normal" } }
+    { "at": 25.0, "action": "removeComponent",
+      "params": { "target": "pd", "effect": "fade-out", "timing": "normal" } },
+    { "at": 26.0, "action": "removeComponent",
+      "params": { "target": "bars", "effect": "fade-out", "timing": "normal" } }
   ],
   "timeline": []
 }

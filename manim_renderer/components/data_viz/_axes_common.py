@@ -45,7 +45,10 @@ _AXIS_TITLE_EXTRA = 0.05  # added if that axis has a title
 _AXIS_STROKE_WIDTH = 1.5
 _TICK_LENGTH = 0.08
 _TICK_LABEL_BUFF = 0.10
-_AXIS_TITLE_BUFF = 0.18
+# Bumped in PR E: previously 0.18 caused the x-axis title ("Outcome",
+# "Strategy") to crowd into the x-axis tick label band, especially when
+# bar value labels for zero-value bars also sat in that area.
+_AXIS_TITLE_BUFF = 0.30
 
 # Default number of ticks if `y_axis.ticks` is omitted.
 _DEFAULT_Y_TICKS = 4
@@ -295,8 +298,11 @@ class Axes2D(VGroup):
         return int(FONT_SCALE[self._format]["caption"] * 0.78)
 
     def _title_font_size(self) -> int:
-        # label-class font for axis titles.
-        return int(FONT_SCALE[self._format]["caption"] * 0.95)
+        # Axis titles ("Payoff", "Outcome", etc.).
+        # Phase 2.0 / PR E3: reduced from caption*0.95 to caption*0.75 so
+        # titles read clearly on small charts without dominating ~9% of
+        # chart height each.
+        return int(FONT_SCALE[self._format]["caption"] * 0.75)
 
     def _build_axis_lines(self) -> None:
         color = UI["border"]

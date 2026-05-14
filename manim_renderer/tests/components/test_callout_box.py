@@ -272,7 +272,7 @@ def test_leader_edges_table_complete_for_all_tokens():
 # --- Phase 1.5: style system -------------------------------------------------
 
 
-@pytest.mark.parametrize("style", ["neon", "card", "glass", "bracket"])
+@pytest.mark.parametrize("style", ["neon", "card", "glass"])
 def test_each_style_constructs(style):
     cb = CalloutBox(
         {"id": "c", "text": "demo", "anchor": "below:t", "style": style},
@@ -326,16 +326,29 @@ def test_card_entrance_uses_fade_in_group():
     assert isinstance(anim, FadeIn)
 
 
-def test_bracket_entrance_uses_animation_group():
-    """Bracket animates bar + text in parallel — AnimationGroup."""
-    from manim import AnimationGroup
+def test_neon_bubble_has_four_layers():
+    """Phase 2.0 / PR E2: professional neon stack is four concentric strokes
+    (outer glow + mid glow + border + inner core). Asserts the structural
+    shape so future tweaks don't silently collapse the layers."""
     cb = CalloutBox(
-        {"id": "c", "text": "demo", "anchor": "below:t", "style": "bracket"},
+        {"id": "c", "text": "demo", "anchor": "below:t", "style": "neon"},
         format="horizontal",
     )
-    cb.position_finalized(anchor=None, target=None, format="horizontal")
-    anim = cb.entrance("draw-out", "normal")
-    assert isinstance(anim, AnimationGroup)
+    # bubble_mob is a VGroup of (outer_glow, mid_glow, border, inner_core).
+    assert len(cb._bubble_mob.submobjects) == 4
+    # Named accessors are present (used by future restage / Transform code).
+    for name in ("outer_glow", "mid_glow", "border", "inner_core"):
+        assert hasattr(cb._bubble_mob, name), f"neon bubble missing {name!r}"
+
+
+def test_bracket_style_rejected():
+    """Phase 2.0: `bracket` was dropped. Constructing a CalloutBox with
+    style='bracket' should fail with the unknown-style error."""
+    with pytest.raises(ValueError, match="unknown"):
+        CalloutBox(
+            {"id": "c", "text": "demo", "anchor": "below:t", "style": "bracket"},
+            format="horizontal",
+        )
 
 
 def test_explicit_fade_in_effect_overrides_style_default():
@@ -376,7 +389,7 @@ def test_fade_out_exit_routes_through_super():
     assert isinstance(anim, FadeOut)
 
 
-@pytest.mark.parametrize("style", ["neon", "glass", "bracket"])
+@pytest.mark.parametrize("style", ["neon", "glass"])
 def test_transparent_styles_use_auto_contrast_text(style):
     """For non-card styles (transparent background), text color is picked
     by luminance against the scene background (#0e1116 → dark → light text)."""

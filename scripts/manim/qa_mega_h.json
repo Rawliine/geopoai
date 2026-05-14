@@ -4,7 +4,7 @@
   "quality": "preview",
   "scene": {
     "layout": "title-body",
-    "duration": 180,
+    "duration": 55,
     "theme": "dark"
   },
   "slots": {
@@ -13,7 +13,7 @@
       "action": "showTextCard",
       "params": {
         "id": "title",
-        "text": "Phase 1.5 QA — Horizontal",
+        "text": "Phase 2.0 QA — Horizontal",
         "size": "title",
         "timing": "slow",
         "effect": "fade-in"
@@ -24,7 +24,7 @@
       "action": "showTextCard",
       "params": {
         "id": "intro",
-        "text": "Component tour begins",
+        "text": "Three callout styles, one component per beat.",
         "size": "body",
         "timing": "slow",
         "effect": "fade-in"
@@ -32,144 +32,47 @@
     }
   },
   "overlays": [
-    { "at": 4.0, "action": "removeComponent",
+    { "at": 4.5, "action": "removeComponent",
       "params": { "target": "intro", "effect": "fade-out", "timing": "fast" } },
 
-    { "at": 5.0, "action": "showStatBlock",
+    { "at": 5.5, "action": "showStatBlock",
       "params": { "id": "stat-1", "value": 42.3, "label": "Cooperation rate",
         "unit": "%", "value_format": "decimal", "decimals": 1,
         "color": "actor_a", "size": "medium",
         "trend": { "delta": -7.5, "direction": "down" },
         "sparkline": [60, 55, 52, 48, 45, 43, 42],
         "timing": "slow", "effect": "count-up" } },
-    { "at": 11.0, "action": "removeComponent",
-      "params": { "target": "stat-1", "effect": "fade-out", "timing": "fast" } },
-
-    { "at": 12.0, "action": "showMetricGroup",
-      "params": { "id": "metrics", "orientation": "row", "spacing": 0.8,
-        "color_scheme": "actors", "size": "small",
-        "effect": "staggered", "stagger": "normal", "child_effect": "count-up",
-        "timing": "slow",
-        "stats": [
-          { "id": "m-a", "value": 18, "label": "Alpha", "value_format": "int" },
-          { "id": "m-b", "value": 24, "label": "Beta", "value_format": "int" },
-          { "id": "m-c", "value": 36, "label": "Gamma", "value_format": "int" }
-        ] } },
-    { "at": 16.0, "action": "showCalloutBox",
-      "params": { "id": "cb-neon", "text": "Neon style — accent border traces in.",
-        "anchor": "above:metrics", "width": 5.5,
+    { "at": 9.5, "action": "showCalloutBox",
+      "params": { "id": "cb-stat", "text": "Defection is steadily eroding cooperation.",
+        "anchor": "above:stat-1", "width": 5.5,
         "style": "neon", "color": "actor_a", "timing": "normal" } },
-    { "at": 20.0, "action": "removeComponent",
-      "params": { "target": "cb-neon", "effect": "fade-out", "timing": "fast" } },
-    { "at": 21.0, "action": "showCalloutBox",
-      "params": { "id": "cb-card", "text": "Card style — filled surface, classic.",
-        "anchor": "above:metrics", "width": 5.5,
-        "style": "card", "timing": "normal" } },
-    { "at": 25.0, "action": "removeComponent",
-      "params": { "target": "cb-card", "effect": "fade-out", "timing": "fast" } },
-    { "at": 26.0, "action": "showCalloutBox",
-      "params": { "id": "cb-glass", "text": "Glass — translucent over background.",
-        "anchor": "above:metrics", "width": 5.5,
-        "style": "glass", "color": "highlight", "timing": "normal" } },
-    { "at": 30.0, "action": "removeComponent",
-      "params": { "target": "cb-glass", "effect": "fade-out", "timing": "fast" } },
-    { "at": 31.0, "action": "showCalloutBox",
-      "params": { "id": "cb-bracket", "text": "Bracket — no rectangle, NYT-style.",
-        "anchor": "above:metrics", "width": 5.0,
-        "style": "bracket", "color": "actor_c", "timing": "normal" } },
-    { "at": 35.0, "action": "removeComponent",
-      "params": { "target": "cb-bracket", "effect": "fade-out", "timing": "fast" } },
-    { "at": 36.0, "action": "removeComponent",
-      "params": { "target": "metrics", "effect": "dissolve", "timing": "normal" } },
+    { "at": 14.0, "action": "removeComponent",
+      "params": { "target": "cb-stat", "effect": "fade-out", "timing": "fast" } },
+    { "at": 14.5, "action": "removeComponent",
+      "params": { "target": "stat-1", "effect": "fade-out", "timing": "normal" } },
 
-    { "at": 38.0, "action": "showBarChart",
+    { "at": 16.0, "action": "showBarChart",
       "params": { "id": "bars", "size": "small",
         "data": [
-          { "label": "A", "value": 23, "color": "actor_a" },
-          { "label": "B", "value": 17, "color": "actor_b" },
-          { "label": "C", "value": 31, "color": "actor_c" },
-          { "label": "D", "value": 12, "color": "actor_d" }
+          { "label": "C, C", "value": 3, "color": "positive" },
+          { "label": "C, D", "value": 0, "color": "negative" },
+          { "label": "D, C", "value": 5, "color": "actor_a" },
+          { "label": "D, D", "value": 1, "color": "neutral" }
         ],
-        "y_axis": { "min": 0, "max": 35, "ticks": 5, "label": "Score" },
-        "x_axis": { "label": "Category" },
+        "y_axis": { "min": 0, "max": 6, "ticks": 4, "label": "Payoff" },
+        "x_axis": { "label": "Outcome" },
         "value_format": "int", "show_value_labels": true,
         "timing": "slow", "effect": "count-up" } },
-    { "at": 44.0, "action": "showCalloutBox",
-      "params": { "id": "cb-bar", "text": "BarChart with count-up entrance.",
-        "anchor": "above:bars", "width": 5.0,
-        "style": "neon", "color": "highlight", "timing": "normal" } },
-    { "at": 49.0, "action": "removeComponent",
-      "params": { "target": "cb-bar", "effect": "fade-out", "timing": "fast" } },
-    { "at": 49.5, "action": "removeComponent",
+    { "at": 22.0, "action": "showCalloutBox",
+      "params": { "id": "cb-bars", "text": "Mutual cooperation maximises joint payoff.",
+        "anchor": "above:bars", "width": 5.5,
+        "style": "glass", "color": "highlight", "timing": "normal" } },
+    { "at": 27.0, "action": "removeComponent",
+      "params": { "target": "cb-bars", "effect": "fade-out", "timing": "fast" } },
+    { "at": 27.5, "action": "removeComponent",
       "params": { "target": "bars", "effect": "fade-out", "timing": "normal" } },
 
-    { "at": 51.0, "action": "showLineChart",
-      "params": { "id": "lines", "size": "small",
-        "series": [
-          { "label": "Series 1",
-            "points": [[0, 10], [1, 12], [2, 15], [3, 18], [4, 22]] },
-          { "label": "Series 2",
-            "points": [[0, 20], [1, 17], [2, 14], [3, 13], [4, 14]] }
-        ],
-        "y_axis": { "min": 0, "max": 25, "ticks": 5, "label": "Value" },
-        "x_axis": { "min": 0, "max": 4, "ticks": 5, "label": "Time" },
-        "value_format": "int",
-        "timing": "slow", "effect": "draw-out" } },
-    { "at": 58.0, "action": "removeComponent",
-      "params": { "target": "lines", "effect": "fade-out", "timing": "normal" } },
-
-    { "at": 60.0, "action": "showTimeline",
-      "params": { "id": "tl", "size": "medium",
-        "events": [
-          { "id": "ev-1", "label": "Event A", "at_label": "1990", "color": "actor_a" },
-          { "id": "ev-2", "label": "Event B", "at_label": "2001", "color": "actor_b" },
-          { "id": "ev-3", "label": "Event C", "at_label": "2014", "color": "actor_c" },
-          { "id": "ev-4", "label": "Event D", "at_label": "2023", "color": "highlight" }
-        ],
-        "timing": "slow", "effect": "level-by-level" } },
-    { "at": 66.0, "action": "removeComponent",
-      "params": { "target": "tl", "effect": "dissolve", "timing": "normal" } },
-
-    { "at": 68.0, "action": "showGameTree",
-      "params": { "id": "tree", "size": "medium",
-        "nodes": {
-          "label": "Start",
-          "children": [
-            { "label": "Left",
-              "children": [
-                { "label": "(2, 1)" },
-                { "label": "(0, 0)" }
-              ] },
-            { "label": "Right",
-              "children": [
-                { "label": "(1, 2)" },
-                { "label": "(3, 1)" }
-              ] }
-          ]
-        },
-        "timing": "slow", "effect": "level-by-level" } },
-    { "at": 75.0, "action": "removeComponent",
-      "params": { "target": "tree", "effect": "fade-out", "timing": "normal" } },
-
-    { "at": 77.0, "action": "showAllianceWeb",
-      "params": { "id": "web", "size": "medium",
-        "nodes": [
-          { "id": "n-a", "label": "A", "color": "actor_a" },
-          { "id": "n-b", "label": "B", "color": "actor_b" },
-          { "id": "n-c", "label": "C", "color": "actor_c" },
-          { "id": "n-d", "label": "D", "color": "actor_d" }
-        ],
-        "edges": [
-          { "from": "n-a", "to": "n-b", "kind": "alliance" },
-          { "from": "n-b", "to": "n-c", "kind": "rivalry" },
-          { "from": "n-c", "to": "n-d", "kind": "alliance" },
-          { "from": "n-a", "to": "n-d", "kind": "neutral" }
-        ],
-        "timing": "slow", "effect": "level-by-level" } },
-    { "at": 84.0, "action": "removeComponent",
-      "params": { "target": "web", "effect": "fade-out", "timing": "normal" } },
-
-    { "at": 86.0, "action": "showPayoffMatrix",
+    { "at": 29.0, "action": "showPayoffMatrix",
       "params": { "id": "pd", "size": "small",
         "players": [
           { "name": "P1", "color": "actor_a" },
@@ -181,30 +84,27 @@
           [{ "a": 5, "b": 0 }, { "a": 1, "b": 1 }]
         ],
         "timing": "slow", "effect": "level-by-level" } },
-    { "at": 92.0, "action": "showCalloutBox",
-      "params": { "id": "cb-pd", "text": "PayoffMatrix + mutations test.",
+    { "at": 34.5, "action": "showCalloutBox",
+      "params": { "id": "cb-pd", "text": "Each player's dominant strategy is to defect.",
         "anchor": "right-of:pd", "width": 3.0,
-        "style": "neon", "color": "highlight", "timing": "normal" } },
-    { "at": 95.0, "action": "highlightCell",
-      "params": { "id": "hl-1", "target": "pd", "index": [1, 0], "color": "actor_a", "timing": "fast" } },
-    { "at": 96.0, "action": "highlightCell",
-      "params": { "id": "hl-2", "target": "pd", "index": [0, 1], "color": "actor_b", "timing": "fast" } },
-    { "at": 98.0, "action": "removeComponent",
-      "params": { "target": "hl-1", "effect": "fade-out", "timing": "fast" } },
-    { "at": 100.0, "action": "bestResponseArrow",
-      "params": { "id": "arr-1", "target": "pd", "from": [0, 0], "to": [1, 0], "actor": "actor_a", "timing": "normal" } },
-    { "at": 102.0, "action": "crossOut",
-      "params": { "id": "x-1", "target": "pd", "axis": "row", "index": 0, "style": "dashed", "timing": "normal" } },
-    { "at": 105.0, "action": "removeComponent",
+        "style": "card", "timing": "normal" } },
+    { "at": 38.5, "action": "highlightCell",
+      "params": { "id": "hl-ne", "target": "pd", "index": [1, 1], "color": "highlight", "timing": "fast" } },
+    { "at": 40.0, "action": "bestResponseArrow",
+      "params": { "id": "arr-a", "target": "pd", "from": [0, 0], "to": [1, 0], "actor": "actor_a", "timing": "normal" } },
+    { "at": 42.0, "action": "crossOut",
+      "params": { "id": "x-row0", "target": "pd", "axis": "row", "index": 0, "style": "dashed", "timing": "normal" } },
+
+    { "at": 47.0, "action": "removeComponent",
       "params": { "target": "cb-pd", "effect": "fade-out", "timing": "fast" } },
-    { "at": 106.0, "action": "removeComponent",
+    { "at": 47.5, "action": "removeComponent",
       "params": { "target": "pd", "effect": "fade-out", "timing": "normal" } },
 
-    { "at": 110.0, "action": "showTextCard",
+    { "at": 50.0, "action": "showTextCard",
       "params": { "id": "outro", "text": "QA tour complete.",
         "size": "body", "timing": "slow", "effect": "fade-in" } },
-    { "at": 115.0, "action": "removeComponent",
-      "params": { "target": "outro", "effect": "dissolve", "timing": "slow" } }
+    { "at": 54.0, "action": "removeComponent",
+      "params": { "target": "outro", "effect": "dissolve", "timing": "fast" } }
   ],
   "timeline": []
 }

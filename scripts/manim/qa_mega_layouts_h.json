@@ -4,7 +4,7 @@
   "quality": "preview",
   "scene": {
     "layout": "split",
-    "duration": 60,
+    "duration": 35,
     "theme": "dark"
   },
   "slots": {
@@ -12,7 +12,7 @@
       "at": 0.0,
       "action": "showPayoffMatrix",
       "params": {
-        "id": "pd-left",
+        "id": "pd",
         "size": "small",
         "players": [
           { "name": "A", "color": "actor_a" },
@@ -30,7 +30,7 @@
       "at": 0.5,
       "action": "showBarChart",
       "params": {
-        "id": "bars-right",
+        "id": "bars",
         "size": "small",
         "data": [
           { "label": "Coop", "value": 3, "color": "actor_a" },
@@ -44,53 +44,33 @@
     }
   },
   "overlays": [
-    { "at": 5.0, "action": "showCalloutBox",
-      "params": { "id": "cb-above", "text": "Above the matrix.",
-        "anchor": "above:pd-left", "width": 3.5,
+    { "at": 6.0, "action": "showCalloutBox",
+      "params": { "id": "cb-pd-above", "text": "Pareto-inferior equilibrium.",
+        "anchor": "above:pd", "width": 4.0,
         "style": "neon", "color": "highlight", "timing": "normal" } },
-    { "at": 9.0, "action": "removeComponent",
-      "params": { "target": "cb-above", "effect": "fade-out", "timing": "fast" } },
+    { "at": 11.0, "action": "removeComponent",
+      "params": { "target": "cb-pd-above", "effect": "fade-out", "timing": "fast" } },
 
-    { "at": 10.0, "action": "showCalloutBox",
-      "params": { "id": "cb-below", "text": "Below the matrix.",
-        "anchor": "below:pd-left", "width": 3.5,
+    { "at": 12.0, "action": "showCalloutBox",
+      "params": { "id": "cb-bars-above", "text": "Defect dominates in payoff.",
+        "anchor": "above:bars", "width": 4.0,
+        "style": "glass", "color": "actor_b", "timing": "normal" } },
+    { "at": 17.0, "action": "removeComponent",
+      "params": { "target": "cb-bars-above", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 18.0, "action": "highlightCell",
+      "params": { "id": "hl-ne", "target": "pd", "index": [1, 1], "color": "highlight", "timing": "fast" } },
+    { "at": 19.0, "action": "showCalloutBox",
+      "params": { "id": "cb-pd-below", "text": "Mutual defection is the equilibrium.",
+        "anchor": "below:pd", "width": 4.0,
         "style": "card", "timing": "normal" } },
-    { "at": 14.0, "action": "removeComponent",
-      "params": { "target": "cb-below", "effect": "fade-out", "timing": "fast" } },
+    { "at": 24.0, "action": "removeComponent",
+      "params": { "target": "cb-pd-below", "effect": "fade-out", "timing": "fast" } },
 
-    { "at": 15.0, "action": "showCalloutBox",
-      "params": { "id": "cb-inside", "text": "Inside (overlay).",
-        "anchor": "inside:pd-left", "width": 3.0,
-        "style": "glass", "color": "highlight", "timing": "normal" } },
-    { "at": 19.0, "action": "removeComponent",
-      "params": { "target": "cb-inside", "effect": "fade-out", "timing": "fast" } },
-
-    { "at": 20.0, "action": "showCalloutBox",
-      "params": { "id": "cb-cross", "text": "Cross-slot — left points to right.",
-        "anchor": "above:bars-right", "width": 4.0,
-        "style": "bracket", "color": "actor_c", "timing": "normal" } },
     { "at": 25.0, "action": "removeComponent",
-      "params": { "target": "cb-cross", "effect": "fade-out", "timing": "fast" } },
-
-    { "at": 26.0, "action": "highlightCell",
-      "params": { "id": "hl-cell", "target": "pd-left", "index": [1, 1], "color": "highlight", "timing": "fast" } },
-    { "at": 28.0, "action": "showCalloutBox",
-      "params": { "id": "cb-multi-a", "text": "Multiple callouts at once.",
-        "anchor": "below:pd-left", "width": 3.0,
-        "style": "neon", "color": "actor_a", "timing": "normal" } },
-    { "at": 29.0, "action": "showCalloutBox",
-      "params": { "id": "cb-multi-b", "text": "Both visible simultaneously.",
-        "anchor": "below:bars-right", "width": 3.0,
-        "style": "neon", "color": "actor_b", "timing": "normal" } },
-    { "at": 34.0, "action": "removeComponent",
-      "params": { "target": "cb-multi-a", "effect": "fade-out", "timing": "fast" } },
-    { "at": 34.5, "action": "removeComponent",
-      "params": { "target": "cb-multi-b", "effect": "fade-out", "timing": "fast" } },
-
-    { "at": 36.0, "action": "removeComponent",
-      "params": { "target": "pd-left", "effect": "fade-out", "timing": "normal" } },
-    { "at": 37.0, "action": "removeComponent",
-      "params": { "target": "bars-right", "effect": "fade-out", "timing": "normal" } }
+      "params": { "target": "pd", "effect": "fade-out", "timing": "normal" } },
+    { "at": 26.0, "action": "removeComponent",
+      "params": { "target": "bars", "effect": "fade-out", "timing": "normal" } }
   ],
   "timeline": []
 }

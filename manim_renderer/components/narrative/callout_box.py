@@ -1,7 +1,7 @@
 """CalloutBox — text bubble + leader line to an anchor target.
 
-Phase 1.5: four visual styles via the `style` param — `neon` (default),
-`card`, `glass`, `bracket`. Style spec dispatch lives in `_callout_styles.py`;
+Phase 1.5 + 2.0: three visual styles via the `style` param — `neon`
+(default), `card`, `glass`. Style spec dispatch lives in `_callout_styles.py`;
 this module handles text construction, leader-line geometry, and custom
 anchors. Style controls only the bubble's visual rendering + the bubble's
 entrance/exit animation. Leader line is style-agnostic.
@@ -21,12 +21,12 @@ Custom anchors:
   * `tail` — leader root (= bubble edge nearest target)
   * Standard 9 inherited from BaseComponent
 
-Style param (Phase 1.5):
-  * `neon`    (default) — accent stroke traces in, text fades after; on
-                          exit text fades, border erases via Uncreate.
+Style param (Phase 1.5 + 2.0):
+  * `neon`    (default) — three-layer accent stroke (border + mid + outer
+                          glow) traces in, text fades after; on exit text
+                          fades, border erases via Uncreate.
   * `card`              — surface fill + thin border, fades together.
   * `glass`             — translucent dark fill + accent border, fades together.
-  * `bracket`           — left-edge accent bar + text, no rectangle.
 
 Effects:
   Each style ships a signature entrance/exit. The legacy per-effect dispatch
@@ -191,16 +191,8 @@ class CalloutBox(BaseComponent):
         )
 
         # Order: bubble first so text renders on top of any filled background.
-        # For `bracket` the bubble is a left-side bar — text doesn't overlap it.
         self.add(self._bubble_mob, self._text_mob)
         self._text_mob.move_to(self._bubble_mob.get_center())
-        # For bracket style, the bar's center sits off-center of the bubble
-        # group; reposition text to the right of the bar so they read together.
-        if self._style_name == "bracket":
-            self._text_mob.move_to(self._bubble_mob.get_right() + np.array([
-                self._text_mob.width / 2 + _BUBBLE_PADDING_X,
-                0.0, 0.0,
-            ]))
 
     def _wrap_text(self, text_color: str) -> Text:
         """Naive word-wrap: break the string into lines that fit within

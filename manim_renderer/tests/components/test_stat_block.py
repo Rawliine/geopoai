@@ -144,13 +144,16 @@ def test_sparkline_anchor_raises_when_no_sparkline():
 
 # --- count-up plumbing -------------------------------------------------------
 
-def test_set_value_updates_value_mob_in_place():
+def test_set_value_mutates_value_mob_in_place():
+    """Phase 2.0: set_value uses Manim's `become()` to mutate the existing
+    Text mobject in place — the mobject identity is PRESERVED (same Python
+    id), only its rendered glyphs change. Previously remove/add was used,
+    which leaked the start-frame text into the scene's render tree."""
     sb = StatBlock({"id": "s", "value": 100, "label": "x"}, "horizontal")
     original_id = id(sb._value_mob)
     sb.set_value(42)
-    assert id(sb._value_mob) != original_id, "value mob should be replaced"
-    # The new mob should display the formatted value (default int → "42")
-    # We don't check pixel content but we do confirm the mob is a Text instance.
+    # Identity preserved under become().
+    assert id(sb._value_mob) == original_id, "value mob identity must be preserved"
     from manim import Text
     assert isinstance(sb._value_mob, Text)
 

@@ -568,6 +568,29 @@ correctly with the kwarg only because their Manim color path differs
 internally — investigated and not chased further; the explicit set_color
 pattern is the safe form. Documented in `callout_box.py:_build_bubble`.
 
+### Use `Text.become()` for in-place count-up swaps (Phase 2.0 / PR E)
+Phase 1.5's `set_value` on StatBlock and `_BarValueLabel` used the
+remove+add pattern: build a new Text, `self.remove(old); self.add(new)`.
+Empirical: this leaked the start-frame text (e.g., the count-up's `"0.0"`)
+into the rendered output, persisting past the host's `removeComponent`.
+The `become(new_text)` pattern mutates the existing mobject in place —
+identity is preserved, only the rendered glyphs change. Manim's renderer
+sees the same VMobject each frame, no leak. `set_value` on both classes
+now uses `become()`; the regression test `test_set_value_mutates_value_mob_in_place`
+asserts identity preservation. Documented in
+`components/data_viz/stat_block.py:set_value` + `bar_chart.py:set_value`.
+
+**`become()` does NOT preserve the receiver's existing position** — it
+inherits the source's points (which encode position). Always
+`move_to(self._mob.get_center())` BEFORE calling `become`, to pin the
+new contents at the **current scene position**, never at a stored local
+coord. PR E2 used `self._anchor_point` (the build-time local coord) for
+`_BarValueLabel.set_value`'s pre-become `move_to`; that worked at origin
+but jumped labels by `-slot.center` whenever the parent BarChart was
+moved into a non-origin slot. PR E3 corrects to `self._text.get_center()`,
+matching the pattern `StatBlock.set_value` already used. Regression
+test: `test_count_up_preserves_label_scene_position`.
+
 ### SIZE_TABLE: "large" fits hero in both formats
 Phase 1's SIZE_TABLE had `large` matrix/tree/web/default values that fit
 NO layout (e.g. matrix.large = (7, 7) exceeded every slot). Phase 1.5

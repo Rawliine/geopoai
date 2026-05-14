@@ -1,15 +1,19 @@
 """Visual style variants for CalloutBox.
 
-Four styles ship; `neon` is the default. Each style is a `CalloutStyleSpec`
+Three styles ship; `neon` is the default. Each style is a `CalloutStyleSpec`
 that defines (a) how to build the bubble around a pre-built text mobject,
 (b) the signature entrance animation, (c) the signature exit animation.
+
+(Phase 2.0 — PR E: dropped `bracket` style. Replacement variants —
+`neon-bold`, `pull-quote`, `inline-tag` — land in PR P alongside the
+roles+restaging system.)
 
 Style spec contract (mirrors `EffectSpec` shape):
 
   build_bubble(text_mob, accent_hex, format) -> VGroup
       Returns a single VGroup containing all decorations (rect, glow halo,
-      bracket bar, etc.). The text is NOT placed inside the return value —
-      CalloutBox composes bubble + text after this call.
+      etc.). The text is NOT placed inside the return value — CalloutBox
+      composes bubble + text after this call.
 
   entrance(bubble_mob, text_mob, timing) -> Animation
       Returns the entrance animation for the bubble + text together. The
@@ -19,8 +23,9 @@ Style spec contract (mirrors `EffectSpec` shape):
   exit(bubble_mob, text_mob, timing) -> Animation
       Symmetric to entrance.
 
-`neon` characteristics:
-  - No fill; accent-colored stroke + outer glow.
+`neon` (default) characteristics:
+  - No fill; three concentric strokes (border + mid glow + outer glow) in
+    the accent color produce a perceptible halo at preview resolution.
   - Border traces in via `Create`, then text fades in (`Succession`).
   - On exit, text fades, then border erases via `Uncreate`.
 
@@ -29,10 +34,6 @@ Style spec contract (mirrors `EffectSpec` shape):
 
 `glass`:
   - Translucent dark fill + brighter accent border. Fades together.
-
-`bracket`:
-  - No rectangle; just a thick left-edge accent bar. Bar grows from bottom,
-  text fades in alongside.
 """
 
 from __future__ import annotations
@@ -45,30 +46,45 @@ from manim import (
     Create,
     FadeIn,
     FadeOut,
-    GrowFromEdge,
-    Line,
     RoundedRectangle,
     Succession,
     Uncreate,
-    UP,
     VGroup,
 )
 
-from manim_renderer.theme.palette import UI
+from manim_renderer.theme.palette import UI, lighten
 from manim_renderer.theme.timing import TIMING
 
 # Visual constants shared across styles.
 _BUBBLE_PADDING_X = 0.35
 _BUBBLE_PADDING_Y = 0.20
 _CORNER_RADIUS = 0.12
+
+# Neon stack — Phase 2.0 / PR E2 rewrite:
+# 4 concentric strokes mirroring the CSS neon idiom
+# (text-shadow: 0 0 5px white, 0 0 10px accent, 0 0 20px accent, 0 0 40px accent):
+#
+#   1. inner core  — narrow, ~white (lightened accent), full opacity — "hot filament"
+#   2. border      — visible line in accent color, near-full opacity
+#   3. mid-glow    — wider, accent at mid opacity — close bloom
+#   4. outer-glow  — widest, accent at low opacity — wide bloom
+#
+# Plus a faint interior fill in lightened accent → the "whitish inside" effect
+# without dominating the bubble area.
+_NEON_INNER_CORE_LIGHTEN = 0.65        # mix accent with white at this fraction
+_NEON_INNER_CORE_STROKE = 1.5
 _NEON_BORDER_STROKE = 2.5
-_NEON_GLOW_STROKE = 6.0
-_NEON_GLOW_OPACITY = 0.25
+_NEON_BORDER_OPACITY = 0.95
+_NEON_MID_GLOW_STROKE = 8.0
+_NEON_MID_GLOW_OPACITY = 0.35
+_NEON_OUTER_GLOW_STROKE = 16.0
+_NEON_OUTER_GLOW_OPACITY = 0.12
+_NEON_INTERIOR_FILL_LIGHTEN = 0.75
+_NEON_INTERIOR_FILL_OPACITY = 0.05
+
 _CARD_BORDER_STROKE = 1.5
 _GLASS_FILL_OPACITY = 0.40
 _GLASS_BORDER_STROKE = 2.0
-_BRACKET_WIDTH = 0.10
-_BRACKET_GAP = 0.20
 
 
 @dataclass(frozen=True)
@@ -85,25 +101,59 @@ class CalloutStyleSpec:
 
 
 def _neon_bubble(text_mob, accent_hex: str, format: str) -> VGroup:
-    """Two concentric rounded rects — a tight accent border and a wider
-    low-opacity halo for the neon glow effect."""
+    """Four-layer neon glow + subtle interior fill — professional design.
+
+    The visual idiom mirrors CSS neon: a hot near-white core surrounded by
+    progressively wider, lower-opacity accent-color blooms. The bubble
+    interior carries a faint tint of the lightened accent for the
+    'whitish inside' effect — present without dominating the area.
+
+    Layer order (back to front, so the inner core sits on top visually):
+      1. outer_glow  — widest stroke, very low opacity (wide bloom)
+      2. mid_glow    — medium stroke, mid opacity (close bloom)
+      3. border      — visible accent line, near-full opacity
+      4. inner_core  — narrow stroke in lightened accent, full opacity
+                       (the 'hot filament' line)
+
+    The first stroke (outermost) also carries the interior fill so a
+    separate fill rect isn't needed — keeps the submobject count to 4.
+    """
     w = text_mob.width + 2 * _BUBBLE_PADDING_X
     h = text_mob.height + 2 * _BUBBLE_PADDING_Y
+
+    interior_tint = lighten(accent_hex, _NEON_INTERIOR_FILL_LIGHTEN)
+    inner_core_color = lighten(accent_hex, _NEON_INNER_CORE_LIGHTEN)
+
+    outer_glow = RoundedRectangle(
+        width=w, height=h, corner_radius=_CORNER_RADIUS,
+        color=accent_hex, stroke_width=_NEON_OUTER_GLOW_STROKE,
+        stroke_opacity=_NEON_OUTER_GLOW_OPACITY,
+        fill_color=interior_tint,
+        fill_opacity=_NEON_INTERIOR_FILL_OPACITY,
+    )
+    mid_glow = RoundedRectangle(
+        width=w, height=h, corner_radius=_CORNER_RADIUS,
+        color=accent_hex, stroke_width=_NEON_MID_GLOW_STROKE,
+        stroke_opacity=_NEON_MID_GLOW_OPACITY,
+        fill_opacity=0.0,
+    )
     border = RoundedRectangle(
         width=w, height=h, corner_radius=_CORNER_RADIUS,
         color=accent_hex, stroke_width=_NEON_BORDER_STROKE,
+        stroke_opacity=_NEON_BORDER_OPACITY,
         fill_opacity=0.0,
     )
-    glow = RoundedRectangle(
+    inner_core = RoundedRectangle(
         width=w, height=h, corner_radius=_CORNER_RADIUS,
-        color=accent_hex, stroke_width=_NEON_GLOW_STROKE,
-        stroke_opacity=_NEON_GLOW_OPACITY,
+        color=inner_core_color, stroke_width=_NEON_INNER_CORE_STROKE,
+        stroke_opacity=1.0,
         fill_opacity=0.0,
     )
-    # Glow first so border sits on top.
-    group = VGroup(glow, border)
-    group.border = border  # type: ignore[attr-defined]
-    group.glow = glow      # type: ignore[attr-defined]
+    group = VGroup(outer_glow, mid_glow, border, inner_core)
+    group.inner_core = inner_core   # type: ignore[attr-defined]
+    group.border = border           # type: ignore[attr-defined]
+    group.mid_glow = mid_glow       # type: ignore[attr-defined]
+    group.outer_glow = outer_glow   # type: ignore[attr-defined]
     return group
 
 
@@ -129,21 +179,6 @@ def _glass_bubble(text_mob, accent_hex: str, format: str) -> VGroup:
         stroke_width=_GLASS_BORDER_STROKE,
     )
     return VGroup(bubble)
-
-
-def _bracket_bubble(text_mob, accent_hex: str, format: str) -> VGroup:
-    """Just a thick left-edge accent bar — no rectangle. The bar is sized to
-    the text's height + small padding."""
-    h = text_mob.height + 2 * _BUBBLE_PADDING_Y
-    bar = Line(
-        start=[0.0, -h / 2, 0.0],
-        end=[0.0, h / 2, 0.0],
-        color=accent_hex,
-        stroke_width=_BRACKET_WIDTH * 100,  # Manim stroke width is in points
-    )
-    # Position the bar to the left of where the text will sit.
-    bar.shift([-text_mob.width / 2 - _BRACKET_GAP, 0.0, 0.0])
-    return VGroup(bar)
 
 
 # --- entrance / exit animations ----------------------------------------------
@@ -175,21 +210,6 @@ def _fade_together_exit(bubble: VGroup, text, timing: str, **_) -> Animation:
     return FadeOut(VGroup(bubble, text), run_time=rt)
 
 
-def _bracket_entrance(bubble: VGroup, text, timing: str, **_) -> Animation:
-    """Bar grows from bottom, text fades in alongside."""
-    rt = TIMING[timing]
-    bar_anim = GrowFromEdge(bubble, edge=UP, run_time=rt)
-    text_anim = FadeIn(text, run_time=rt)
-    # Parallel — both animate simultaneously, no Succession needed.
-    from manim import AnimationGroup
-    return AnimationGroup(bar_anim, text_anim)
-
-
-def _bracket_exit(bubble: VGroup, text, timing: str, **_) -> Animation:
-    rt = TIMING[timing]
-    return FadeOut(VGroup(bubble, text), run_time=rt)
-
-
 # --- registry ----------------------------------------------------------------
 
 
@@ -211,12 +231,6 @@ CALLOUT_STYLES: dict[str, CalloutStyleSpec] = {
         build_bubble=_glass_bubble,
         entrance=_fade_together_entrance,
         exit=_fade_together_exit,
-    ),
-    "bracket": CalloutStyleSpec(
-        name="bracket",
-        build_bubble=_bracket_bubble,
-        entrance=_bracket_entrance,
-        exit=_bracket_exit,
     ),
 }
 

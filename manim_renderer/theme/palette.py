@@ -55,3 +55,22 @@ def pick_text_color(bg_hex: str) -> str:
     above → dark text (`background`). Single decision boundary by design;
     callers needing finer contrast should compute WCAG ratios directly."""
     return UI["text_primary"] if _relative_luminance(bg_hex) < 0.5 else UI["background"]
+
+
+def lighten(hex_str: str, amount: float) -> str:
+    """Mix `hex_str` with white by `amount` ∈ [0, 1].
+
+    amount=0 returns hex_str unchanged; amount=1 returns pure white;
+    amount=0.5 returns a tint halfway between hex_str and white.
+
+    Used by the neon callout style to produce the inner "hot filament"
+    core in a hue-retaining lighter shade of the accent (close to white
+    but still tinted), mirroring how real neon signs look bright-white
+    at peak intensity while keeping the accent hue in the bloom."""
+    if not 0.0 <= amount <= 1.0:
+        raise ValueError(f"lighten amount must be in [0, 1]; got {amount}")
+    r, g, b = _hex_to_rgb(hex_str)
+    r = r + (1.0 - r) * amount
+    g = g + (1.0 - g) * amount
+    b = b + (1.0 - b) * amount
+    return f"#{int(round(r * 255)):02x}{int(round(g * 255)):02x}{int(round(b * 255)):02x}"

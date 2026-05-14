@@ -84,10 +84,10 @@ lays architectural seed for roles+restaging.
 
 Shipped:
 - **CalloutBox style system** — 4 styles via `params.style` enum: `neon`
-  (default, accent border traces in via `Create` + `Uncreate` exit),
-  `card` (legacy fill), `glass` (translucent fill), `bracket` (left-edge
-  bar, no rectangle). Auto-contrast text via `theme.palette.pick_text_color`.
-  Style dispatch via `components/narrative/_callout_styles.py:CalloutStyleSpec`.
+  (default), `card`, `glass`, `bracket`. Auto-contrast text via
+  `theme.palette.pick_text_color`. Style dispatch via
+  `components/narrative/_callout_styles.py:CalloutStyleSpec`.
+  (Note: `bracket` was dropped in Phase 2.0; current shipped set is 3.)
 - **Mutation overlay tracking** — `JSONScene._overlays_by_host` + 
   `ActionContext.register_overlay(host_id, mob, overlay_id=...)`. `highlightCell`,
   `crossOut`, `bestResponseArrow` auto-register against host id; `removeComponent`
@@ -130,36 +130,67 @@ specific extension points.
 
 ---
 
-## Phase 2 — Effects, motion, camera (≈1 week)
+## Phase 2.0 — Visual refinement (PR E1 + E2) ✓ DONE
 
-Goal: visual polish + within-scene camera, full effect vocabulary.
-Phase 1.5's `measure()` API becomes the input to the solver introduced
-in roles+restaging; do not duplicate sizing logic.
+Status: **complete**. Immediate render bugs surfaced by viewer review
+fixed in two passes before the Roles + Restaging architecture starts.
 
-- `manim_renderer/effects/` — entrances (15), emphasis (8), exits (6), transitions (5). Each is a factory function: `entrance(mobject, effect_name, timing) -> Animation`. Defined as data, dispatched via dict — not a switch statement.
-- Easing + timing constants enforced. No raw `run_time` floats in component code; everything reads from `TIMING`.
-- `cameraZoom` / `cameraPan` / `cameraFocus` actions on the timeline. `JSONScene` already extends `MovingCameraScene`. Camera state interpolates between timeline events.
-- LaggedStart stagger constants (`dense=0.08`, `normal=0.15`, `dramatic=0.3`) wired in.
-- Audit the map → Manim color handoff. Render two test clips back-to-back; verify Morocco's yellow on the map equals Morocco's yellow in a PayoffMatrix label.
-- Asset pipeline: `manim_renderer/assets/flags/` populated with SVG country flags (flagcdn or bundled set). `setup_assets.sh` installs Inter, Barlow Condensed, JetBrains Mono on the render machine and verifies LaTeX packages.
+Shipped:
+- **PR E1** — `Text.become()` count-up pattern in StatBlock + `_BarValueLabel`
+  (eliminates `"0.0"` persistent leak); bar chart value-label floor for
+  zero-value bars; first-pass 3-layer neon stack (later superseded); drop
+  `bracket` callout style; x-axis title clearance bump.
+- **PR E2** — Professional 4-layer neon with `lighten()` helper for
+  whitish "hot filament" inner core + subtle interior fill (the visible
+  hue + glow effect a real neon sign has); two-rule bar chart label
+  positioning (zero-value at fixed floor; non-zero always just above
+  bar — consistent across the chart); rewrite of all four QA mega scenes
+  as coherent visual demos (not exhaustive parades); Phase 2 brief
+  transferred to `handoff.md` for the next agent.
 
-Exit criteria: a Predictive-History-style 90-second video that doesn't feel like two different tools were glued together.
+Architectural seams unchanged by Phase 2.0 — the surface Phase 2
+(Roles + Restaging) consumes is identical to what Phase 1.5 left.
 
 ---
 
-## Phase 3 — Validation & hardening (≈1 week)
+## Phase 2 — Roles + Restaging (next agent's scope)
 
-Goal: pipeline survives LLM authoring without supervision.
+**Status: planned. See `manim md files/handoff.md` Section
+"Phase 2 — Roles + Restaging implementation brief (agent-facing)" for
+the full 14-PR brief (PR F through PR R).**
 
-- Full JSON schema coverage. Every action has a `schema/action_schemas/<action>.json`. Validation rejects unknown actions, missing params, wrong types.
-- Schema includes semantic checks: `at` values within `duration`, `id` references resolve to declared components, `anchor:id` targets exist.
-- Component unit tests: each component has `tests/components/test_<name>.py` that renders it at `-ql` with sample params. CI runs all on every commit.
-- Golden frame tests for the top 4 components (PayoffMatrix, BarChart, GameTree, StatBlock). Reference frames checked into `tests/golden_frames/`. Pixel-diff threshold: TBD, start at 2%.
-- LLM fuzzing harness: generates 100 valid-schema JSONs from random parameter draws, renders all at `-ql`, flags crashes and obviously-broken outputs.
-- Preview vs full render modes: `quality: "preview"` → `-ql` (480p, 15fps), `quality: "full"` → `-qh` (1080p, 60fps). Orchestrator defaults to preview, escalates to full on approval.
-- Escape hatch: `escape_hatch/custom_scenes/` directory + `runCustomScene` action. Hand-authored Manim scenes registered by name. Documented in AGENT.md.
+Goal: replace the static-positioning model with a reactive one.
+Components have a *role* at every instant; layouts become *solvers*
+that allocate space proportional to roles; every composition change
+triggers a FLIP-style restage pass that Transforms the cast to its new
+allocation. The author sets the cast + roles; the engine does the
+staging.
 
-Exit criteria: 50 LLM-authored JSONs render without crashes. Schema validation surfaces real authoring errors with useful messages.
+This phase replaces what the original Phase 1 plan called "Phase 2 —
+Effects, motion, camera" (camera + remaining effects + asset pipeline).
+That original Phase 2 scope moves to **Phase 3** below.
+
+---
+
+## Phase 3 — Effects, motion, camera, hardening
+
+Goal: visual polish + within-scene camera + remaining effect vocabulary +
+pipeline survives LLM authoring without supervision. Phase 2's solver
+makes restaging continuous; this phase makes the rest of the pipeline
+match that quality.
+
+Scope (was original Phase 2 + original Phase 3, merged after Phase 2.0):
+- `manim_renderer/effects/` — remaining ~20 effects (entrances 15, emphasis 8, exits 6, transitions 5). Each is a factory function dispatched via dict.
+- `cameraZoom` / `cameraPan` / `cameraFocus` actions. `JSONScene` extends `MovingCameraScene`. Camera state interpolates between events. Composes with Phase 2's restage.
+- LaggedStart stagger constants wired through component code (no raw floats).
+- Map → Manim color handoff audit. Render two test clips back-to-back; verify Morocco's yellow on the map equals Morocco's yellow in a PayoffMatrix label.
+- Asset pipeline: `manim_renderer/assets/flags/` populated with SVG country flags. `setup_assets.sh` installs Inter, Barlow Condensed, JetBrains Mono, verifies LaTeX packages.
+- Golden frame tests for the top 4 components (PayoffMatrix, BarChart, GameTree, StatBlock). Reference frames in `tests/golden_frames/`. Pixel-diff threshold starts at 2%.
+- LLM fuzzing harness: generates 100 valid-schema JSONs from random parameter draws, renders all at `-ql`, flags crashes.
+- Preview vs full render modes: `quality: "preview"` → `-ql` (480p, 15fps), `quality: "full"` → `-qh` (1080p, 60fps).
+- Escape hatch: `escape_hatch/custom_scenes/` + `runCustomScene` action.
+
+Exit criteria: a Predictive-History-style 90-second video; 50 LLM-authored JSONs render without crashes; schema validation surfaces real authoring errors with useful messages.
 
 ---
 
