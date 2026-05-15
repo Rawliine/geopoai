@@ -16,7 +16,8 @@
         "text": "Roles (vertical)",
         "size": "title",
         "timing": "slow",
-        "effect": "fade-in"
+        "effect": "fade-in",
+        "role": "primary"
       }
     },
     "body": {
@@ -38,21 +39,14 @@
     }
   },
   "overlays": [
-    { "at": 5.0, "action": "showStatBlock",
-      "params": { "id": "k-defect", "value": 71.6, "label": "Defect %",
-                  "value_format": "decimal", "decimals": 1, "unit": "%",
-                  "color": "actor_b", "anchor": "below:k-loss",
-                  "size": "small", "timing": "normal", "effect": "count-up",
-                  "role": "primary" } },
-
     { "at": 10.0, "action": "setRole",
       "params": { "target": "k-loss", "role": "supporting", "timing": "fast" } },
 
     { "at": 12.0, "action": "showCalloutBox",
       "params": { "id": "callout",
                   "text": "Defection wins on average.",
-                  "subject": "k-defect",
-                  "width": 3.0,
+                  "subject": "k-loss",
+                  "width": 4.5,
                   "style": "neon",
                   "timing": "normal" } },
 
@@ -60,7 +54,10 @@
       "params": { "target": "callout", "effect": "fade-out", "timing": "fast" } },
 
     { "at": 18.0, "action": "setRole",
-      "params": { "target": "k-defect", "role": "hero", "timing": "normal" } }
+      "params": { "target": "k-loss", "role": "hero", "timing": "normal" } },
+
+    { "at": 22.0, "action": "removeComponent",
+      "params": { "target": "k-loss", "effect": "dissolve", "timing": "normal" } }
   ],
   "timeline": []
 }

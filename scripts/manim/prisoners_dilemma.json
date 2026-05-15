@@ -16,7 +16,8 @@
         "text": "Prisoner's Dilemma",
         "size": "title",
         "timing": "slow",
-        "effect": "fade-in"
+        "effect": "fade-in",
+        "role": "primary"
       }
     },
     "body": {
@@ -25,13 +26,14 @@
       "params": {
         "id": "kpis",
         "orientation": "row",
-        "spacing": 0.8,
+        "spacing": 0.6,
         "color_scheme": "actors",
-        "size": "medium",
+        "size": "small",
         "effect": "staggered",
         "stagger": "normal",
         "child_effect": "count-up",
         "timing": "slow",
+        "role": "primary",
         "stats": [
           { "id": "k-cooperate", "value": 28.4, "label": "Cooperate",
             "value_format": "decimal", "decimals": 1, "unit": "%",
@@ -77,7 +79,7 @@
     { "at": 16.0, "action": "showCalloutBox",
       "params": { "id": "callout-pd-intro",
         "text": "Each player's dominant strategy is to defect.",
-        "anchor": "right-of:pd", "width": 3.0, "timing": "normal" } },
+        "subject": "pd", "width": 3.0, "timing": "normal" } },
 
     { "at": 20.5, "action": "highlightCell",
       "params": { "target": "pd", "index": [1, 0], "color": "actor_a", "timing": "fast" } },
@@ -103,7 +105,7 @@
     { "at": 32.5, "action": "showCalloutBox",
       "params": { "id": "callout-ne",
         "text": "Mutual defection is the Nash equilibrium — and it is Pareto-inferior.",
-        "anchor": "right-of:pd", "width": 3.0, "timing": "normal" } },
+        "subject": "pd", "width": 3.0, "timing": "normal" } },
 
     { "at": 38.0, "action": "removeComponent",
       "params": { "target": "callout-ne", "effect": "fade-out", "timing": "fast" } },

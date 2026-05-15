@@ -1,8 +1,8 @@
-"""PR J — `split` (horizontal) and `stacked` (vertical) layouts as solvers.
+"""PR J/W — `split` (horizontal) and `stacked` (vertical) layouts as solvers.
 
 Three contracts:
-  * Single component per slot returns the slot rect verbatim (backward
-    compat — Phase 1 PD scenes render identically).
+  * Single component per slot gets its `preferred_size` rect centered in
+    the slot (PR W: roles always shape the rect — even for lone members).
   * Two primaries in the same slot get side-by-side via `flex_solve`
     along the layout's flex axis.
   * `hidden` cast members occupy no space and don't get a Rect.
@@ -29,7 +29,9 @@ def _cast(*entries: tuple[str, str, str | None, tuple[float, float]]) -> list[Ca
 # --- split (horizontal) ---------------------------------------------------
 
 
-def test_split_one_per_slot_matches_static_rects():
+def test_split_one_per_slot_centered_at_preferred_size():
+    """A lone primary gets a rect of its preferred size centered in the
+    slot (PR W — roles always shape the rect)."""
     layout = resolve_layout("split", "horizontal")
     cast = _cast(
         ("a", "primary", "left",  (3.0, 2.0)),
@@ -37,8 +39,15 @@ def test_split_one_per_slot_matches_static_rects():
     )
     out = layout.solve(cast)
 
-    assert out["a"] == layout.slots["left"]
-    assert out["b"] == layout.slots["right"]
+    left = layout.slots["left"]
+    right = layout.slots["right"]
+    # Centered in slot, preferred dimensions.
+    assert out["a"].cx == pytest.approx(left.cx)
+    assert out["a"].cy == pytest.approx(left.cy)
+    assert out["a"].width == 3.0 and out["a"].height == 2.0
+    assert out["b"].cx == pytest.approx(right.cx)
+    assert out["b"].cy == pytest.approx(right.cy)
+    assert out["b"].width == 3.0 and out["b"].height == 2.0
 
 
 def test_split_two_primaries_in_same_slot_side_by_side():
@@ -66,8 +75,11 @@ def test_split_hidden_member_takes_no_space():
     )
     out = layout.solve(cast)
 
-    # Single visible primary in slot → owns slot rect.
-    assert out["a"] == layout.slots["left"]
+    # Lone visible primary in slot → centered at preferred size.
+    left = layout.slots["left"]
+    assert out["a"].cx == pytest.approx(left.cx)
+    assert out["a"].cy == pytest.approx(left.cy)
+    assert out["a"].width == 3.0 and out["a"].height == 2.0
     assert "ghost" not in out
 
 
@@ -84,14 +96,16 @@ def test_split_no_slot_members_excluded():
     out = layout.solve(cast)
 
     assert "note" not in out
-    assert out["a"] == layout.slots["left"]
-    assert out["b"] == layout.slots["right"]
+    left = layout.slots["left"]
+    right = layout.slots["right"]
+    assert out["a"].cx == pytest.approx(left.cx)
+    assert out["b"].cx == pytest.approx(right.cx)
 
 
 # --- stacked (vertical) ---------------------------------------------------
 
 
-def test_stacked_one_per_slot_matches_static_rects():
+def test_stacked_one_per_slot_centered_at_preferred_size():
     layout = resolve_layout("stacked", "vertical")
     cast = _cast(
         ("a", "primary", "top",    (2.0, 3.0)),
@@ -99,8 +113,13 @@ def test_stacked_one_per_slot_matches_static_rects():
     )
     out = layout.solve(cast)
 
-    assert out["a"] == layout.slots["top"]
-    assert out["b"] == layout.slots["bottom"]
+    top = layout.slots["top"]
+    bottom = layout.slots["bottom"]
+    assert out["a"].cx == pytest.approx(top.cx)
+    assert out["a"].cy == pytest.approx(top.cy)
+    assert out["a"].width == 2.0 and out["a"].height == 3.0
+    assert out["b"].cx == pytest.approx(bottom.cx)
+    assert out["b"].cy == pytest.approx(bottom.cy)
 
 
 def test_stacked_two_in_same_slot_flex_vertically():

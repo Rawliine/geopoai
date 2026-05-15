@@ -59,11 +59,70 @@ class CastMember:
     The scene runner builds this from `_id_to_mobject` + `_roles` +
     `_id_to_slot` whenever it calls `Layout.solve(cast)`. Fields are
     immutable per-pass so the solver can be cached safely.
+
+    `subject_host_id` (PR W) is set for `annotation` members that point at
+    a host via `params.subject`. The solver uses it to reserve a side
+    region of the host's slot for the callout, shrinking the host.
     """
     id: str
     role: str
     preferred_size: tuple[float, float]
     slot: str | None = None
+    subject_host_id: str | None = None
+
+
+# Gap between a host's allocated region and a subject-bound callout
+# carved out of the same slot. Matches `resolvers/anchor.DEFAULT_ANCHOR_BUFF`
+# so visual spacing is consistent with anchor-based placement.
+_SUBJECT_CALLOUT_GAP: float = 0.5
+
+
+def _split_for_subject(
+    slot: Rect,
+    callout_size: tuple[float, float],
+    fmt: str,
+) -> tuple[Rect, Rect]:
+    """Carve a `callout_size`-shaped region from one side of `slot` and
+    return `(host_container, callout_rect)`.
+
+    Horizontal format: callout reserved on the right; host gets the left
+    region. Vertical format: callout reserved at the bottom; host gets
+    the top region. The host_container shrinks by `callout_w + gap` (or
+    `callout_h + gap`).
+    """
+    gap = _SUBJECT_CALLOUT_GAP
+    cw, ch = callout_size
+
+    if fmt == "vertical":
+        # Stack: host on top, callout on bottom.
+        reserve_h = min(ch, slot.height - gap - 0.1)
+        reserve_h = max(0.1, reserve_h)
+        host_h = max(0.1, slot.height - reserve_h - gap)
+        host_cy = slot.cy + reserve_h / 2.0 + gap / 2.0
+        callout_cy = slot.cy - host_h / 2.0 - gap / 2.0
+        host_container = Rect(
+            cx=slot.cx, cy=host_cy, width=slot.width, height=host_h,
+        )
+        callout_rect = Rect(
+            cx=slot.cx, cy=callout_cy, width=min(cw, slot.width),
+            height=reserve_h,
+        )
+        return host_container, callout_rect
+
+    # Horizontal: host on left, callout on right.
+    reserve_w = min(cw, slot.width - gap - 0.1)
+    reserve_w = max(0.1, reserve_w)
+    host_w = max(0.1, slot.width - reserve_w - gap)
+    host_cx = slot.cx - reserve_w / 2.0 - gap / 2.0
+    callout_cx = slot.cx + host_w / 2.0 + gap / 2.0
+    host_container = Rect(
+        cx=host_cx, cy=slot.cy, width=host_w, height=slot.height,
+    )
+    callout_rect = Rect(
+        cx=callout_cx, cy=slot.cy, width=reserve_w,
+        height=min(ch, slot.height),
+    )
+    return host_container, callout_rect
 
 
 # Per-layout flex direction for the default solver. `split` lays its
@@ -106,15 +165,16 @@ class Layout:
         """Allocate scene rects for the live cast.
 
         Default contract:
-          * Each slot-bound member with no slot-mates gets the slot rect
-            verbatim (backward compat — PD scenes render identically).
-          * Multi-member slots run `flex_solve` within the slot rect along
-            the layout's per-direction axis (see `_LAYOUT_FLEX_DIRECTION`).
-          * Members without a slot (anchored callouts pre-PR L) are NOT
-            placed by the solver — the runner keeps their static anchor.
-
-        Subclasses may override for special semantics (e.g. `title-body`
-        pinning the title strip and flexing only the body cast).
+          * Each slot is solved independently. Members within a slot are
+            laid out via `flex_solve` along the layout's per-direction
+            axis (see `_LAYOUT_FLEX_DIRECTION`).
+          * Subject-bound annotations (`subject_host_id` set) reserve a
+            side region of their host's slot; the host(s) flex-solve in
+            the remaining inner region.
+          * Members without a slot AND no subject host (legacy anchored
+            callouts) are NOT placed by the solver — the runner keeps
+            their static anchor.
+          * Roles drive `preferred_size`, which the solver consumes (PR W).
         """
         from manim_renderer.layouts._flex import flex_solve
 
@@ -131,16 +191,49 @@ class Layout:
             visible = [m for m in members if m.role != "hidden"]
             if not visible:
                 continue
-            non_annotation = [m for m in visible if m.role != "annotation"]
-            if len(visible) == 1 and len(non_annotation) == 1:
-                # Backward compat: lone primary owns the slot rect.
-                out[visible[0].id] = slot_rect
-                continue
-            allocs = flex_solve(
-                [(m.id, m.role, m.preferred_size) for m in visible],
-                container=slot_rect,
-                direction=direction,
-            )
-            out.update(allocs)
+
+            # PR W: split visible members into subject-bound annotations
+            # vs everything else. The annotations reserve a side region;
+            # the hosts flex-solve in the shrunken interior.
+            subject_annotations = [
+                m for m in visible
+                if m.role == "annotation" and m.subject_host_id is not None
+                and any(h.id == m.subject_host_id for h in visible)
+            ]
+            non_subject = [
+                m for m in visible if m not in subject_annotations
+            ]
+
+            host_container = slot_rect
+            if subject_annotations:
+                # For each subject annotation, carve out a side rect and
+                # shrink host_container accordingly. Currently supports
+                # one annotation per slot; multi-annotation falls back to
+                # stacking on the same side.
+                ann = subject_annotations[0]
+                host_container, callout_rect = _split_for_subject(
+                    slot_rect, ann.preferred_size, self.format,
+                )
+                # Place all subject annotations in the reserved region
+                # (stacked if more than one).
+                if len(subject_annotations) == 1:
+                    out[ann.id] = callout_rect
+                else:
+                    ann_dir = "vertical"
+                    ann_allocs = flex_solve(
+                        [(a.id, a.role, a.preferred_size)
+                         for a in subject_annotations],
+                        container=callout_rect,
+                        direction=ann_dir,
+                    )
+                    out.update(ann_allocs)
+
+            if non_subject:
+                allocs = flex_solve(
+                    [(m.id, m.role, m.preferred_size) for m in non_subject],
+                    container=host_container,
+                    direction=direction,
+                )
+                out.update(allocs)
 
         return out

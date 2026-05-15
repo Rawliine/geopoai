@@ -1,0 +1,343 @@
+{
+  "renderer": "manim",
+  "format": "horizontal",
+  "quality": "preview",
+  "scene": {
+    "layout": "title-body",
+    "duration": 240,
+    "theme": "dark"
+  },
+  "slots": {
+    "title": {
+      "at": 0.0,
+      "action": "showTextCard",
+      "params": {
+        "id": "title",
+        "text": "Showcase: Roles, Restaging, Components",
+        "size": "title",
+        "timing": "slow",
+        "effect": "fade-in",
+        "role": "primary"
+      }
+    },
+    "body": {
+      "at": 1.5,
+      "action": "showStatBlock",
+      "params": {
+        "id": "intro-stat",
+        "value": 1200000,
+        "label": "Annual loss",
+        "value_format": "currency",
+        "symbol": "$",
+        "suffix": "auto",
+        "size": "large",
+        "color": "actor_a",
+        "timing": "slow",
+        "effect": "count-up",
+        "role": "hero"
+      }
+    }
+  },
+  "overlays": [
+    { "at": 8.0, "action": "showCalloutBox",
+      "params": { "id": "intro-callout",
+        "text": "Every component has a role at every instant.",
+        "subject": "intro-stat", "width": 3.6, "style": "neon",
+        "timing": "normal" } },
+
+    { "at": 13.0, "action": "removeComponent",
+      "params": { "target": "intro-callout", "effect": "fade-out",
+        "timing": "fast" } },
+    { "at": 14.0, "action": "setRole",
+      "params": { "target": "intro-stat", "role": "supporting",
+        "timing": "normal" } },
+    { "at": 17.0, "action": "setRole",
+      "params": { "target": "intro-stat", "role": "ambient",
+        "timing": "normal" } },
+    { "at": 20.0, "action": "setRole",
+      "params": { "target": "intro-stat", "role": "hero",
+        "timing": "normal" } },
+    { "at": 23.0, "action": "removeComponent",
+      "params": { "target": "intro-stat", "effect": "dissolve",
+        "timing": "normal" } },
+
+    { "at": 25.0, "action": "setLayout",
+      "params": { "layout": "data-left", "timing": "slow" } },
+
+    { "at": 27.0, "action": "showMetricGroup",
+      "params": { "id": "kpis",
+        "orientation": "column", "spacing": 0.4,
+        "color_scheme": "actors", "size": "small",
+        "effect": "staggered", "stagger": "normal",
+        "child_effect": "count-up", "timing": "slow",
+        "role": "primary",
+        "stats": [
+          { "id": "kpi-defect", "value": 71.6, "label": "Defect",
+            "value_format": "decimal", "decimals": 1, "unit": "%" },
+          { "id": "kpi-cooperate", "value": 28.4, "label": "Cooperate",
+            "value_format": "decimal", "decimals": 1, "unit": "%" },
+          { "id": "kpi-payoff", "value": 1.2, "label": "Loss ($M)",
+            "value_format": "decimal", "decimals": 1 }
+        ]
+      } },
+
+    { "at": 34.0, "action": "showBarChart",
+      "params": { "id": "bars",
+        "data": [
+          { "label": "C, C", "value": 3, "color": "positive" },
+          { "label": "C, D", "value": 0, "color": "negative" },
+          { "label": "D, C", "value": 5, "color": "actor_a" },
+          { "label": "D, D", "value": 1, "color": "neutral" }
+        ],
+        "size": "medium", "value_format": "int",
+        "show_value_labels": true,
+        "y_axis": { "min": 0, "max": 6, "ticks": 4, "label": "Payoff" },
+        "x_axis": { "label": "Outcome" },
+        "timing": "slow", "effect": "count-up", "role": "primary" } },
+
+    { "at": 42.0, "action": "showCalloutBox",
+      "params": { "id": "bars-callout",
+        "text": "Defect-Cooperate pays the highest individual payoff.",
+        "subject": "bars", "width": 3.2, "style": "card",
+        "timing": "normal" } },
+
+    { "at": 50.0, "action": "removeComponent",
+      "params": { "target": "bars-callout", "effect": "fade-out",
+        "timing": "fast" } },
+    { "at": 51.0, "action": "removeComponent",
+      "params": { "target": "bars", "effect": "fade-out",
+        "timing": "normal" } },
+    { "at": 52.0, "action": "removeComponent",
+      "params": { "target": "kpis", "effect": "fade-out",
+        "timing": "normal" } },
+
+    { "at": 54.0, "action": "setLayout",
+      "params": { "layout": "split", "timing": "slow" } },
+
+    { "at": 56.0, "action": "showLineChart",
+      "params": { "id": "trend",
+        "series": [
+          { "label": "Cooperate", "color": "positive",
+            "points": [[0, 62], [1, 55], [2, 48], [3, 42], [4, 35], [5, 28]] },
+          { "label": "Defect", "color": "negative",
+            "points": [[0, 38], [1, 45], [2, 52], [3, 58], [4, 65], [5, 72]] }
+        ],
+        "size": "small", "value_format": "decimal",
+        "show_points": true,
+        "x_axis": { "min": 0, "max": 5, "ticks": 6, "label": "Round" },
+        "y_axis": { "min": 0, "max": 80, "ticks": 5, "label": "%" },
+        "timing": "slow", "effect": "draw-out", "role": "primary" } },
+
+    { "at": 65.0, "action": "showGameTree",
+      "params": { "id": "tree",
+        "nodes": {
+          "label": "P1",
+          "children": [
+            { "label": "Cooperate", "edge": "C", "children": [
+              { "label": "(3,3)", "edge": "C" },
+              { "label": "(0,5)", "edge": "D" }
+            ]},
+            { "label": "Defect", "edge": "D", "children": [
+              { "label": "(5,0)", "edge": "C" },
+              { "label": "(1,1)", "edge": "D" }
+            ]}
+          ]
+        },
+        "size": "small", "max_depth": 3,
+        "timing": "slow", "effect": "level-by-level", "role": "primary" } },
+
+    { "at": 75.0, "action": "showCalloutBox",
+      "params": { "id": "tree-tag",
+        "text": "Equilibrium",
+        "subject": "tree", "style": "inline-tag", "color": "highlight",
+        "width": 2.0, "timing": "fast" } },
+
+    { "at": 82.0, "action": "removeComponent",
+      "params": { "target": "tree-tag", "effect": "fade-out",
+        "timing": "fast" } },
+    { "at": 83.0, "action": "setRole",
+      "params": { "target": "trend", "role": "supporting", "timing": "normal" } },
+    { "at": 84.0, "action": "setRole",
+      "params": { "target": "tree", "role": "hero", "timing": "normal" } },
+
+    { "at": 88.0, "action": "removeComponent",
+      "params": { "target": "trend", "effect": "fade-out", "timing": "fast" } },
+    { "at": 89.0, "action": "removeComponent",
+      "params": { "target": "tree", "effect": "fade-out", "timing": "normal" } },
+
+    { "at": 91.0, "action": "setLayout",
+      "params": { "layout": "trio", "timing": "slow" } },
+
+    { "at": 93.0, "action": "showStatBlock",
+      "params": { "id": "trio-a", "value": 42, "label": "USA",
+        "value_format": "int", "color": "actor_a", "size": "medium",
+        "timing": "fast", "effect": "count-up", "role": "primary" } },
+    { "at": 95.0, "action": "showStatBlock",
+      "params": { "id": "trio-b", "value": 38, "label": "China",
+        "value_format": "int", "color": "actor_b", "size": "medium",
+        "timing": "fast", "effect": "count-up", "role": "primary" } },
+    { "at": 97.0, "action": "showStatBlock",
+      "params": { "id": "trio-c", "value": 20, "label": "Russia",
+        "value_format": "int", "color": "actor_c", "size": "medium",
+        "timing": "fast", "effect": "count-up", "role": "primary" } },
+
+    { "at": 102.0, "action": "setRole",
+      "params": { "target": "trio-b", "role": "hero", "timing": "normal" } },
+    { "at": 105.0, "action": "setRole",
+      "params": { "target": "trio-a", "role": "ambient", "timing": "normal" } },
+    { "at": 107.0, "action": "setRole",
+      "params": { "target": "trio-c", "role": "ambient", "timing": "normal" } },
+
+    { "at": 111.0, "action": "showCalloutBox",
+      "params": { "id": "trio-callout",
+        "text": "China leads the headline rate.",
+        "subject": "trio-b", "width": 3.0, "style": "neon-bold",
+        "timing": "normal" } },
+
+    { "at": 117.0, "action": "removeComponent",
+      "params": { "target": "trio-callout", "effect": "fade-out",
+        "timing": "fast" } },
+    { "at": 118.0, "action": "setRole",
+      "params": { "target": "trio-a", "role": "primary", "timing": "fast" } },
+    { "at": 119.0, "action": "setRole",
+      "params": { "target": "trio-b", "role": "primary", "timing": "fast" } },
+    { "at": 120.0, "action": "setRole",
+      "params": { "target": "trio-c", "role": "primary", "timing": "fast" } },
+    { "at": 123.0, "action": "removeComponent",
+      "params": { "target": "trio-a", "effect": "fade-out", "timing": "fast" } },
+    { "at": 124.0, "action": "removeComponent",
+      "params": { "target": "trio-b", "effect": "fade-out", "timing": "fast" } },
+    { "at": 125.0, "action": "removeComponent",
+      "params": { "target": "trio-c", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 127.0, "action": "setLayout",
+      "params": { "layout": "hero", "timing": "slow" } },
+
+    { "at": 130.0, "action": "showAllianceWeb",
+      "params": { "id": "web",
+        "nodes": [
+          { "id": "usa", "label": "USA", "color": "actor_a" },
+          { "id": "chn", "label": "China", "color": "actor_b" },
+          { "id": "rus", "label": "Russia", "color": "actor_c" },
+          { "id": "eu",  "label": "EU",    "color": "actor_d" },
+          { "id": "ind", "label": "India", "color": "actor_e" }
+        ],
+        "edges": [
+          { "from": "usa", "to": "chn", "kind": "rivalry" },
+          { "from": "usa", "to": "eu",  "kind": "alliance" },
+          { "from": "chn", "to": "rus", "kind": "alliance" },
+          { "from": "usa", "to": "ind", "kind": "neutral" },
+          { "from": "chn", "to": "ind", "kind": "rivalry" },
+          { "from": "rus", "to": "eu",  "kind": "rivalry" }
+        ],
+        "size": "medium", "seed": 7,
+        "timing": "slow", "effect": "level-by-level", "role": "primary" } },
+
+    { "at": 140.0, "action": "showCalloutBox",
+      "params": { "id": "web-callout",
+        "text": "Web of alliances and rivalries.",
+        "subject": "web", "width": 3.2, "style": "glass",
+        "timing": "normal" } },
+
+    { "at": 148.0, "action": "removeComponent",
+      "params": { "target": "web-callout", "effect": "fade-out",
+        "timing": "fast" } },
+    { "at": 149.0, "action": "removeComponent",
+      "params": { "target": "web", "effect": "fade-out", "timing": "normal" } },
+
+    { "at": 151.0, "action": "setLayout",
+      "params": { "layout": "title-body", "timing": "slow" } },
+
+    { "at": 154.0, "action": "showTimeline",
+      "params": { "id": "tl",
+        "events": [
+          { "id": "ww2",   "at_label": "1939", "label": "WWII begins" },
+          { "id": "un",    "at_label": "1945", "label": "UN founded",
+            "color": "highlight" },
+          { "id": "cold",  "at_label": "1947", "label": "Cold War" },
+          { "id": "fall",  "at_label": "1991", "label": "USSR dissolves",
+            "color": "positive" },
+          { "id": "wot",   "at_label": "2001", "label": "War on Terror" },
+          { "id": "ru-ua", "at_label": "2022", "label": "Russia-Ukraine",
+            "color": "negative" }
+        ],
+        "size": "medium",
+        "timing": "slow", "effect": "level-by-level", "role": "primary" } },
+
+    { "at": 165.0, "action": "showCalloutBox",
+      "params": { "id": "tl-callout",
+        "text": "The post-war order, in six events.",
+        "subject": "un", "width": 3.0, "style": "pull-quote",
+        "timing": "normal" } },
+
+    { "at": 172.0, "action": "removeComponent",
+      "params": { "target": "tl-callout", "effect": "fade-out",
+        "timing": "fast" } },
+    { "at": 173.0, "action": "removeComponent",
+      "params": { "target": "tl", "effect": "fade-out", "timing": "normal" } },
+
+    { "at": 175.0, "action": "setLayout",
+      "params": { "layout": "hero", "timing": "slow" } },
+
+    { "at": 178.0, "action": "showPayoffMatrix",
+      "params": { "id": "pd",
+        "players": [
+          { "name": "P1", "color": "actor_a" },
+          { "name": "P2", "color": "actor_b" }
+        ],
+        "strategies": [["Cooperate", "Defect"], ["Cooperate", "Defect"]],
+        "cells": [
+          [{ "a": 3, "b": 3 }, { "a": 0, "b": 5 }],
+          [{ "a": 5, "b": 0 }, { "a": 1, "b": 1 }]
+        ],
+        "size": "medium", "timing": "slow", "effect": "level-by-level",
+        "role": "primary" } },
+
+    { "at": 186.0, "action": "highlightCell",
+      "params": { "target": "pd", "index": [1, 0], "color": "actor_a",
+        "timing": "fast" } },
+    { "at": 187.0, "action": "bestResponseArrow",
+      "params": { "target": "pd", "from": [0, 0], "to": [1, 0],
+        "actor": "actor_a", "timing": "normal" } },
+    { "at": 190.0, "action": "highlightCell",
+      "params": { "target": "pd", "index": [0, 1], "color": "actor_b",
+        "timing": "fast" } },
+    { "at": 191.0, "action": "bestResponseArrow",
+      "params": { "target": "pd", "from": [0, 0], "to": [0, 1],
+        "actor": "actor_b", "timing": "normal" } },
+    { "at": 195.0, "action": "crossOut",
+      "params": { "target": "pd", "axis": "row", "index": 0,
+        "style": "dashed", "timing": "normal" } },
+    { "at": 197.0, "action": "crossOut",
+      "params": { "target": "pd", "axis": "col", "index": 0,
+        "style": "dashed", "timing": "normal" } },
+    { "at": 200.0, "action": "highlightCell",
+      "params": { "target": "pd", "index": [1, 1], "color": "highlight",
+        "timing": "normal" } },
+
+    { "at": 203.0, "action": "showCalloutBox",
+      "params": { "id": "pd-callout",
+        "text": "Nash equilibrium: mutual defection. Pareto-inferior.",
+        "subject": "pd:cell:1,1", "width": 3.2, "style": "neon-bold",
+        "timing": "normal" } },
+
+    { "at": 212.0, "action": "removeComponent",
+      "params": { "target": "pd-callout", "effect": "fade-out",
+        "timing": "fast" } },
+    { "at": 213.0, "action": "removeComponent",
+      "params": { "target": "pd", "effect": "dissolve", "timing": "normal" } },
+
+    { "at": 216.0, "action": "setLayout",
+      "params": { "layout": "title-body", "timing": "slow" } },
+
+    { "at": 219.0, "action": "showTextCard",
+      "params": { "id": "outro",
+        "text": "Every layout. Every component. Reactive.",
+        "size": "body", "timing": "slow", "effect": "fade-in",
+        "role": "hero" } },
+
+    { "at": 230.0, "action": "removeComponent",
+      "params": { "target": "outro", "effect": "fade-out", "timing": "slow" } }
+  ],
+  "timeline": []
+}

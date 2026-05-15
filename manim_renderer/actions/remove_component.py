@@ -41,7 +41,10 @@ def remove_component(ctx: ActionContext) -> Optional[Animation]:
     # Drop the host id first so subsequent anchor lookups fail cleanly.
     del ctx.id_to_mobject[target_id]
     # Keep Phase 2 solver state in sync — missing keys are fine for stubs.
-    for attr in ("_roles", "_id_to_slot", "_params_by_id", "_class_by_id"):
+    for attr in (
+        "_roles", "_id_to_slot", "_params_by_id", "_class_by_id",
+        "_restage_base_size", "_subject_host_by_id",
+    ):
         bookkeeping = getattr(ctx.scene, attr, None)
         if bookkeeping is not None:
             bookkeeping.pop(target_id, None)

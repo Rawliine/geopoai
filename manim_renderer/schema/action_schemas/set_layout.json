@@ -1,0 +1,12 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "setLayout.params",
+  "description": "Swap the scene's layout mid-flight. The post-action restage Transforms every live mobject into the new layout's solved rects. The new layout must be compatible with the scene's format.",
+  "type": "object",
+  "required": ["layout"],
+  "properties": {
+    "layout": { "$ref": "../scene_schema.json#/definitions/layout_name" },
+    "timing": { "$ref": "../scene_schema.json#/definitions/timing_name" }
+  },
+  "additionalProperties": false
+}

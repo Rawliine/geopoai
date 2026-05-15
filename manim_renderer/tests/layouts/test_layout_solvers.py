@@ -49,14 +49,27 @@ def _member(id_: str, slot: str, role: str = "primary",
 
 
 @pytest.mark.parametrize("layout_name", list(_LAYOUT_FIXTURES.keys()))
-def test_one_primary_per_slot_returns_slot_rects(layout_name):
+def test_one_primary_per_slot_centered_at_preferred_size(layout_name):
+    """PR W: a lone primary's rect is centered in its slot at the
+    member's preferred size (not the full slot rect verbatim). The
+    previous backward-compat passthrough silently swallowed role scaling."""
     fmt = _fmt_for(layout_name)
     layout = resolve_layout(layout_name, fmt)
     slots = _LAYOUT_FIXTURES[layout_name]
     cast = [_member(f"c{i}", s) for i, s in enumerate(slots)]
     out = layout.solve(cast)
     for i, s in enumerate(slots):
-        assert out[f"c{i}"] == layout.slots[s], (layout_name, s)
+        slot_rect = layout.slots[s]
+        rect = out[f"c{i}"]
+        # Same center as the slot.
+        assert rect.cx == pytest.approx(slot_rect.cx), (layout_name, s)
+        assert rect.cy == pytest.approx(slot_rect.cy), (layout_name, s)
+        # Preferred (2,2) is used unless the slot is smaller along the
+        # flex axis (e.g. title-body's 1.5-tall title strip clamps to 1.5).
+        assert rect.width <= 2.0 + 1e-6, (layout_name, s)
+        assert rect.height <= 2.0 + 1e-6, (layout_name, s)
+        # Never collapses to zero.
+        assert rect.width > 0 and rect.height > 0, (layout_name, s)
 
 
 @pytest.mark.parametrize("layout_name", list(_LAYOUT_FIXTURES.keys()))
@@ -94,8 +107,13 @@ def test_hidden_member_excluded(layout_name):
     out = layout.solve(cast)
 
     assert "ghost" not in out
-    # The lone visible primary owns the slot.
-    assert out["visible"] == layout.slots[slots[0]]
+    # The lone visible primary centered at preferred size (or clamped to
+    # the smaller slot axis — see title-body's 1.5-tall title strip).
+    slot_rect = layout.slots[slots[0]]
+    rect = out["visible"]
+    assert rect.cx == pytest.approx(slot_rect.cx)
+    assert rect.cy == pytest.approx(slot_rect.cy)
+    assert rect.width > 0 and rect.height > 0
 
 
 @pytest.mark.parametrize("layout_name", list(_LAYOUT_FIXTURES.keys()))
@@ -119,8 +137,9 @@ def test_no_slot_members_excluded(layout_name):
 
 
 def test_title_body_title_slot_pinned():
-    """Title strip stays in place even when the body slot has multiple
-    members (the "title pinned" rule from the brief)."""
+    """Title strip stays centered in its slot even when the body slot has
+    multiple members (the "title pinned" rule from the brief). PR W:
+    title gets its preferred-size rect centered in the title slot."""
     layout = resolve_layout("title-body", "horizontal")
     cast = [
         _member("hdr", "title", size=(8.0, 1.0)),
@@ -129,8 +148,10 @@ def test_title_body_title_slot_pinned():
     ]
     out = layout.solve(cast)
 
-    # Title rect equals the static slot rect.
-    assert out["hdr"] == layout.slots["title"]
+    # Title rect centered in the title slot at preferred size.
+    title_rect = layout.slots["title"]
+    assert out["hdr"].cx == pytest.approx(title_rect.cx)
+    assert out["hdr"].cy == pytest.approx(title_rect.cy)
     # Body slot got the flex treatment — both fit inside it.
     body_rect = layout.slots["body"]
     for body_id in ("a", "b"):

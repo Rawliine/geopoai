@@ -4,7 +4,7 @@
   "quality": "preview",
   "scene": {
     "layout": "title-body",
-    "duration": 28,
+    "duration": 30,
     "theme": "dark"
   },
   "slots": {
@@ -39,32 +39,28 @@
     }
   },
   "overlays": [
-    { "at": 6.0, "action": "showStatBlock",
-      "params": { "id": "k-defect", "value": 71.6, "label": "Defect rate",
-                  "value_format": "decimal", "decimals": 1, "unit": "%",
-                  "color": "actor_b", "anchor": "right-of:k-loss",
-                  "size": "medium", "timing": "normal", "effect": "count-up",
-                  "role": "primary" } },
-
     { "at": 11.0, "action": "setRole",
       "params": { "target": "k-loss", "role": "supporting", "timing": "fast" } },
 
     { "at": 14.0, "action": "showCalloutBox",
       "params": { "id": "callout-defect",
-                  "text": "Defection dominates — even when cooperation pays.",
-                  "subject": "k-defect",
-                  "width": 3.6,
-                  "style": "neon",
-                  "timing": "normal" } },
+        "text": "Cooperation has eroded over time.",
+        "subject": "k-loss",
+        "width": 3.0,
+        "style": "neon",
+        "timing": "normal" } },
 
     { "at": 19.0, "action": "removeComponent",
       "params": { "target": "callout-defect", "effect": "fade-out", "timing": "fast" } },
 
     { "at": 20.0, "action": "setRole",
-      "params": { "target": "k-defect", "role": "hero", "timing": "normal" } },
+      "params": { "target": "k-loss", "role": "hero", "timing": "normal" } },
 
-    { "at": 22.0, "action": "setRole",
-      "params": { "target": "k-loss", "role": "ambient", "timing": "normal" } }
+    { "at": 23.0, "action": "setRole",
+      "params": { "target": "k-loss", "role": "ambient", "timing": "normal" } },
+
+    { "at": 26.0, "action": "removeComponent",
+      "params": { "target": "k-loss", "effect": "dissolve", "timing": "normal" } }
   ],
   "timeline": []
 }

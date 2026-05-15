@@ -1,0 +1,291 @@
+{
+  "renderer": "manim",
+  "format": "vertical",
+  "quality": "preview",
+  "scene": {
+    "layout": "title-body",
+    "duration": 260,
+    "theme": "dark"
+  },
+  "slots": {
+    "title": {
+      "at": 0.0,
+      "action": "showTextCard",
+      "params": {
+        "id": "title",
+        "text": "Callouts + Mutations + Edge Cases",
+        "size": "title",
+        "timing": "slow",
+        "effect": "fade-in",
+        "role": "primary"
+      }
+    },
+    "body": {
+      "at": 2.0,
+      "action": "showTextCard",
+      "params": {
+        "id": "subtitle",
+        "text": "Every callout style; every mutation.",
+        "size": "body",
+        "timing": "normal",
+        "effect": "fade-in",
+        "role": "supporting"
+      }
+    }
+  },
+  "overlays": [
+    { "at": 8.0, "action": "removeComponent",
+      "params": { "target": "subtitle", "effect": "fade-out", "timing": "fast" } },
+    { "at": 9.0, "action": "setLayout",
+      "params": { "layout": "hero", "timing": "slow" } },
+    { "at": 10.0, "action": "removeComponent",
+      "params": { "target": "title", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 12.0, "action": "showPayoffMatrix",
+      "params": { "id": "pd",
+        "players": [
+          { "name": "Alice", "color": "actor_a" },
+          { "name": "Bob",   "color": "actor_b" }
+        ],
+        "strategies": [["Cooperate", "Defect"], ["Cooperate", "Defect"]],
+        "cells": [
+          [{ "a": 3, "b": 3 }, { "a": 0, "b": 5 }],
+          [{ "a": 5, "b": 0 }, { "a": 1, "b": 1 }]
+        ],
+        "size": "medium", "timing": "slow", "effect": "level-by-level",
+        "role": "primary" } },
+
+    { "at": 20.0, "action": "showCalloutSequence",
+      "params": { "id": "seq",
+        "style": "neon", "hold_each": "slow", "transition": "fast",
+        "callouts": [
+          { "subject": "pd:cell:0,0", "text": "Both cooperate — mutual gain.",
+            "width": 4.5 },
+          { "subject": "pd:cell:1,0", "text": "Alice defects.",
+            "width": 4.5 },
+          { "subject": "pd:cell:0,1", "text": "Bob defects.",
+            "width": 4.5 },
+          { "subject": "pd:cell:1,1", "text": "Nash equilibrium.",
+            "width": 4.5 }
+        ]
+      } },
+
+    { "at": 50.0, "action": "highlightCell",
+      "params": { "target": "pd", "index": [1, 1], "color": "highlight",
+        "timing": "fast" } },
+    { "at": 51.5, "action": "bestResponseArrow",
+      "params": { "target": "pd", "from": [0, 0], "to": [1, 1],
+        "actor": "actor_a", "timing": "normal" } },
+    { "at": 54.0, "action": "crossOut",
+      "params": { "target": "pd", "axis": "row", "index": 0,
+        "style": "strike", "timing": "fast" } },
+    { "at": 55.5, "action": "crossOut",
+      "params": { "target": "pd", "axis": "col", "index": 0,
+        "style": "strike", "timing": "fast" } },
+
+    { "at": 58.0, "action": "removeComponent",
+      "params": { "target": "pd", "effect": "dissolve", "timing": "normal" } },
+
+    { "at": 60.0, "action": "showStatBlock",
+      "params": { "id": "host-a", "value": 1234, "label": "Subjects",
+        "value_format": "int", "size": "medium", "color": "actor_a",
+        "timing": "normal", "effect": "count-up", "role": "primary" } },
+
+    { "at": 65.0, "action": "showCalloutBox",
+      "params": { "id": "c-neon", "subject": "host-a",
+        "text": "Default neon.",
+        "style": "neon", "width": 4.5, "timing": "fast" } },
+    { "at": 71.0, "action": "removeComponent",
+      "params": { "target": "c-neon", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 72.5, "action": "showCalloutBox",
+      "params": { "id": "c-neon-bold", "subject": "host-a",
+        "text": "Neon bold.",
+        "style": "neon-bold", "width": 4.5, "timing": "fast" } },
+    { "at": 78.5, "action": "removeComponent",
+      "params": { "target": "c-neon-bold", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 80.0, "action": "showCalloutBox",
+      "params": { "id": "c-card", "subject": "host-a",
+        "text": "Card style.",
+        "style": "card", "width": 4.5, "timing": "fast" } },
+    { "at": 86.0, "action": "removeComponent",
+      "params": { "target": "c-card", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 87.5, "action": "showCalloutBox",
+      "params": { "id": "c-glass", "subject": "host-a",
+        "text": "Glass.",
+        "style": "glass", "width": 4.5, "timing": "fast" } },
+    { "at": 93.5, "action": "removeComponent",
+      "params": { "target": "c-glass", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 95.0, "action": "showCalloutBox",
+      "params": { "id": "c-pullquote", "subject": "host-a",
+        "text": "Pull-quote.",
+        "style": "pull-quote", "width": 4.5, "timing": "fast" } },
+    { "at": 101.0, "action": "removeComponent",
+      "params": { "target": "c-pullquote", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 102.5, "action": "showCalloutBox",
+      "params": { "id": "c-inline", "subject": "host-a",
+        "text": "Tag", "style": "inline-tag", "color": "highlight",
+        "width": 2.0, "timing": "fast" } },
+    { "at": 108.0, "action": "removeComponent",
+      "params": { "target": "c-inline", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 109.0, "action": "removeComponent",
+      "params": { "target": "host-a", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 111.0, "action": "setLayout",
+      "params": { "layout": "stacked", "timing": "slow" } },
+
+    { "at": 114.0, "action": "showBarChart",
+      "params": { "id": "bars-t",
+        "data": [
+          { "label": "Q1", "value": 12, "color": "actor_a" },
+          { "label": "Q2", "value": 18, "color": "actor_a" },
+          { "label": "Q3", "value": 22, "color": "actor_a" },
+          { "label": "Q4", "value": 14, "color": "actor_a" }
+        ],
+        "size": "small", "value_format": "int", "show_value_labels": true,
+        "y_axis": { "min": 0, "max": 25, "ticks": 5, "label": "Sales" },
+        "x_axis": { "label": "Quarter" },
+        "timing": "slow", "effect": "count-up", "role": "primary" } },
+    { "at": 120.0, "action": "showBarChart",
+      "params": { "id": "bars-b",
+        "data": [
+          { "label": "Q1", "value": 8,  "color": "actor_b" },
+          { "label": "Q2", "value": 14, "color": "actor_b" },
+          { "label": "Q3", "value": 20, "color": "actor_b" },
+          { "label": "Q4", "value": 24, "color": "actor_b" }
+        ],
+        "size": "small", "value_format": "int", "show_value_labels": true,
+        "y_axis": { "min": 0, "max": 25, "ticks": 5, "label": "Sales" },
+        "x_axis": { "label": "Quarter" },
+        "timing": "slow", "effect": "count-up", "role": "primary" } },
+
+    { "at": 128.0, "action": "showCalloutBox",
+      "params": { "id": "c-bars-t", "subject": "bars-t",
+        "text": "Actor A peaks Q3.", "style": "neon", "width": 4.5,
+        "timing": "fast" } },
+    { "at": 130.0, "action": "showCalloutBox",
+      "params": { "id": "c-bars-b", "subject": "bars-b",
+        "text": "Actor B accelerates.", "style": "neon", "width": 4.5,
+        "timing": "fast" } },
+
+    { "at": 138.0, "action": "removeComponent",
+      "params": { "target": "c-bars-t", "effect": "fade-out", "timing": "fast" } },
+    { "at": 139.0, "action": "removeComponent",
+      "params": { "target": "c-bars-b", "effect": "fade-out", "timing": "fast" } },
+    { "at": 140.0, "action": "removeComponent",
+      "params": { "target": "bars-t", "effect": "fade-out", "timing": "fast" } },
+    { "at": 141.0, "action": "removeComponent",
+      "params": { "target": "bars-b", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 143.0, "action": "setLayout",
+      "params": { "layout": "trio-stack", "timing": "slow" } },
+
+    { "at": 146.0, "action": "showStatBlock",
+      "params": { "id": "trio-a", "value": 100, "label": "Alpha",
+        "value_format": "int", "size": "medium", "color": "actor_a",
+        "timing": "fast", "effect": "count-up", "role": "primary" } },
+    { "at": 148.0, "action": "showStatBlock",
+      "params": { "id": "trio-b", "value": 150, "label": "Beta",
+        "value_format": "int", "size": "medium", "color": "actor_b",
+        "timing": "fast", "effect": "count-up", "role": "primary" } },
+    { "at": 150.0, "action": "showStatBlock",
+      "params": { "id": "trio-c", "value": 200, "label": "Gamma",
+        "value_format": "int", "size": "medium", "color": "actor_c",
+        "timing": "fast", "effect": "count-up", "role": "primary" } },
+
+    { "at": 155.0, "action": "setRole",
+      "params": { "target": "trio-c", "role": "hero", "timing": "normal" } },
+    { "at": 158.0, "action": "setRole",
+      "params": { "target": "trio-a", "role": "ambient", "timing": "normal" } },
+    { "at": 160.0, "action": "setRole",
+      "params": { "target": "trio-b", "role": "ambient", "timing": "normal" } },
+
+    { "at": 164.0, "action": "showCalloutBox",
+      "params": { "id": "trio-pq", "subject": "trio-c",
+        "text": "Gamma leads.", "style": "pull-quote", "width": 4.0,
+        "timing": "normal" } },
+
+    { "at": 171.0, "action": "removeComponent",
+      "params": { "target": "trio-pq", "effect": "fade-out", "timing": "fast" } },
+    { "at": 172.0, "action": "setRole",
+      "params": { "target": "trio-a", "role": "primary", "timing": "fast" } },
+    { "at": 173.0, "action": "setRole",
+      "params": { "target": "trio-b", "role": "primary", "timing": "fast" } },
+    { "at": 174.0, "action": "setRole",
+      "params": { "target": "trio-c", "role": "primary", "timing": "fast" } },
+
+    { "at": 178.0, "action": "removeComponent",
+      "params": { "target": "trio-a", "effect": "fade-out", "timing": "fast" } },
+    { "at": 179.0, "action": "removeComponent",
+      "params": { "target": "trio-b", "effect": "fade-out", "timing": "fast" } },
+    { "at": 180.0, "action": "removeComponent",
+      "params": { "target": "trio-c", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 182.0, "action": "setLayout",
+      "params": { "layout": "hero", "timing": "slow" } },
+
+    { "at": 185.0, "action": "showStatBlock",
+      "params": { "id": "cycle-host", "value": 0.5, "label": "Probability",
+        "value_format": "decimal", "decimals": 2, "size": "large",
+        "color": "highlight", "timing": "normal", "effect": "count-up",
+        "role": "primary" } },
+
+    { "at": 191.0, "action": "showCalloutBox",
+      "params": { "id": "cycle-1", "subject": "cycle-host",
+        "text": "Show.", "style": "card", "width": 3.0,
+        "timing": "fast" } },
+    { "at": 194.0, "action": "removeComponent",
+      "params": { "target": "cycle-1", "effect": "fade-out", "timing": "fast" } },
+    { "at": 195.0, "action": "showCalloutBox",
+      "params": { "id": "cycle-2", "subject": "cycle-host",
+        "text": "Hide.", "style": "card", "width": 3.0,
+        "timing": "fast" } },
+    { "at": 198.0, "action": "removeComponent",
+      "params": { "target": "cycle-2", "effect": "fade-out", "timing": "fast" } },
+    { "at": 199.0, "action": "showCalloutBox",
+      "params": { "id": "cycle-3", "subject": "cycle-host",
+        "text": "Repeat.", "style": "card", "width": 3.0,
+        "timing": "fast" } },
+    { "at": 202.0, "action": "removeComponent",
+      "params": { "target": "cycle-3", "effect": "fade-out", "timing": "fast" } },
+    { "at": 203.0, "action": "showCalloutBox",
+      "params": { "id": "cycle-4", "subject": "cycle-host",
+        "text": "Cleanly.", "style": "card", "width": 3.0,
+        "timing": "fast" } },
+    { "at": 206.0, "action": "removeComponent",
+      "params": { "target": "cycle-4", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 208.0, "action": "setRole",
+      "params": { "target": "cycle-host", "role": "hidden", "timing": "normal" } },
+    { "at": 212.0, "action": "setRole",
+      "params": { "target": "cycle-host", "role": "hero", "timing": "normal" } },
+
+    { "at": 218.0, "action": "removeComponent",
+      "params": { "target": "cycle-host", "effect": "dissolve", "timing": "normal" } },
+
+    { "at": 222.0, "action": "setLayout",
+      "params": { "layout": "title-body", "timing": "slow" } },
+
+    { "at": 225.0, "action": "showTextCard",
+      "params": { "id": "closing-title",
+        "text": "Edge cases survived.",
+        "size": "title", "timing": "slow", "effect": "fade-in",
+        "role": "primary" } },
+    { "at": 230.0, "action": "showTextCard",
+      "params": { "id": "closing-body",
+        "text": "All callout styles, sequences, mutations, role cycles, layout swaps.",
+        "size": "body", "timing": "slow", "effect": "fade-in",
+        "role": "supporting" } },
+
+    { "at": 248.0, "action": "removeComponent",
+      "params": { "target": "closing-body", "effect": "fade-out", "timing": "slow" } },
+    { "at": 252.0, "action": "removeComponent",
+      "params": { "target": "closing-title", "effect": "fade-out", "timing": "slow" } }
+  ],
+  "timeline": []
+}

@@ -29,6 +29,7 @@ from manim_renderer.actions import (
     cross_out,
     highlight_cell,
     remove_component,
+    set_layout,
     set_role,
     show_callout_sequence,
 )
@@ -61,6 +62,7 @@ ACTION_REGISTRY: dict[str, Callable[[ActionContext], Optional[Animation]]] = {
     "highlightCell":       highlight_cell,
     "crossOut":            cross_out,
     "bestResponseArrow":   best_response_arrow,
+    "setLayout":           set_layout,
     "setRole":             set_role,
     "showCalloutSequence": show_callout_sequence,
 }

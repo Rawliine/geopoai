@@ -16,7 +16,8 @@
         "text": "Prisoner's Dilemma",
         "size": "title",
         "timing": "slow",
-        "effect": "fade-in"
+        "effect": "fade-in",
+        "role": "primary"
       }
     },
     "body": {
@@ -71,7 +72,7 @@
     { "at": 17.5, "action": "showCalloutBox",
       "params": { "id": "callout-pd-intro",
         "text": "Each player's dominant strategy is to defect.",
-        "anchor": "below:pd", "width": 5.5, "timing": "normal" } },
+        "subject": "pd", "width": 5.5, "timing": "normal" } },
 
     { "at": 22.0, "action": "removeComponent",
       "params": { "target": "callout-pd-intro", "effect": "fade-out", "timing": "fast" } },
@@ -97,7 +98,7 @@
     { "at": 34.0, "action": "showCalloutBox",
       "params": { "id": "callout-ne",
         "text": "Mutual defection is the Nash equilibrium — and it is Pareto-inferior.",
-        "anchor": "below:pd", "width": 6.0, "timing": "normal" } },
+        "subject": "pd", "width": 6.0, "timing": "normal" } },
 
     { "at": 40.0, "action": "removeComponent",
       "params": { "target": "callout-ne", "effect": "fade-out", "timing": "fast" } },

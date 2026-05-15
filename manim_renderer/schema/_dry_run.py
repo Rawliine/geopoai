@@ -38,6 +38,7 @@ from manim_renderer.resolvers.anchor import (
     DEFAULT_ANCHOR_BUFF,
     parse_anchor,
 )
+from manim_renderer.resolvers.subject_placement import parse_subject
 
 # Phase ordering mirrors `scene.py` and `validator.py`.
 _PHASE_SLOT = 0
@@ -142,6 +143,45 @@ def _anchored_center(
     if token == "inside":
         return (target_bbox.cx, target_bbox.cy)
     raise ValueError(f"unknown anchor token {token!r}")
+
+
+def _pick_subject_side_bbox(
+    host: _Bbox,
+    callout_size: tuple[float, float],
+    fmt: str,
+    layout_direction: str,
+    buff: float = DEFAULT_ANCHOR_BUFF,
+) -> str:
+    """Pure-bbox port of `resolvers.subject_placement.pick_subject_side`.
+
+    Walks the same preference order, returns the first side whose callout
+    fits inside FRAME_BOUNDS, falls back to the last candidate even if it
+    overflows. Used by the validator dry-run to predict where the runtime
+    solver will land a subject-based callout.
+    """
+    frame_w, frame_h = FRAME_BOUNDS.get(fmt, FRAME_BOUNDS["horizontal"])
+    cw, ch = callout_size
+
+    if layout_direction == "vertical":
+        order = ("below", "above", "right-of", "left-of")
+    else:
+        order = ("right-of", "left-of", "below", "above")
+
+    def fits(side: str) -> bool:
+        if side == "right-of":
+            return host.right + buff + cw <= frame_w / 2.0
+        if side == "left-of":
+            return host.left - buff - cw >= -frame_w / 2.0
+        if side == "above":
+            return host.top + buff + ch <= frame_h / 2.0
+        if side == "below":
+            return host.bottom - buff - ch >= -frame_h / 2.0
+        return False
+
+    for side in order:
+        if fits(side):
+            return side
+    return order[-1]
 
 
 def _iter_events(scene: dict):
@@ -263,41 +303,83 @@ def check_anchor_overflows(scene: dict) -> list[str]:
             continue
 
         anchor = params.get("anchor")
-        if not isinstance(anchor, str) or slot_name is not None:
+        subject = params.get("subject")
+        ident = params.get("id")
+
+        if slot_name is not None:
             # Slot-placed → already in `live`; nothing to check here.
             continue
-        try:
-            token, ref_id = parse_anchor(anchor)
-        except ValueError:
-            continue  # validator's tier 4 will surface this
-        if fmt == "vertical":
-            token = _VERTICAL_FLIP.get(token, token)
-        if token not in ANCHOR_TOKENS:
+
+        bbox: _Bbox | None = None
+        if isinstance(anchor, str):
+            try:
+                token, ref_id = parse_anchor(anchor)
+            except ValueError:
+                continue
+            if fmt == "vertical":
+                token = _VERTICAL_FLIP.get(token, token)
+            if token not in ANCHOR_TOKENS:
+                continue
+            target_bbox = live.get(ref_id)
+            if target_bbox is None:
+                continue
+            try:
+                size = _measure_component(action, params, fmt)
+            except Exception as e:
+                errors.append(
+                    f"[anchor-overflow] {ev_path}: measure() raised on "
+                    f"{action}: {e}"
+                )
+                continue
+            center = _anchored_center(token, target_bbox, size)
+            bbox = _bbox_at(center, size)
+            if not bbox.fits_frame(frame_w, frame_h):
+                errors.append(
+                    f"[anchor-pollutes-frame] {ev_path}: {action} anchored "
+                    f"{anchor!r} lands at ({bbox.cx:.2f}, {bbox.cy:.2f}) with "
+                    f"extents ({bbox.half_w * 2:.2f} × {bbox.half_h * 2:.2f}); "
+                    f"exceeds frame bounds ({frame_w:.2f} × {frame_h:.2f})"
+                )
+        elif isinstance(subject, str):
+            # Subject-based callouts: predict the side `pick_subject_side`
+            # will return and check the resulting bbox.
+            try:
+                host_id, _refinement = parse_subject(subject)
+            except ValueError:
+                continue
+            target_bbox = live.get(host_id)
+            if target_bbox is None:
+                continue
+            try:
+                size = _measure_component(action, params, fmt)
+            except Exception as e:
+                errors.append(
+                    f"[anchor-overflow] {ev_path}: measure() raised on "
+                    f"{action}: {e}"
+                )
+                continue
+            layout_direction = (
+                "vertical" if fmt == "vertical" else "horizontal"
+            )
+            side = _pick_subject_side_bbox(
+                target_bbox, size, fmt, layout_direction,
+            )
+            if fmt == "vertical":
+                side = _VERTICAL_FLIP.get(side, side)
+            center = _anchored_center(side, target_bbox, size)
+            bbox = _bbox_at(center, size)
+            if not bbox.fits_frame(frame_w, frame_h):
+                errors.append(
+                    f"[anchor-pollutes-frame] {ev_path}: {action} subject "
+                    f"{subject!r} (predicted side {side!r}) lands at "
+                    f"({bbox.cx:.2f}, {bbox.cy:.2f}) with extents "
+                    f"({bbox.half_w * 2:.2f} × {bbox.half_h * 2:.2f}); "
+                    f"exceeds frame bounds ({frame_w:.2f} × {frame_h:.2f})"
+                )
+        else:
             continue
 
-        target_bbox = live.get(ref_id)
-        if target_bbox is None:
-            continue  # validator's tier 4 will surface this
-        try:
-            size = _measure_component(action, params, fmt)
-        except Exception as e:
-            errors.append(
-                f"[anchor-overflow] {ev_path}: measure() raised on "
-                f"{action}: {e}"
-            )
-            continue
-        center = _anchored_center(token, target_bbox, size)
-        bbox = _bbox_at(center, size)
-        if not bbox.fits_frame(frame_w, frame_h):
-            errors.append(
-                f"[anchor-overflow] {ev_path}: {action} anchored {anchor!r} "
-                f"lands at ({bbox.cx:.2f}, {bbox.cy:.2f}) with extents "
-                f"({bbox.half_w * 2:.2f} × {bbox.half_h * 2:.2f}); exceeds "
-                f"frame bounds ({frame_w:.2f} × {frame_h:.2f})"
-            )
-        # Register this bbox so later anchors can chain off it.
-        ident = params.get("id")
-        if ident:
+        if bbox is not None and ident:
             live[ident] = bbox
     return errors
 
@@ -356,13 +438,14 @@ def check_collisions(scene: dict) -> list[str]:
             )
             continue
 
-        # Determine bbox: slot-placed vs anchored.
+        # Determine bbox: slot-placed vs anchored vs subject.
         bbox: _Bbox | None = None
         if slot_name is not None and layout.has_slot(slot_name):
             slot = layout.slot(slot_name)
             bbox = _bbox_at((slot.cx, slot.cy), size)
         else:
             anchor = params.get("anchor")
+            subject = params.get("subject")
             if isinstance(anchor, str):
                 try:
                     token, ref_id = parse_anchor(anchor)
@@ -372,8 +455,26 @@ def check_collisions(scene: dict) -> list[str]:
                     token = _VERTICAL_FLIP.get(token, token)
                 target_bbox = live.get(ref_id)
                 if target_bbox is None:
-                    continue  # validator's tier 4 will surface
+                    continue
                 center = _anchored_center(token, target_bbox, size)
+                bbox = _bbox_at(center, size)
+            elif isinstance(subject, str):
+                try:
+                    host_id, _refinement = parse_subject(subject)
+                except ValueError:
+                    continue
+                target_bbox = live.get(host_id)
+                if target_bbox is None:
+                    continue
+                layout_direction = (
+                    "vertical" if fmt == "vertical" else "horizontal"
+                )
+                side = _pick_subject_side_bbox(
+                    target_bbox, size, fmt, layout_direction,
+                )
+                if fmt == "vertical":
+                    side = _VERTICAL_FLIP.get(side, side)
+                center = _anchored_center(side, target_bbox, size)
                 bbox = _bbox_at(center, size)
         if bbox is None:
             continue
@@ -455,6 +556,8 @@ def check_composition_fit(scene: dict) -> list[str]:
     )
 
     cast_by_id: dict[str, CastMember] = {}
+    current_layout = layout
+    current_layout_name = layout_name
     event_idx = 0
 
     for ev_path, ev, slot_name, _phase in sorted_events:
@@ -469,6 +572,18 @@ def check_composition_fit(scene: dict) -> list[str]:
             target = params.get("target")
             if isinstance(target, str):
                 cast_by_id.pop(target, None)
+            continue
+        if action == "setLayout":
+            new_name = params.get("layout")
+            if not isinstance(new_name, str):
+                continue
+            try:
+                current_layout = resolve_layout(new_name, fmt)
+                current_layout_name = new_name
+            except ValueError as e:
+                errors.append(
+                    f"[layout-incompatible-format] {ev_path}: {e}"
+                )
             continue
         if action == "setRole":
             target = params.get("target")
@@ -510,19 +625,35 @@ def check_composition_fit(scene: dict) -> list[str]:
                 pref = cls.measure(params, fmt)
         except Exception:
             continue
+
+        # PR W: subject callouts join the host's slot so the solver
+        # carves a side region for them and shrinks the host.
+        effective_slot = slot_name
+        subject_host = None
+        if (action == "showCalloutBox" and params.get("subject")
+                and not slot_name):
+            try:
+                host_id, _ = parse_subject(params["subject"])
+            except ValueError:
+                host_id = None
+            if host_id and host_id in cast_by_id:
+                effective_slot = cast_by_id[host_id].slot
+                subject_host = host_id
+
         cast_by_id[ident] = _AnnotatedCastMember(
             id=ident, role=role, preferred_size=pref,
-            slot=slot_name, params=params, action=action,
+            slot=effective_slot, subject_host_id=subject_host,
+            params=params, action=action,
         )
 
         # Ask the solver for planned rects with the cast so far.
         cast = list(cast_by_id.values())
         try:
-            plan = layout.solve(cast)
+            plan = current_layout.solve(cast)
         except Exception as e:
             errors.append(
-                f"[composition-fit] {ev_path}: layout {layout_name!r}.solve "
-                f"raised: {e}"
+                f"[composition-fit] {ev_path}: layout "
+                f"{current_layout_name!r}.solve raised: {e}"
             )
             continue
 
@@ -542,9 +673,10 @@ def check_composition_fit(scene: dict) -> list[str]:
                 )
                 errors.append(
                     f"[composition-fit] {ev_path}: {action} with "
-                    f"{primary_count} primaries in {layout_name!r} overflows "
-                    f"frame at {rid!r}; suggest a wider layout (e.g. 'trio') "
-                    f"or sequence the entrances."
+                    f"{primary_count} primaries in "
+                    f"{current_layout_name!r} overflows frame at {rid!r}; "
+                    f"suggest a wider layout (e.g. 'trio') or sequence "
+                    f"the entrances."
                 )
 
         # Pairwise overlap among planned rects.
@@ -554,11 +686,29 @@ def check_composition_fit(scene: dict) -> list[str]:
                 a = plan[ids[i]]
                 b = plan[ids[j]]
                 if _rects_overlap(a, b):
-                    errors.append(
-                        f"[composition-overlap] {ev_path}: solver assigned "
-                        f"overlapping rects to {ids[i]!r} and {ids[j]!r} "
-                        f"in {layout_name!r}."
+                    # PR W: tag subject-host overlaps with a dedicated
+                    # error string so authors get actionable feedback.
+                    mi = cast_by_id.get(ids[i])
+                    mj = cast_by_id.get(ids[j])
+                    subject_overlap = (
+                        (mi and getattr(mi, "subject_host_id", None) == ids[j])
+                        or (mj and getattr(mj, "subject_host_id", None) == ids[i])
                     )
+                    if subject_overlap:
+                        errors.append(
+                            f"[subject-overlaps-host] {ev_path}: solver carve "
+                            f"left subject callout overlapping its host in "
+                            f"{current_layout_name!r} (ids {ids[i]!r} ↔ "
+                            f"{ids[j]!r}). Try a smaller callout width, a "
+                            f"less crowded slot, or move the host to a "
+                            f"roomier layout."
+                        )
+                    else:
+                        errors.append(
+                            f"[composition-overlap] {ev_path}: solver assigned "
+                            f"overlapping rects to {ids[i]!r} and {ids[j]!r} "
+                            f"in {current_layout_name!r}."
+                        )
 
     return errors
 
