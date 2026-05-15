@@ -1,0 +1,66 @@
+{
+  "renderer": "manim",
+  "format": "vertical",
+  "quality": "preview",
+  "scene": {
+    "layout": "title-body",
+    "duration": 26,
+    "theme": "dark"
+  },
+  "slots": {
+    "title": {
+      "at": 0.0,
+      "action": "showTextCard",
+      "params": {
+        "id": "title",
+        "text": "Roles (vertical)",
+        "size": "title",
+        "timing": "slow",
+        "effect": "fade-in"
+      }
+    },
+    "body": {
+      "at": 1.0,
+      "action": "showStatBlock",
+      "params": {
+        "id": "k-loss",
+        "value": 1200000,
+        "label": "Loss",
+        "value_format": "currency",
+        "symbol": "$",
+        "suffix": "auto",
+        "size": "medium",
+        "color": "actor_a",
+        "timing": "normal",
+        "effect": "count-up",
+        "role": "hero"
+      }
+    }
+  },
+  "overlays": [
+    { "at": 5.0, "action": "showStatBlock",
+      "params": { "id": "k-defect", "value": 71.6, "label": "Defect %",
+                  "value_format": "decimal", "decimals": 1, "unit": "%",
+                  "color": "actor_b", "anchor": "below:k-loss",
+                  "size": "small", "timing": "normal", "effect": "count-up",
+                  "role": "primary" } },
+
+    { "at": 10.0, "action": "setRole",
+      "params": { "target": "k-loss", "role": "supporting", "timing": "fast" } },
+
+    { "at": 12.0, "action": "showCalloutBox",
+      "params": { "id": "callout",
+                  "text": "Defection wins on average.",
+                  "subject": "k-defect",
+                  "width": 3.0,
+                  "style": "neon",
+                  "timing": "normal" } },
+
+    { "at": 17.0, "action": "removeComponent",
+      "params": { "target": "callout", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 18.0, "action": "setRole",
+      "params": { "target": "k-defect", "role": "hero", "timing": "normal" } }
+  ],
+  "timeline": []
+}

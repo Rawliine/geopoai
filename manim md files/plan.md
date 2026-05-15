@@ -153,18 +153,54 @@ Architectural seams unchanged by Phase 2.0 — the surface Phase 2
 
 ---
 
-## Phase 2 — Roles + Restaging (next agent's scope)
+## Phase 2 — Roles + Restaging ✓ DONE
 
-**Status: planned. See `manim md files/handoff.md` Section
-"Phase 2 — Roles + Restaging implementation brief (agent-facing)" for
-the full 14-PR brief (PR F through PR R).**
+**Status: complete.** All 14 PRs (F through R) shipped. Components have
+a *role* at every instant; layouts are *solvers* that allocate space
+proportional to roles; every composition change triggers a FLIP-style
+restage pass.
 
-Goal: replace the static-positioning model with a reactive one.
-Components have a *role* at every instant; layouts become *solvers*
-that allocate space proportional to roles; every composition change
-triggers a FLIP-style restage pass that Transforms the cast to its new
-allocation. The author sets the cast + roles; the engine does the
-staging.
+Shipped:
+- **PR F — Roles schema plumbing.** `role_name` enum + optional `role`
+  on every `show_*.json`. `set_role.json` + `actions/set_role.py`.
+  `BaseComponent.role` + `DEFAULT_ROLE` (CalloutBox = `annotation`).
+  `JSONScene._roles` seeded on every show, dropped on remove.
+- **PR G — FLIP restage as no-op.** `_restage(reason)` + `_compute_target_rects`
+  on `JSONScene`. Wires the post-show / post-remove / post-set-role hooks.
+  Identity planner — no movement yet, but every later PR replaces just
+  the planner.
+- **PR H — `preferred_size(role)`.** New classmethod on `BaseComponent`
+  multiplied by `ROLE_SCALE` (hero 1.5×, primary 1.0×, supporting 0.7×,
+  ambient 0.4×, annotation 1.0×, hidden 0×). Linear scaling fits Phase 1
+  content; content-driven overrides are opt-in.
+- **PR I — Generic flex solver.** Pure-math `flex_solve` in
+  `layouts/_flex.py`. Direction + gap + align + proportional shrink +
+  `MIN_DIM` floor.
+- **PR J — Split layout to solver.** `Layout.solve(cast)` with per-slot
+  flex; backward-compat passthrough for 1-member slots keeps PD scenes
+  pixel-identical.
+- **PR K — Remaining layouts.** Default `Layout.solve` covers hero,
+  data-left, data-top, trio, trio-stack, title-body via the per-slot
+  flex pattern.
+- **PR L — Subject-based callout placement.** `params.subject` on
+  CalloutBox + `pick_subject_side` resolver. Solver picks the side based
+  on available frame space and layout direction.
+- **PR M — Color inheritance from subject.** `inherit_subject_color`
+  walks subject refinements (`pd:cell:1,0`, `pd:row:0`) and returns a
+  palette key. Explicit `params.color` always wins.
+- **PR N — Validator solver-aware composition tier.**
+  `check_composition_fit` walks events maintaining cast state, calls
+  `layout.solve(cast)` at each step, flags `[composition-fit]` /
+  `[composition-overlap]` errors.
+- **PR O — `showCalloutSequence`.** Chained one-at-a-time callouts via
+  Manim's `Succession`. Schema + action callable + tests.
+- **PR P — Three new callout styles.** `neon-bold` (5-layer stack),
+  `pull-quote` (no bubble, accent quote marks), `inline-tag` (filled
+  chip, no leader). Schema enum updated.
+- **PR Q — New QA scenes.** `qa_roles.json`, `qa_roles_v.json`,
+  `qa_sequence.json` exercise role transitions + showCalloutSequence.
+- **PR R — Documentation sweep.** AGENT.md rules 17/18; plan.md/recap.md/
+  handoff.md/_skill.md/README.md updates.
 
 This phase replaces what the original Phase 1 plan called "Phase 2 —
 Effects, motion, camera" (camera + remaining effects + asset pipeline).

@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "setRole.params",
+  "description": "Change the role of an existing component. Recorded in scene._roles; in PR G+ this fires a restage pass.",
+  "type": "object",
+  "required": ["target", "role"],
+  "properties": {
+    "target": { "$ref": "../scene_schema.json#/definitions/id_string" },
+    "role":   { "$ref": "../scene_schema.json#/definitions/role_name" },
+    "timing": { "$ref": "../scene_schema.json#/definitions/timing_name" }
+  },
+  "additionalProperties": false
+}

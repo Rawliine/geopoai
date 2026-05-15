@@ -12,3 +12,6 @@ __pycache__/
 
 # Claude Code workspace (per-developer plans, memory, settings)
 .claude/
+
+# MCP server configuration (per-developer; may contain auth/local paths)
+.mcp.json

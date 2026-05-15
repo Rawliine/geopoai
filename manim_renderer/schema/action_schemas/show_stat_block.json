@@ -41,7 +41,8 @@
       "anyOf": [
         { "$ref": "../scene_schema.json#/definitions/entrance_effect" }
       ]
-    }
+    },
+    "role":   { "$ref": "../scene_schema.json#/definitions/role_name" }
   },
   "additionalProperties": false
 }

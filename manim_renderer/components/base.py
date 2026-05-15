@@ -29,11 +29,20 @@ class BaseComponent(VGroup):
     # Consumed by the default `measure()` and by build() implementations.
     SIZE_KIND: str = "default"
 
+    # Default role assigned to instances of this class when params.role is
+    # absent. CalloutBox overrides to "annotation". The runner uses the same
+    # value to seed `JSONScene._roles` so that BaseComponent.role and
+    # scene._roles never disagree.
+    DEFAULT_ROLE: str = "primary"
+
     def __init__(self, params: dict, format: str = "horizontal", **kwargs):
         super().__init__(**kwargs)
         self.params = params
         self.format = format
         self.id = params.get("id")
+        # PR F: role lives on the component instance from creation. PR H will
+        # consume it in `preferred_size`; PR G restages whenever it changes.
+        self.role = params.get("role", self.DEFAULT_ROLE)
         self.build()
 
     # --- contract for subclasses ---------------------------------------------
@@ -60,6 +69,39 @@ class BaseComponent(VGroup):
         """
         role = params.get("size", "medium")
         return resolve_size(role, format, kind=cls.SIZE_KIND)
+
+    @classmethod
+    def preferred_size(
+        cls, params: dict, format: str, role: str = "primary",
+    ) -> tuple[float, float]:
+        """Role-aware size estimate consumed by the layout solver (PR I+).
+
+        Default = `measure(params, format)` multiplied by `ROLE_SCALE[role]`.
+        Linear scaling fits chart-/tree-/grid-shaped components whose content
+        is data-driven and scales smoothly. Content-driven components
+        (text-bearing, group bundles with internal spacing) override this when
+        linear scaling would clip text or collapse internal layout.
+
+        Roles:
+          * `hero`       — 1.5× base
+          * `primary`    — 1.0× base (default)
+          * `supporting` — 0.7× base
+          * `ambient`    — 0.4× base
+          * `annotation` — 1.0× base (callouts size by content, not by role)
+          * `hidden`     — (0, 0), solver allocates no space
+        """
+        from manim_renderer.layouts.base import ROLE_SCALE
+
+        if role not in ROLE_SCALE:
+            raise ValueError(
+                f"preferred_size: unknown role {role!r}; "
+                f"available: {sorted(ROLE_SCALE)}"
+            )
+        scale = ROLE_SCALE[role]
+        if scale == 0.0:
+            return (0.0, 0.0)
+        base_w, base_h = cls.measure(params, format)
+        return (base_w * scale, base_h * scale)
 
     # --- default entrance/exit dispatch via effects subsystem ---------------
 

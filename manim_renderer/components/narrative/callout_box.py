@@ -82,6 +82,11 @@ _VERTICAL_FLIP_TOKEN = {"right-of": "below", "left-of": "above"}
 class CalloutBox(BaseComponent):
     """Text bubble + leader line to a target component."""
 
+    # Callouts are annotations on top of other content, not primary content.
+    # Roles drive size/opacity/z-order in PR H+; this default is consumed by
+    # `JSONScene` when seeding `_roles[id]`.
+    DEFAULT_ROLE = "annotation"
+
     @classmethod
     def measure(cls, params: dict, format: str) -> tuple[float, float]:
         """Estimate from text length + max width + padding. Wraps lines that
@@ -110,13 +115,20 @@ class CalloutBox(BaseComponent):
 
         if "text" not in p:
             raise ValueError("CalloutBox requires params.text")
-        # `anchor` is REQUIRED for a callout — without it there's no leader
-        # and you might as well use a TextCard. Schema enforces it too.
-        if "anchor" not in p:
+        # `anchor` or `subject` is REQUIRED for a callout — without one
+        # there's no leader and you might as well use a TextCard. Schema
+        # enforces this with anyOf.
+        if "anchor" not in p and "subject" not in p:
             raise ValueError(
-                "CalloutBox requires params.anchor (anchor string like "
-                "'below:matrix-1'); without one, use TextCard instead."
+                "CalloutBox requires params.anchor (e.g. 'below:matrix-1') "
+                "or params.subject (e.g. 'matrix-1' / 'matrix-1:cell:0,0'); "
+                "without one, use TextCard instead."
             )
+        # Stash subject for the runner's solver-driven placement (PR L).
+        # When `subject` is present and `anchor` absent, the scene runner
+        # picks the side via `pick_subject_side` before calling
+        # `position_finalized`.
+        self._subject = p.get("subject")
 
         self._text_str = str(p["text"])
         self._max_width = float(p.get("width", 4.0))
@@ -160,15 +172,21 @@ class CalloutBox(BaseComponent):
             )
         return palette[color_key]
 
+
     def _build_bubble(self) -> None:
         accent_hex = self._resolve_accent_hex(self._color_key)
         self._accent_hex = accent_hex
 
-        # Text color: for `card` (filled background), explicit color key wins
-        # but defaults to text_primary. For other styles (transparent bg),
-        # auto-contrast against the scene background.
+        # Text color:
+        #   * `card`       — surface fill → text_primary reads cleanly.
+        #   * `inline-tag` — accent fill → auto-contrast against the accent
+        #     so the chip text stays readable regardless of role color.
+        #   * Otherwise (transparent bg, including neon/glass/neon-bold/
+        #     pull-quote) — auto-contrast against the scene background.
         if self._style_name == "card":
             text_color = UI["text_primary"]
+        elif self._style_name == "inline-tag":
+            text_color = pick_text_color(accent_hex)
         else:
             text_color = pick_text_color(UI["background"])
 
@@ -228,6 +246,11 @@ class CalloutBox(BaseComponent):
     def position_finalized(self, *, anchor=None, target=None, format="horizontal"):
         if anchor is None or target is None:
             return  # no leader if no anchor target
+        # PR P — `pull-quote` and `inline-tag` styles deliberately have no
+        # leader line. They sit at the subject's edge (or as a chip nearby)
+        # and rely on visual proximity instead of an explicit connector.
+        if self._style_name in ("pull-quote", "inline-tag"):
+            return
         token, _ = parse_anchor(anchor)
 
         # Apply the same format flip as resolve_anchor so leader edges match

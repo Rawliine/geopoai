@@ -46,6 +46,8 @@ from manim import (
     Create,
     FadeIn,
     FadeOut,
+    LEFT,
+    RIGHT,
     RoundedRectangle,
     Succession,
     Uncreate,
@@ -85,6 +87,31 @@ _NEON_INTERIOR_FILL_OPACITY = 0.05
 _CARD_BORDER_STROKE = 1.5
 _GLASS_FILL_OPACITY = 0.40
 _GLASS_BORDER_STROKE = 2.0
+
+# PR P — neon-bold dials each of neon's four layers higher and adds an
+# extra outer-outer glow for a 5-layer stack. Use sparingly: this style
+# dominates the frame.
+_NEON_BOLD_INNER_CORE_LIGHTEN = 0.70
+_NEON_BOLD_INNER_CORE_STROKE = 2.0
+_NEON_BOLD_BORDER_STROKE = 3.5
+_NEON_BOLD_BORDER_OPACITY = 1.0
+_NEON_BOLD_MID_GLOW_STROKE = 11.0
+_NEON_BOLD_MID_GLOW_OPACITY = 0.50
+_NEON_BOLD_OUTER_GLOW_STROKE = 22.0
+_NEON_BOLD_OUTER_GLOW_OPACITY = 0.22
+_NEON_BOLD_OUTER_OUTER_GLOW_STROKE = 36.0
+_NEON_BOLD_OUTER_OUTER_GLOW_OPACITY = 0.08
+_NEON_BOLD_INTERIOR_FILL_OPACITY = 0.10
+
+# PR P — pull-quote: large stylized quote marks, no bubble, no leader.
+# Quote glyphs scale relative to the text height (display-sized).
+_PULL_QUOTE_MARK_SCALE = 2.2
+_PULL_QUOTE_MARK_OPACITY = 0.85
+
+# PR P — inline-tag: small chip, accent fill, contrast-picked text color.
+_INLINE_TAG_PADDING_X = 0.20
+_INLINE_TAG_PADDING_Y = 0.10
+_INLINE_TAG_CORNER_RADIUS = 0.08
 
 
 @dataclass(frozen=True)
@@ -181,6 +208,91 @@ def _glass_bubble(text_mob, accent_hex: str, format: str) -> VGroup:
     return VGroup(bubble)
 
 
+# --- PR P bubble builders --------------------------------------------------
+
+
+def _neon_bold_bubble(text_mob, accent_hex: str, format: str) -> VGroup:
+    """neon-bold: 5-layer stack (extra outer-outer glow), thicker strokes,
+    and a slightly stronger interior tint. Use sparingly."""
+    w = text_mob.width + 2 * _BUBBLE_PADDING_X
+    h = text_mob.height + 2 * _BUBBLE_PADDING_Y
+
+    interior_tint = lighten(accent_hex, _NEON_INTERIOR_FILL_LIGHTEN)
+    inner_core_color = lighten(accent_hex, _NEON_BOLD_INNER_CORE_LIGHTEN)
+
+    outer_outer_glow = RoundedRectangle(
+        width=w, height=h, corner_radius=_CORNER_RADIUS,
+        color=accent_hex, stroke_width=_NEON_BOLD_OUTER_OUTER_GLOW_STROKE,
+        stroke_opacity=_NEON_BOLD_OUTER_OUTER_GLOW_OPACITY,
+        fill_color=interior_tint,
+        fill_opacity=_NEON_BOLD_INTERIOR_FILL_OPACITY,
+    )
+    outer_glow = RoundedRectangle(
+        width=w, height=h, corner_radius=_CORNER_RADIUS,
+        color=accent_hex, stroke_width=_NEON_BOLD_OUTER_GLOW_STROKE,
+        stroke_opacity=_NEON_BOLD_OUTER_GLOW_OPACITY,
+        fill_opacity=0.0,
+    )
+    mid_glow = RoundedRectangle(
+        width=w, height=h, corner_radius=_CORNER_RADIUS,
+        color=accent_hex, stroke_width=_NEON_BOLD_MID_GLOW_STROKE,
+        stroke_opacity=_NEON_BOLD_MID_GLOW_OPACITY,
+        fill_opacity=0.0,
+    )
+    border = RoundedRectangle(
+        width=w, height=h, corner_radius=_CORNER_RADIUS,
+        color=accent_hex, stroke_width=_NEON_BOLD_BORDER_STROKE,
+        stroke_opacity=_NEON_BOLD_BORDER_OPACITY,
+        fill_opacity=0.0,
+    )
+    inner_core = RoundedRectangle(
+        width=w, height=h, corner_radius=_CORNER_RADIUS,
+        color=inner_core_color, stroke_width=_NEON_BOLD_INNER_CORE_STROKE,
+        stroke_opacity=1.0,
+        fill_opacity=0.0,
+    )
+    group = VGroup(outer_outer_glow, outer_glow, mid_glow, border, inner_core)
+    group.inner_core = inner_core           # type: ignore[attr-defined]
+    group.border = border                   # type: ignore[attr-defined]
+    group.mid_glow = mid_glow               # type: ignore[attr-defined]
+    group.outer_glow = outer_glow           # type: ignore[attr-defined]
+    group.outer_outer_glow = outer_outer_glow  # type: ignore[attr-defined]
+    return group
+
+
+def _pull_quote_bubble(text_mob, accent_hex: str, format: str) -> VGroup:
+    """pull-quote: large display-sized quote marks bracketing the text.
+
+    No bubble fill, no leader line. The accent color is applied to the
+    quote glyphs; the text itself uses the CalloutBox's resolved text
+    color (auto-contrast from `pick_text_color`).
+    """
+    from manim import Text as _Text
+    open_q = _Text("“", font_size=text_mob.font_size * _PULL_QUOTE_MARK_SCALE)
+    close_q = _Text("”", font_size=text_mob.font_size * _PULL_QUOTE_MARK_SCALE)
+    open_q.set_color(accent_hex).set_opacity(_PULL_QUOTE_MARK_OPACITY)
+    close_q.set_color(accent_hex).set_opacity(_PULL_QUOTE_MARK_OPACITY)
+    # Bracket the text: open quote upper-left, close quote lower-right.
+    open_q.next_to(text_mob, LEFT, buff=0.18)
+    open_q.shift([0.0, text_mob.height * 0.18, 0.0])
+    close_q.next_to(text_mob, RIGHT, buff=0.18)
+    close_q.shift([0.0, -text_mob.height * 0.18, 0.0])
+    return VGroup(open_q, close_q)
+
+
+def _inline_tag_bubble(text_mob, accent_hex: str, format: str) -> VGroup:
+    """inline-tag: small accent-filled chip; no border, no leader."""
+    bubble = RoundedRectangle(
+        width=text_mob.width + 2 * _INLINE_TAG_PADDING_X,
+        height=text_mob.height + 2 * _INLINE_TAG_PADDING_Y,
+        corner_radius=_INLINE_TAG_CORNER_RADIUS,
+        color=accent_hex,
+        fill_color=accent_hex, fill_opacity=1.0,
+        stroke_width=0.0,
+    )
+    return VGroup(bubble)
+
+
 # --- entrance / exit animations ----------------------------------------------
 
 
@@ -229,6 +341,25 @@ CALLOUT_STYLES: dict[str, CalloutStyleSpec] = {
     "glass": CalloutStyleSpec(
         name="glass",
         build_bubble=_glass_bubble,
+        entrance=_fade_together_entrance,
+        exit=_fade_together_exit,
+    ),
+    # PR P — three new variants.
+    "neon-bold": CalloutStyleSpec(
+        name="neon-bold",
+        build_bubble=_neon_bold_bubble,
+        entrance=_neon_entrance,
+        exit=_neon_exit,
+    ),
+    "pull-quote": CalloutStyleSpec(
+        name="pull-quote",
+        build_bubble=_pull_quote_bubble,
+        entrance=_fade_together_entrance,
+        exit=_fade_together_exit,
+    ),
+    "inline-tag": CalloutStyleSpec(
+        name="inline-tag",
+        build_bubble=_inline_tag_bubble,
         entrance=_fade_together_entrance,
         exit=_fade_together_exit,
     ),

@@ -629,5 +629,70 @@ A compact list of what we decided and where the reasoning lives in this doc.
 | `measure()` class method as foundational sizing API | §22b | LOCKED |
 | Three-tier validator dry-run (4a/4c/4b) | §22b | LOCKED |
 | Auto-contrast via W3C relative luminance | §22b | FLUID (threshold tunable) |
+| Six-value role enum (hero/primary/supporting/ambient/annotation/hidden) | §22c | LOCKED |
+| Restage trigger set = show + remove + setRole; mutations excluded | §22c | LOCKED |
+| FLIP capture-plan-animate restage technique | §22c | LOCKED |
+| Per-slot flex solver as Layout's default | §22c | LOCKED |
+| `subject` callouts (solver picks the side) alongside explicit `anchor` | §22c | LOCKED |
+| Subject color inheritance opt-in (explicit color always wins) | §22c | LOCKED |
+| Validator tier 4d composition-fit via `layout.solve(cast)` | §22c | LOCKED |
+| `showCalloutSequence` as a one-at-a-time action, not a component | §22c | LOCKED |
+| Three new callout styles (`neon-bold`, `pull-quote`, `inline-tag`) | §22c | LOCKED |
 
 `LOCKED` = changing it late forces cascading rewrites. `FLUID` = revisit on signal.
+
+---
+
+## 22c. Phase 2 implementation decisions
+
+Phase 2 added the roles + restaging system across 14 PRs (F → R). The
+six points below are the ones that took deliberation; everything else
+follows mechanically from these choices.
+
+### Role enum — why six values, not more
+Six covers every visual hierarchy beat we found in PD + QA scenes:
+`hero` for a single dominant moment, `primary` for main subjects,
+`supporting` for present-but-quiet, `ambient` for sidebar reminders,
+`annotation` for callouts, `hidden` for keep-in-state-but-don't-render.
+Adding more values (`peripheral`, `inactive`) crowds the author's
+mental model without serving content. Less than six loses the
+hero-vs-primary distinction that drives focus pulls.
+
+### Restage timing — composition only, not mutations
+`_restage` fires after `show*`, `removeComponent`, and `setRole` — the
+three events that change the cast `(id, role)` tuple. Mutations
+(`highlightCell`, `crossOut`, `bestResponseArrow`) do not trigger
+restage; their overlays follow the host via the parallel walker over
+`_overlays_by_host`. This keeps mutations cheap and prevents
+self-perpetuating restage loops.
+
+### FLIP technique — capture-plan-animate, not direct positioning
+Each restage captures the cast's current state (centers + scales),
+plans target rects via `layout.solve(cast)`, then builds Transforms for
+deltas above tolerance. The author never sees positions; the engine
+interpolates them. Direct positioning would have leaked layout-space
+coords into action code and broken AGENT.md rule 1.
+
+### Solver-per-layout vs single generic
+We use a single generic `Layout.solve` with per-slot `flex_solve` and a
+backward-compat passthrough for 1-member slots. Custom layouts (PR L's
+subject-based callouts, PR P's pull-quote without bubble) extend the
+solver via specialized helpers but inherit the same dispatch shape.
+This avoids the n-layouts × n-solver-strategies combinatorial explosion
+that came up in early PR I sketches.
+
+### Subject-based placement — when to use vs anchor
+`anchor: "below:matrix-1"` is an author committing to a side; the
+runner places the callout there exactly. `subject: "matrix-1:cell:1,0"`
+is an author committing to a target; the solver picks the side (based
+on frame space + layout direction). Use `subject` when the cast may
+shift around the callout (role transitions, restage). Use `anchor` when
+the author has a strong visual opinion about the side.
+
+### Color inheritance — opt-in, explicit always wins
+A callout pointing at `pd:cell:1,0` inherits `actor_a` (because the row
+player's payoff dominates that cell). A callout pointing at a
+StatBlock with `color: "actor_b"` inherits `actor_b`. But an explicit
+`params.color` always wins — the inheritance pass only runs when the
+author omits color. This keeps the visual default coherent without
+locking authors into the inference.

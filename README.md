@@ -100,7 +100,9 @@ To add a new dataset: add one entry to `config/map_versions.json`. No code chang
 
 ## Manim engine
 
-JSON-authored Manim scenes for diagrams that don't sit on a map (payoff matrices, charts, system maps). The schema bans raw coordinates — composition uses named **layouts** and (in Phase 1) relative anchors.
+Phases 0–2 live: dispatcher, 10 components, 8 layout solvers, 4 mutations with auto-cleanup overlays, 6 callout styles (neon default), validator overflow + composition-fit detection, role-based composition + restaging.
+
+JSON-authored Manim scenes for diagrams that don't sit on a map (payoff matrices, charts, system maps). The schema bans raw coordinates — composition uses named **layouts**, relative **anchors**, and **subject**-based callout placement. Every component has a **role** (`hero` / `primary` / `supporting` / `ambient` / `annotation` / `hidden`); the runner re-solves the layout on every composition change.
 
 ```bash
 python pipeline/render.py scripts/manim/hello.json hello
@@ -128,9 +130,9 @@ python pipeline/render.py scripts/manim/hello.json hello
 - **`overlays`** — annotations/callouts (Phase 1: anchored to slot IDs).
 - **`timeline`** — scene-level events that don't belong to a slot (camera moves, custom scenes).
 
-**Available layouts (Phase 0):** `hero` (horizontal + vertical). More land in Phase 1.
+**Available layouts:** `hero` (both formats), `split` (h) / `stacked` (v), `data-left` (h) / `data-top` (v), `trio` (h) / `trio-stack` (v), `title-body` (both).
 
-**Available actions (Phase 0):** `showTextCard` (centered fade-in text — smoke component).
+**Available actions:** show* family (`showTextCard`, `showStatBlock`, `showMetricGroup`, `showCalloutBox`, `showBarChart`, `showLineChart`, `showTimeline`, `showGameTree`, `showAllianceWeb`, `showPayoffMatrix`); mutation/composition family (`removeComponent`, `highlightCell`, `crossOut`, `bestResponseArrow`, `setRole`, `showCalloutSequence`).
 
 **Quality modes:** `preview` → 480p / 15fps · `draft` → 720p / 30fps · `full` → 1080p / 60fps. Vertical swaps width and height.
 

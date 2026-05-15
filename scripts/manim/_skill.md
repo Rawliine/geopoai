@@ -119,6 +119,30 @@ horizontal and vertical scenes.
 
 ---
 
+## Roles (Phase 2)
+
+Every component has a **role** at every instant. The role drives size,
+opacity, z-order, and how the layout solver allocates space. Set on entry
+via `params.role`; change later via the `setRole` action.
+
+| Role         | When to use |
+|--------------|-------------|
+| `hero`       | Single dominant element; takes most of the frame. Use at most one per beat. |
+| `primary`    | Main subject(s); large, full opacity. **Default** for every component except `showCalloutBox`. |
+| `supporting` | Present but quieter; dimmed, often shrunk. Use for KPIs that have moved past their headline moment. |
+| `ambient`    | Context only; small, very dim. Use for sidebar reminders or watermark-style elements. |
+| `annotation` | A callout, badge, or label tied to another element. **Default** for `showCalloutBox`. |
+| `hidden`     | Present in state but not rendered. Use for components you plan to bring back. |
+
+Role is purely declarative — the engine maps it to allocation, scale, and
+opacity. Authors never set sizes or alphas directly to communicate
+role-like meaning.
+
+PR F (this PR) records roles but does not yet move components in response.
+Restage (PR G+) consumes the same data without any author-facing changes.
+
+---
+
 ## Component actions
 
 ### `showTextCard`
@@ -301,6 +325,17 @@ Custom anchors:
 Effects: `fade-in`, `draw-out`, `level-by-level`.
 
 ---
+
+### Callout style choice guide (Phase 2)
+
+| Style       | When to use |
+|-------------|-------------|
+| `neon`      | **Default.** Punchy accent border with halo, perceptible at preview resolution. Best general-purpose. |
+| `neon-bold` | When the callout needs to dominate visually — headline moments, the punchline of an explanation. Use sparingly. |
+| `card`      | Neutral annotation that doesn't compete for attention — sidebar notes, calm context. |
+| `glass`     | Translucent emphasis over busy backgrounds — call out a region without blocking it. |
+| `pull-quote`| No bubble. Large accent quote marks bracket the text. Use for thematic emphasis (single-sentence summary of a beat). |
+| `inline-tag`| Chip-style label (no leader). Use for short labels: "Equilibrium", "Cooperate", country names. 1-line max. |
 
 ### `showCalloutBox`
 Text bubble + leader line pointing at an anchor target. The first component
@@ -590,6 +625,59 @@ elimination of strictly dominated strategies (IESDS).
 Required: `target`, `axis` (`"row"` | `"col"`), `index` (0-based).
 `style` is `"strike"` (default, solid) or `"dashed"`. Line is `negative` (red).
 Optional `id` exposes the line as a top-level id.
+
+---
+
+### `showCalloutSequence`
+Chain multiple callouts so only one is on screen at a time. Each item
+fades in, holds, fades out, then the next enters. Use for IESDS-style
+explanations (one cell at a time), step-by-step reveals on the same
+subject, or any narrative beat that needs several callouts that
+shouldn't crowd each other spatially.
+
+```json
+{
+  "at": 20.0,
+  "action": "showCalloutSequence",
+  "params": {
+    "id": "iesds",
+    "callouts": [
+      { "subject": "pd:cell:1,0", "text": "Defection beats cooperation." },
+      { "subject": "pd:cell:0,1", "text": "Symmetric on P2's side." },
+      { "subject": "pd:cell:1,1", "text": "Both defect — Nash equilibrium." }
+    ],
+    "hold_each": "slow",
+    "transition": "fast",
+    "style": "neon"
+  }
+}
+```
+
+Required: `id`, `callouts` (1–12 items; each needs `text` plus `anchor`
+or `subject`). Optional `hold_each` / `transition` (timing keys),
+`style` (one of the six callout styles), `timing`, `role`.
+
+The sequence's `id` is the top-level handle — `removeComponent(target=id)`
+cancels remaining callouts. Inner callouts auto-inherit color from
+their subject if no `color` is given.
+
+---
+
+### `setRole`
+Change the role of an existing component. The new role takes effect on the
+next event; restage moves the cast accordingly (Phase 2 / PR G+).
+
+```json
+{
+  "at": 6.0,
+  "action": "setRole",
+  "params": { "target": "kpis", "role": "supporting", "timing": "fast" }
+}
+```
+
+Required: `target` (id of an earlier-declared component), `role` (one of
+the six role values). Optional `timing` controls the restage motion. See
+the **Roles** section for the role vocabulary and when to use each.
 
 ---
 

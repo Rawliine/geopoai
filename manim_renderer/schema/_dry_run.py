@@ -405,13 +405,186 @@ def check_collisions(scene: dict) -> list[str]:
     return errors
 
 
+# --- tier 4d: composition fit via the layout solver (PR N) ----------------
+
+
+# Annotated cast member — extends `layouts.base.CastMember` with extra fields
+# the composition checker needs (original params, action name) without
+# leaking them into the public Layout.solve signature.
+from manim_renderer.layouts.base import CastMember as _CastMember
+
+
+@dataclass(frozen=True)
+class _AnnotatedCastMember(_CastMember):
+    params: dict = None  # type: ignore[assignment]
+    action: str = ""
+
+
+def check_composition_fit(scene: dict) -> list[str]:
+    """Walk events in order, maintain the cast, and ask `layout.solve(cast)`
+    for planned rects at each step. Flag two failure modes:
+
+      * `[composition-fit]` — solver allocates a rect that exceeds frame
+        bounds (the cast simply can't fit in this layout).
+      * `[composition-overlap]` — solver returns overlapping rects (this
+        shouldn't happen with the default solver, but a custom solver
+        could produce it).
+
+    Mutation actions are skipped; setRole updates the cast's role for the
+    current id without spawning a new entry.
+    """
+    from manim_renderer.layouts.base import CastMember
+
+    errors: list[str] = []
+    fmt = scene.get("format")
+    if not fmt or fmt not in FRAME_BOUNDS:
+        return errors
+    frame_w, frame_h = FRAME_BOUNDS[fmt]
+
+    layout_name = (scene.get("scene") or {}).get("layout")
+    if not layout_name:
+        return errors
+    try:
+        layout = resolve_layout(layout_name, fmt)
+    except ValueError:
+        return errors
+
+    sorted_events = sorted(
+        _iter_events(scene),
+        key=lambda t: (float(t[1].get("at", 0.0)), t[3]),
+    )
+
+    cast_by_id: dict[str, CastMember] = {}
+    event_idx = 0
+
+    for ev_path, ev, slot_name, _phase in sorted_events:
+        event_idx += 1
+        if not isinstance(ev, dict):
+            continue
+        action = ev.get("action")
+        params = ev.get("params") or {}
+
+        # Maintain the cast.
+        if action == "removeComponent":
+            target = params.get("target")
+            if isinstance(target, str):
+                cast_by_id.pop(target, None)
+            continue
+        if action == "setRole":
+            target = params.get("target")
+            new_role = params.get("role")
+            if target in cast_by_id and isinstance(new_role, str):
+                old = cast_by_id[target]
+                cls = COMPONENT_REGISTRY.get(_class_action_for(old))
+                if cls is not None and hasattr(cls, "preferred_size"):
+                    try:
+                        pref = cls.preferred_size(old.params, fmt, new_role)
+                    except Exception:
+                        pref = old.preferred_size
+                else:
+                    pref = old.preferred_size
+                cast_by_id[target] = _AnnotatedCastMember(
+                    id=old.id, role=new_role, preferred_size=pref,
+                    slot=old.slot, params=old.params, action=old.action,
+                )
+            continue
+        if action in ACTION_REGISTRY:
+            # Mutations leave composition unchanged.
+            continue
+        if action not in COMPONENT_REGISTRY:
+            continue
+
+        ident = params.get("id")
+        if not ident:
+            continue
+
+        role = params.get(
+            "role",
+            "annotation" if action == "showCalloutBox" else "primary",
+        )
+        cls = COMPONENT_REGISTRY[action]
+        try:
+            if hasattr(cls, "preferred_size"):
+                pref = cls.preferred_size(params, fmt, role)
+            else:
+                pref = cls.measure(params, fmt)
+        except Exception:
+            continue
+        cast_by_id[ident] = _AnnotatedCastMember(
+            id=ident, role=role, preferred_size=pref,
+            slot=slot_name, params=params, action=action,
+        )
+
+        # Ask the solver for planned rects with the cast so far.
+        cast = list(cast_by_id.values())
+        try:
+            plan = layout.solve(cast)
+        except Exception as e:
+            errors.append(
+                f"[composition-fit] {ev_path}: layout {layout_name!r}.solve "
+                f"raised: {e}"
+            )
+            continue
+
+        # Frame fit.
+        for rid, rect in plan.items():
+            half_w = rect.width / 2
+            half_h = rect.height / 2
+            fits = (
+                rect.cx - half_w >= -frame_w / 2 - _FRAME_TOL
+                and rect.cx + half_w <=  frame_w / 2 + _FRAME_TOL
+                and rect.cy - half_h >= -frame_h / 2 - _FRAME_TOL
+                and rect.cy + half_h <=  frame_h / 2 + _FRAME_TOL
+            )
+            if not fits:
+                primary_count = sum(
+                    1 for m in cast if m.role == "primary"
+                )
+                errors.append(
+                    f"[composition-fit] {ev_path}: {action} with "
+                    f"{primary_count} primaries in {layout_name!r} overflows "
+                    f"frame at {rid!r}; suggest a wider layout (e.g. 'trio') "
+                    f"or sequence the entrances."
+                )
+
+        # Pairwise overlap among planned rects.
+        ids = list(plan.keys())
+        for i in range(len(ids)):
+            for j in range(i + 1, len(ids)):
+                a = plan[ids[i]]
+                b = plan[ids[j]]
+                if _rects_overlap(a, b):
+                    errors.append(
+                        f"[composition-overlap] {ev_path}: solver assigned "
+                        f"overlapping rects to {ids[i]!r} and {ids[j]!r} "
+                        f"in {layout_name!r}."
+                    )
+
+    return errors
+
+
+def _rects_overlap(a, b) -> bool:
+    """Two Rects overlap if their axis projections both intersect."""
+    if a.cx + a.width / 2 <= b.cx - b.width / 2 + _OVERLAP_TOL: return False
+    if a.cx - a.width / 2 >= b.cx + b.width / 2 - _OVERLAP_TOL: return False
+    if a.cy + a.height / 2 <= b.cy - b.height / 2 + _OVERLAP_TOL: return False
+    if a.cy - a.height / 2 >= b.cy + b.height / 2 - _OVERLAP_TOL: return False
+    return True
+
+
+def _class_action_for(member) -> str | None:
+    """Resolve the action name a recorded CastMember came from."""
+    return getattr(member, "action", None)
+
+
 # --- combined entry ----------------------------------------------------------
 
 
 def run_overflow_checks(scene: dict) -> list[str]:
-    """Run 4a, 4c, 4b in order. Always called from `validator.validate()`."""
+    """Run 4a, 4c, 4b, 4d in order. Always called from `validator.validate()`."""
     errors: list[str] = []
     errors.extend(check_slot_fits(scene))
     errors.extend(check_anchor_overflows(scene))
     errors.extend(check_collisions(scene))
+    errors.extend(check_composition_fit(scene))
     return errors

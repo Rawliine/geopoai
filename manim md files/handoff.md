@@ -403,7 +403,16 @@ When the roles+restaging plan lands, re-read this section first.
 
 ---
 
-# Phase 2 — Roles + Restaging implementation brief (agent-facing)
+# Phase 2 — Roles + Restaging ✓ SHIPPED
+
+All 14 PRs (F → R) are merged. See `plan.md` for the shipping ledger.
+Architecture seams documented below in the new "Phase 2 → Phase 3
+handoff" section. The original implementation brief is preserved
+verbatim below for historical reference; do not re-execute it.
+
+---
+
+# Phase 2 — Roles + Restaging implementation brief (historical, agent-facing)
 
 **You (the implementing agent) are reading this because Phase 2.0 has
 shipped and the next big system — Roles + Restaging — is yours.** This
@@ -467,10 +476,21 @@ fires `_restage()`:
 
 Each PR ships independently and leaves the tree green.
 
-### PR F — Roles schema plumbing (no behavior change)
+### PR F — Roles schema plumbing (no behavior change) ✓ SHIPPED
 
 **Goal:** add the role vocabulary and `setRole` action stub. Zero
 runtime behavior. By landing first, later PRs can rely on the schema.
+
+**Shipped:** `role_name` enum + optional `role` on every `show_*` schema;
+`set_role.json` action schema; `actions/set_role.py` (records role on
+`scene._roles` and `mob.role`, returns None); `setRole` registered in
+`ACTION_REGISTRY`; `JSONScene._roles` initialized and seeded on every
+show event; `BaseComponent.DEFAULT_ROLE = "primary"` with CalloutBox
+overriding to `"annotation"`; `removeComponent` drops `_roles[target]`.
+Tests: `tests/schema/test_set_role_rejection.py`,
+`tests/schema/test_role_param_in_show_actions.py`,
+`tests/actions/test_set_role.py`. AGENT.md rules 17/18 deferred to PR R
+per the doc-sweep brief.
 
 **Schema:**
 - `manim_renderer/schema/scene_schema.json` — add
@@ -874,3 +894,81 @@ PR F → PR G → PR H → PR I → PR J → PR K → PR L → PR M → PR N →
 Each shipping point leaves the tree green. If you find a PR is bigger than expected, split rather than skip — the order matters because later PRs depend on earlier ones.
 
 **Start with PR F.** It's the smallest, lowest-risk change and unblocks every PR after it.
+
+---
+
+# Phase 2 → Phase 3 handoff
+
+Phase 2's roles + restaging system is shipped. The renderer is now
+reactive: every composition change fires `_restage`, which solves the
+layout and Transforms the cast to its new allocation. The author sets
+the cast + roles; the engine does the staging.
+
+What remains for **Phase 3**:
+
+## 1. Camera actions
+- `cameraZoom`, `cameraPan`, `cameraFocus` — Phase 1's `JSONScene`
+  already extends `MovingCameraScene`. Add three callables to
+  `ACTION_REGISTRY`, three schemas in `action_schemas/`. Camera state
+  interpolates with `EASE["emphasis"]` per recap.md §11.
+- Composition with restage is clean: camera actions don't change the
+  cast, so they don't trigger `_restage`. Existing `_RESTAGE_AFTER_ACTIONS`
+  whitelist already excludes them.
+
+## 2. Remaining effect vocabulary (~20 effects)
+- **Entrances** to add: `slam`, `typewriter`, `stagger-in`, `spiral-in`.
+- **Emphasis** to add: `glow`, `shake`, `surround`, `color-shift`,
+  `dim-others`, `shrink`, `grey-out`.
+- **Exits** to add: `slide-out-left`, `slide-out-right`, `strike`.
+- **Transitions** (new module `effects/transitions.py`): `fade`,
+  `wipe-left`, `wipe-right`, `zoom-in`, `zoom-out`.
+
+Mechanical: factory function + `EffectSpec` entry + schema enum line +
+`_skill.md` row. Per AGENT.md rule 11.
+
+## 3. Asset pipeline
+- `manim_renderer/assets/setup_assets.sh` — installs Inter, Barlow
+  Condensed, JetBrains Mono, STIX Two Math; verifies `amsmath`,
+  `amssymb`, `mathtools` LaTeX packages.
+- Without this, font fallback is silent and breaks visual regression.
+  Block visual PRs until this lands.
+
+## 4. Palette CI diff
+- Compare `theme/palette.py` against `renderer/effects.css` (recap.md
+  §9 LOCKED). Currently documented but not enforced.
+
+## 5. Golden-frame tests
+- Top 4 components (PayoffMatrix, BarChart, GameTree, StatBlock).
+  Reference frames in `tests/golden_frames/`, 2% pixel-diff threshold.
+
+## 6. LLM fuzz harness
+- ~100 random valid JSONs, render at `-ql`, flag crashes.
+
+## 7. Force-directed AllianceWeb layout
+- Phase 1 ships circular (deterministic at small node counts).
+  Fruchterman-Reingold-lite upgrade when scenes need 10+ nodes.
+
+## 8. Validator extension: walk into showCalloutSequence inner items
+- PR O ships the action; the validator currently only walks top-level
+  `params.anchor`/`params.target`. Extend `_iter_events` (or add a new
+  pass) so each inner `callouts[i].anchor`/`subject` is checked against
+  the cast at sequence start time.
+
+## Architecture seams Phase 3 reuses
+
+| Seam | Location | What Phase 3 does with it |
+|---|---|---|
+| `JSONScene._restage(reason)` | `scene.py` | Camera actions skip the restage trigger (not in `_RESTAGE_AFTER_ACTIONS`); restage continues to drive composition while camera animates frame. |
+| `EffectSpec` dispatch | `effects/_spec.py` | All 20 new effects plug into the same factory + spec pattern. |
+| `Layout.solve(cast)` | `layouts/base.py` | Camera doesn't touch this. Solver continues to allocate as Phase 2 designed. |
+| `CalloutStyleSpec` pattern | `components/narrative/_callout_styles.py` | Model for future BadgeSpec, ConnectorSpec, BarStyleSpec. |
+
+## What Phase 3 must NOT touch
+
+- The roles/restaging contract (PR F→R is stable; do not remove the
+  six-value role enum or the `_restage` trigger set).
+- The validator's solver-aware composition tier (PR N).
+- The `_RESTAGE_AFTER_ACTIONS` set — extend it only when adding a
+  composition-changing action that isn't already covered.
+
+If a Phase 3 PR re-reads this section first, it's correctly prioritized.

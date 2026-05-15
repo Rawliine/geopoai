@@ -104,8 +104,17 @@
       "description": "Layout name. Some are format-specific (split=horizontal, stacked=vertical); the validator's LAYOUT_FORMATS map enforces compatibility."
     },
     "callout_style": {
-      "enum": ["neon", "card", "glass"],
-      "description": "Visual style for CalloutBox. Default is 'neon'. See manim_renderer/components/narrative/_callout_styles.py. (Phase 2.0 — dropped 'bracket'; new variants 'neon-bold', 'pull-quote', 'inline-tag' arrive in PR P.)"
+      "enum": ["neon", "card", "glass", "neon-bold", "pull-quote", "inline-tag"],
+      "description": "Visual style for CalloutBox. Default is 'neon'. See manim_renderer/components/narrative/_callout_styles.py. (Phase 2 / PR P: added 'neon-bold' (dominate-the-frame variant), 'pull-quote' (no bubble, accent quote marks), 'inline-tag' (chip-style label, no leader). Phase 2.0 dropped 'bracket'.)"
+    },
+    "role_name": {
+      "enum": ["hero", "primary", "supporting", "ambient", "annotation", "hidden"],
+      "description": "Component role (Phase 2). Drives size, opacity, z-order, and position bias via the layout solver. Default is 'primary' for content components, 'annotation' for CalloutBox. Set on entry via params.role or later via setRole."
+    },
+    "subject_string": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*(:[a-z0-9_,.-]+)*$",
+      "description": "Subject reference (Phase 2 / PR L). Either a bare id ('pd') or a refined target like 'pd:cell:1,0' / 'pd:row:0'. The runner walks the colon-separated tail to resolve a custom anchor on the referenced component. Use with showCalloutBox in place of anchor; the solver picks the side."
     }
   }
 }

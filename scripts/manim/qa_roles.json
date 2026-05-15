@@ -1,0 +1,70 @@
+{
+  "renderer": "manim",
+  "format": "horizontal",
+  "quality": "preview",
+  "scene": {
+    "layout": "title-body",
+    "duration": 28,
+    "theme": "dark"
+  },
+  "slots": {
+    "title": {
+      "at": 0.0,
+      "action": "showTextCard",
+      "params": {
+        "id": "title",
+        "text": "Roles + Restaging",
+        "size": "title",
+        "timing": "slow",
+        "effect": "fade-in",
+        "role": "primary"
+      }
+    },
+    "body": {
+      "at": 1.0,
+      "action": "showStatBlock",
+      "params": {
+        "id": "k-loss",
+        "value": 1200000,
+        "label": "Annual loss",
+        "value_format": "currency",
+        "symbol": "$",
+        "suffix": "auto",
+        "size": "large",
+        "color": "actor_a",
+        "timing": "normal",
+        "effect": "count-up",
+        "role": "hero"
+      }
+    }
+  },
+  "overlays": [
+    { "at": 6.0, "action": "showStatBlock",
+      "params": { "id": "k-defect", "value": 71.6, "label": "Defect rate",
+                  "value_format": "decimal", "decimals": 1, "unit": "%",
+                  "color": "actor_b", "anchor": "right-of:k-loss",
+                  "size": "medium", "timing": "normal", "effect": "count-up",
+                  "role": "primary" } },
+
+    { "at": 11.0, "action": "setRole",
+      "params": { "target": "k-loss", "role": "supporting", "timing": "fast" } },
+
+    { "at": 14.0, "action": "showCalloutBox",
+      "params": { "id": "callout-defect",
+                  "text": "Defection dominates — even when cooperation pays.",
+                  "subject": "k-defect",
+                  "width": 3.6,
+                  "style": "neon",
+                  "timing": "normal" } },
+
+    { "at": 19.0, "action": "removeComponent",
+      "params": { "target": "callout-defect", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 20.0, "action": "setRole",
+      "params": { "target": "k-defect", "role": "hero", "timing": "normal" } },
+
+    { "at": 22.0, "action": "setRole",
+      "params": { "target": "k-loss", "role": "ambient", "timing": "normal" } }
+  ],
+  "timeline": []
+}

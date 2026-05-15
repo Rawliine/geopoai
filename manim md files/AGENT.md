@@ -122,6 +122,12 @@ These are not style preferences. Breaking them breaks the pipeline.
 
 16. **Every BaseComponent subclass implements `measure(params, format)` as a class method.** Pure-math estimator returning `(width, height)` in Manim units WITHOUT constructing the mobject. Consumed by the validator's overflow checks (`schema/_dry_run.py`) and reserved for the future layout solver (roles+restaging). The default implementation reads `params.size` and the class's `SIZE_KIND` attribute (default `"default"`); components with content-driven sizing (text-bearing, group bundles) override with their own estimator. See `components/base.py`.
 
+17. **Components have a role at every instant.** Roles (`hero` / `primary` / `supporting` / `ambient` / `annotation` / `hidden`) drive size, opacity, and z-order via the layout solver. Default is `primary` (set per-class via `DEFAULT_ROLE`; CalloutBox overrides to `annotation`). Set on entry via `params.role`; change later via the `setRole` action. The solver consumes `BaseComponent.preferred_size(params, format, role) = measure(...) * ROLE_SCALE[role]` (with `hidden` → `(0, 0)`). Layouts call `flex_solve` per slot; backward-compat passthrough for 1-member slots keeps Phase 1 scenes pixel-identical. See `layouts/base.py:ROLE_SCALE` and `layouts/_flex.py`.
+
+18. **Restage fires after every composition change.** `JSONScene._restage(reason)` runs after each `show*` event, after every `removeComponent`, and after every `setRole`. It captures live mobject state, asks `layout.solve(cast)` for new rects, and `Transform`s anything that moved. Mutations (`highlightCell`, `crossOut`, `bestResponseArrow`) do NOT trigger restage — their overlays follow the host via the parallel-Transform walker over `_overlays_by_host`. When PR G's identity planner is replaced by content-aware ones, this rule keeps the mutation/composition boundary clean. See `scene.py:_restage` and `_RESTAGE_AFTER_ACTIONS`.
+
+**Rule 9 addendum (PR L):** Subject-based callouts (`params.subject` instead of `params.anchor`) re-sample placement via `pick_subject_side(subject_mob, fmt, layout_direction)` on entry. After PR G+ restages move the host, callouts re-anchor via `position_finalized(host_bbox)`. Use `params.anchor` for static placement; use `params.subject` to let the solver choose the side.
+
 ---
 
 ## The data flow, in detail

@@ -46,10 +46,45 @@ def test_missing_text_rejected():
     assert any("text" in e for e in errs)
 
 
-def test_missing_anchor_rejected():
+def test_missing_anchor_and_subject_rejected():
+    """anyOf — must have anchor or subject; both absent fails. jsonschema's
+    Draft7 anyOf reports a generic "not valid under any of the given schemas"
+    message, so we match on the [action-params] tier prefix instead of a
+    specific field name."""
     ok, errs = validate(_with_overlay_params({"id": "cb", "text": "x"}))
     assert not ok
-    assert any("anchor" in e for e in errs)
+    assert any("[action-params]" in e for e in errs), errs
+
+
+def test_subject_alone_accepted():
+    """PR L — subject without anchor is valid."""
+    ok, errs = validate(_with_overlay_params(
+        {"id": "cb", "text": "x", "subject": "card"}
+    ))
+    assert ok, errs
+
+
+def test_subject_refined_accepted():
+    """Refined subjects with `host:custom:arg` shape pass the regex."""
+    ok, errs = validate(_with_overlay_params(
+        {"id": "cb", "text": "x", "subject": "card:row:0"}
+    ))
+    assert ok, errs
+
+
+def test_anchor_and_subject_together_accepted():
+    """anyOf admits both — explicit anchor wins at runtime."""
+    ok, errs = validate(_with_overlay_params(
+        {"id": "cb", "text": "x", "anchor": "below:card", "subject": "card"}
+    ))
+    assert ok, errs
+
+
+def test_invalid_subject_pattern_rejected():
+    ok, errs = validate(_with_overlay_params(
+        {"id": "cb", "text": "x", "subject": "Card_Bad"}
+    ))
+    assert not ok
 
 
 def test_anchor_without_token_rejected():
@@ -121,7 +156,9 @@ def test_neon_style_passes():
 
 
 def test_all_styles_pass():
-    for style in ("neon", "card", "glass"):
+    """PR P added neon-bold, pull-quote, inline-tag — every shipping style
+    must validate."""
+    for style in ("neon", "card", "glass", "neon-bold", "pull-quote", "inline-tag"):
         ok, errs = validate(_with_overlay_params(
             {"id": "cb", "text": "x", "anchor": "below:card", "style": style}
         ))
