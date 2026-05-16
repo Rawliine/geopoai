@@ -117,31 +117,36 @@ class JSONScene(MovingCameraScene):
             action = ev["action"]
             params = ev.get("params") or {}
 
+            timing = params.get("timing", "normal")
+
             if action in COMPONENT_REGISTRY:
                 anim = self._dispatch_component(
                     action, params, slot_name, fmt
                 )
+                new_id = params.get("id")
+                # Universal sequencing: any new component reaches its
+                # solver target BEFORE its entrance plays. The existing
+                # cast restages first (animating to their new positions);
+                # the new component is invisible to the scene until its
+                # entrance fires, so it enters directly at its target
+                # without drifting. See `_show_at_solver_target`.
+                cursor += self._show_at_solver_target(
+                    new_id, anim, timing,
+                )
             elif action in ACTION_REGISTRY:
                 anim = self._dispatch_action(action, params, fmt)
+                if anim is not None:
+                    self.play(anim)
+                    cursor = at + (anim.run_time or 0.0)
+                if action in _RESTAGE_AFTER_ACTIONS:
+                    cursor += self._restage(
+                        f"post-{action.lower()}", timing=timing,
+                    )
             else:
                 raise ValueError(
                     f"unknown action {action!r}; "
                     f"components: {sorted(COMPONENT_REGISTRY)}, "
                     f"actions: {sorted(ACTION_REGISTRY)}"
-                )
-
-            if anim is not None:
-                self.play(anim)
-                cursor = at + (anim.run_time or 0.0)
-
-            # Restage hook (). Every show-action and every
-            # composition-changing action fires a pass. Mutations are quiet.
-            timing = params.get("timing", "normal")
-            if action in COMPONENT_REGISTRY:
-                cursor += self._restage("post-show", timing=timing)
-            elif action in _RESTAGE_AFTER_ACTIONS:
-                cursor += self._restage(
-                    f"post-{action.lower()}", timing=timing,
                 )
 
         if duration > cursor:
@@ -441,6 +446,56 @@ class JSONScene(MovingCameraScene):
                 cx=float(c[0]), cy=float(c[1]), width=w, height=h,
             )
         return targets
+
+    def _show_at_solver_target(
+        self,
+        new_id: str | None,
+        entrance: "Animation | None",
+        timing: str,
+    ) -> float:
+        """Sequence a new component's debut so it appears at its solver
+        target rect directly — no drift from the dispatch position to
+        the layout-determined final position.
+
+        Steps:
+          1. Compute the solver plan with the new component already in
+             the cast (the dispatcher registered it).
+          2. Move the new component to its target rect's center
+             (no animation). Position-only sentinel rects still use
+             their `center` so this works uniformly.
+          3. Restage the EXISTING cast: their stored positions vs new
+             targets produce real animations; the new component is at
+             its target now so the identity check skips it (and it
+             isn't in the scene render list yet anyway — the entrance
+             introducer adds it next).
+          4. Play the component's entrance animation. It runs at the
+             final position.
+
+        The result: existing cast moves first, then the new component
+        appears at its destination via its native entrance (FadeIn,
+        count-up, level-by-level, …). No mobject ever drifts from
+        slot/anchor to solver target.
+        """
+        if not new_id or new_id not in self._id_to_mobject:
+            consumed = 0.0
+            if entrance is not None:
+                self.play(entrance)
+                consumed += float(entrance.run_time or 0.0)
+            consumed += self._restage("post-show", timing=timing)
+            return consumed
+
+        new_mob = self._id_to_mobject[new_id]
+        targets = self._compute_target_rects()
+        target = targets.get(new_id)
+        if target is not None:
+            new_mob.move_to(target.center)
+
+        consumed = self._restage("post-show", timing=timing)
+
+        if entrance is not None:
+            self.play(entrance)
+            consumed += float(entrance.run_time or 0.0)
+        return consumed
 
     def _restage(self, reason: str = "", *, timing: str = "fast") -> float:
         """FLIP-style restage pass over the live cast.

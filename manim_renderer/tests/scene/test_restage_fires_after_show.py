@@ -51,12 +51,18 @@ def _construct_calls_to(method_name: str) -> list[ast.Call]:
     return out
 
 
-def test_construct_calls_restage_at_least_twice():
-    """One call for show-actions branch + one call for the mutation branch."""
-    calls = _construct_calls_to("_restage")
-    assert len(calls) >= 2, (
-        f"expected at least two `self._restage(...)` calls in "
-        f"JSONScene.construct, found {len(calls)}"
+def test_construct_invokes_restage_paths():
+    """`construct` must route through the restage machinery in BOTH the
+    show-action branch (via `_show_at_solver_target`) and the
+    composition-changing action branch (direct `_restage` call). After
+    the universal-sequencing refactor, the show-action path lives inside
+    `_show_at_solver_target`; check both helpers are referenced."""
+    direct = _construct_calls_to("_restage")
+    sequenced = _construct_calls_to("_show_at_solver_target")
+    assert direct, "missing direct `self._restage(...)` call in construct"
+    assert sequenced, (
+        "missing `self._show_at_solver_target(...)` call in construct — "
+        "the show-action path delegates restage through this helper"
     )
 
 
