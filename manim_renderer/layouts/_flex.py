@@ -1,4 +1,4 @@
-"""Generic flex solver (Phase 2 / PR I).
+"""Generic flex solver ().
 
 Pure-math allocator: given a cast of `(id, role, preferred_size)` triples,
 distribute them along `direction` inside `container`. If the cast's
@@ -31,7 +31,7 @@ from manim_renderer.layouts.base import Rect
 
 # Lower bound on any allocated dimension. Prevents pathological shrink-to-
 # zero when the container is far too small for the cast. The validator's
-# composition-fit tier (PR N) catches these cases earlier; this is the
+# composition-fit tier catches these cases earlier; this is the
 # runtime safety net.
 MIN_DIM = 0.2
 

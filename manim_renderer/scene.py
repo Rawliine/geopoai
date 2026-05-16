@@ -15,7 +15,7 @@ Cursor advancement:
   Both registries advance `cursor` by the played animation's run_time. Two
   events at the same `at` therefore play sequentially in phase order.
 
-Restage (Phase 2 / PR G+):
+Restage (+):
   After every composition change (show, removeComponent, setRole) the runner
   calls `_restage(reason)`. The pass captures the live cast's current state,
   asks `_compute_target_rects` for new positions/sizes, and Transforms anything
@@ -31,7 +31,7 @@ import os
 import sys
 
 import numpy as np
-from manim import AnimationGroup, MovingCameraScene
+from manim import AnimationGroup, MovingCameraScene, Transform
 
 from manim_renderer.actions import ActionContext
 from manim_renderer.layouts.base import CastMember, Rect
@@ -40,7 +40,7 @@ from manim_renderer.registry import ACTION_REGISTRY, COMPONENT_REGISTRY
 from manim_renderer.resolvers.anchor import parse_anchor, place_at_anchor
 from manim_renderer.theme.timing import TIMING
 
-# PR W2 — opt-in terminal trace. Set GEOPOAI_DEBUG=1 to print a per-restage
+# opt-in terminal trace. Set GEOPOAI_DEBUG=1 to print a per-restage
 # summary (cast composition + solver plan + animation count) to stderr.
 # Costs ~zero when unset (one os.environ check per restage).
 _DEBUG = bool(os.environ.get("GEOPOAI_DEBUG"))
@@ -81,10 +81,10 @@ class JSONScene(MovingCameraScene):
         # against their host id here; `removeComponent` consumes the list to
         # fade host + overlays together. See `actions/_context.py`.
         self._overlays_by_host: dict[str, list] = {}
-        # Role tracking (Phase 2 / PR F): every show action seeds an entry
+        # Role tracking (): every show action seeds an entry
         # here; `setRole` mutates it. Drives the restage pass (PR G+).
         self._roles: dict[str, str] = {}
-        # PR J — per-id solver inputs. Used by `_cast()` to ask each
+        # per-id solver inputs. Used by `_cast()` to ask each
         # component class for `preferred_size(params, fmt, role)` on every
         # restage. Updated on show; entries dropped on remove.
         self._id_to_slot: dict[str, str | None] = {}
@@ -92,15 +92,15 @@ class JSONScene(MovingCameraScene):
         self._class_by_id: dict[str, type] = {}
         # Last-seen restage state for diagnostics. Map id -> (center, scale).
         self._restage_state: dict[str, tuple[np.ndarray, float]] = {}
-        # PR W — first-show bbox size per id. Restage computes target scale
+        # first-show bbox size per id. Restage computes target scale
         # relative to THIS size, not the live width, so successive role
         # changes don't compound and drift the mobject toward zero.
         self._restage_base_size: dict[str, tuple[float, float]] = {}
-        # PR W — when a callout uses params.subject, we record the host id
+        # when a callout uses params.subject, we record the host id
         # here so the solver can split that host's slot rect and reserve a
         # side region for the callout. Absent → static-anchor path used.
         self._subject_host_by_id: dict[str, str] = {}
-        # PR W2 — provenance per id: "slots" vs "overlays". Consumed by
+        # provenance per id: "slots" vs "overlays". Consumed by
         # setLayout to keep slots-block components pinned (hidden on
         # incompatible swaps) rather than auto-migrating to a fallback.
         self._slot_origin_by_id: dict[str, str] = {}
@@ -134,7 +134,7 @@ class JSONScene(MovingCameraScene):
                 self.play(anim)
                 cursor = at + (anim.run_time or 0.0)
 
-            # Restage hook (Phase 2 / PR G). Every show-action and every
+            # Restage hook (). Every show-action and every
             # composition-changing action fires a pass. Mutations are quiet.
             timing = params.get("timing", "normal")
             if action in COMPONENT_REGISTRY:
@@ -175,7 +175,7 @@ class JSONScene(MovingCameraScene):
         # different things in different schemas (typography role for TextCard,
         # resolve_size role for charts).
 
-        # Round 3 — overlay events arrive with slot_name=None. If the event
+        # overlay events arrive with slot_name=None. If the event
         # also lacks anchor/subject, the solver would never place it and the
         # mobject would render at scene origin. Auto-bind to the layout's
         # primary content slot, or use the author-specified `params.slot`.
@@ -202,7 +202,7 @@ class JSONScene(MovingCameraScene):
         if slot_rect is not None:
             params = {**params, "_slot_bounds": (slot_rect.width, slot_rect.height)}
 
-        # PR M / Round 3 — subject color inheritance for callouts. When the
+        # subject color inheritance for callouts. When the
         # author omits `color`, walk the subject (or anchor target) and use
         # the host's palette key. Explicit `params.color` always wins.
         if (
@@ -248,7 +248,7 @@ class JSONScene(MovingCameraScene):
                 )
             place_at_anchor(component, anchor_target, anchor, fmt)
         elif subject:
-            # PR L+W — solver-driven placement. Resolve the subject's
+            # solver-driven placement. Resolve the subject's
             # host, do an initial `place_at_anchor` so the callout has a
             # valid pre-restage position, AND record the host id in
             # `_subject_host_by_id` so the next restage pass treats the
@@ -282,11 +282,11 @@ class JSONScene(MovingCameraScene):
                 f"validator should have caught this"
             )
             self._id_to_mobject[component.id] = component
-            # PR F: seed _roles from the component's own resolved role
+            # seed _roles from the component's own resolved role
             # (BaseComponent.__init__ reads params.role with DEFAULT_ROLE as
             # the fallback — annotation for CalloutBox, primary for the rest).
             self._roles[component.id] = component.role
-            # PR J: stash solver inputs. `preferred_size(params, fmt, role)`
+            # stash solver inputs. `preferred_size(params, fmt, role)`
             # is called on every restage; we keep the original params (without
             # the `_slot_bounds` annotation) so the answer doesn't drift.
             clean_params = {k: v for k, v in params.items()
@@ -294,7 +294,7 @@ class JSONScene(MovingCameraScene):
             self._params_by_id[component.id] = clean_params
             self._class_by_id[component.id] = ComponentCls
             self._id_to_slot[component.id] = slot_name
-            # PR W2 — slots-block events arrive with a non-None slot_name;
+            # slots-block events arrive with a non-None slot_name;
             # overlay/timeline events arrive with slot_name=None. The
             # distinction lets setLayout keep slots-block components pinned.
             # Tolerate test fixtures that bypass construct().
@@ -303,7 +303,7 @@ class JSONScene(MovingCameraScene):
                     "slots" if slot_name is not None else "overlays"
                 )
 
-            # PR W / Round 3 — callouts inherit the host's slot so the
+            # callouts inherit the host's slot so the
             # solver can carve a side region for them and shrink the host.
             # Works for both subject:-based and anchor:-based callouts —
             # the only difference is which side the callout takes (subject
@@ -342,7 +342,7 @@ class JSONScene(MovingCameraScene):
             format=fmt,
         )
 
-        # PR W: capture the build-time bbox so restage scales against a
+        # capture the build-time bbox so restage scales against a
         # stable reference, not the live (already-scaled) width. Without
         # this anchor, successive role changes compound multiplicatively
         # and components drift toward zero. Test fixtures that bypass
@@ -368,7 +368,7 @@ class JSONScene(MovingCameraScene):
         )
         return callable_(ctx)
 
-    # --- restage (Phase 2 / PR G) -------------------------------------------
+    # --- restage () -------------------------------------------
 
     def _cast(self) -> list[CastMember]:
         """Materialize the current cast for the solver.
@@ -399,7 +399,7 @@ class JSONScene(MovingCameraScene):
             else:
                 pref = (float(getattr(mob, "width", 0.0) or 0.01),
                         float(getattr(mob, "height", 0.0) or 0.01))
-            # Round 3 — anchor-mode callouts carry their explicit side in
+            # anchor-mode callouts carry their explicit side in
             # `params.anchor` so the solver pack respects it.
             anchor_side = None
             if id_ in subject_map and params is not None:
@@ -419,7 +419,7 @@ class JSONScene(MovingCameraScene):
     def _compute_target_rects(self) -> dict[str, Rect]:
         """Plan the next stage rects for the current cast.
 
-        PR J wires this to `self._layout.solve(cast)`. Members the solver
+        wires this to `self._layout.solve(cast)`. Members the solver
         skips (anchored callouts pre-PR L) keep their current bbox so the
         identity-delta check in `_restage` leaves them in place.
         """
@@ -478,58 +478,133 @@ class JSONScene(MovingCameraScene):
             current_center, _ = state[id_]
             target_center = target.center
 
-            # Scale relative to the build-time bbox (not live width) so
-            # successive restages don't compound. If we never captured a
-            # base size (e.g. a child of MetricGroup, or a test fixture
-            # that skipped the dispatcher), fall back to the mobject's
-            # current bbox — yields identity scale.
-            base_size_map = getattr(self, "_restage_base_size", {}) or {}
-            base_w, base_h = base_size_map.get(
-                id_,
-                (float(getattr(mob, "width", 0.0) or 0.01),
-                 float(getattr(mob, "height", 0.0) or 0.01)),
-            )
-            cur_w = max(1e-4, float(getattr(mob, "width", 0.0) or 0.0))
-            cur_h = max(1e-4, float(getattr(mob, "height", 0.0) or 0.0))
-            target_scale_w = target.width / max(1e-4, base_w)
-            target_scale_h = target.height / max(1e-4, base_h)
-            # Round 3 — never scale a mobject larger than its build-time
-            # size. A lone primary's slot rect can be much bigger than the
-            # mobject's natural bbox; growing it visibly distorts (the
-            # "1.20M too zoomed" complaint). Shrinking stays uncapped.
-            target_scale = min(target_scale_w, target_scale_h, 1.0)
-            current_scale = max(cur_w / base_w, cur_h / base_h)
-            # `mob.animate.scale(k)` is RELATIVE to current size in Manim;
-            # we want absolute target_scale relative to build size, so
-            # the relative factor is target_scale / current_scale.
-            relative_scale = target_scale / max(1e-4, current_scale)
+            # Position-only sentinel: when Layout.solve returns a Rect
+            # with zero dimensions, the solver is signalling "center this
+            # mobject at target.cx/cy and DO NOT scale it". Used for lone
+            # primary/hero passthrough so a tall TextCard doesn't get
+            # shrunk to fit a short slot.
+            position_only = target.width <= 0.0 or target.height <= 0.0
 
-            position_changed = not np.allclose(
-                current_center, target_center, atol=_RESTAGE_POS_TOL,
-            )
-            scale_changed = abs(relative_scale - 1.0) > _RESTAGE_SCALE_TOL
+            if position_only:
+                position_changed = not np.allclose(
+                    current_center, target_center, atol=_RESTAGE_POS_TOL,
+                )
+                if not position_changed:
+                    continue
+                anims.append(
+                    mob.animate(run_time=run_time).move_to(target_center)
+                )
+                relative_scale = 1.0
+                scale_changed = False
+            else:
+                # Scale relative to the build-time bbox (not live width) so
+                # successive restages don't compound. Missing base size
+                # (child of MetricGroup, test fixture bypassing dispatcher)
+                # falls back to the mobject's current bbox — identity scale.
+                base_size_map = getattr(self, "_restage_base_size", {}) or {}
+                base_w, base_h = base_size_map.get(
+                    id_,
+                    (float(getattr(mob, "width", 0.0) or 0.01),
+                     float(getattr(mob, "height", 0.0) or 0.01)),
+                )
+                cur_w = max(1e-4, float(getattr(mob, "width", 0.0) or 0.0))
+                cur_h = max(1e-4, float(getattr(mob, "height", 0.0) or 0.0))
+                target_scale_w = target.width / max(1e-4, base_w)
+                target_scale_h = target.height / max(1e-4, base_h)
+                # Never scale a mobject larger than its build-time size.
+                # Slot rects can exceed the natural bbox; growing distorts.
+                target_scale = min(target_scale_w, target_scale_h, 1.0)
+                current_scale = max(cur_w / base_w, cur_h / base_h)
+                # Manim's `.animate.scale(k)` is relative to current size,
+                # not absolute, so divide by current scale to get the
+                # delta factor.
+                relative_scale = target_scale / max(1e-4, current_scale)
 
-            if not position_changed and not scale_changed:
-                continue
+                position_changed = not np.allclose(
+                    current_center, target_center, atol=_RESTAGE_POS_TOL,
+                )
+                scale_changed = (
+                    abs(relative_scale - 1.0) > _RESTAGE_SCALE_TOL
+                )
 
-            animator = mob.animate(run_time=run_time)
-            if scale_changed:
-                animator = animator.scale(relative_scale)
-            if position_changed:
-                animator = animator.move_to(target_center)
-            anims.append(animator)
+                if not position_changed and not scale_changed:
+                    continue
 
-            # Overlays follow the host in parallel — shift by the same
-            # delta and scale by the same factor so highlights/strikes
-            # shrink with their host.
-            for overlay in self._overlays_by_host.get(id_, []):
-                delta = target_center - current_center
-                ov_anim = overlay.animate(run_time=run_time)
+                animator = mob.animate(run_time=run_time)
                 if scale_changed:
-                    ov_anim = ov_anim.scale(relative_scale)
+                    animator = animator.scale(relative_scale)
                 if position_changed:
-                    ov_anim = ov_anim.shift(delta)
-                anims.append(ov_anim)
+                    animator = animator.move_to(target_center)
+                anims.append(animator)
+
+            # Overlays travel with their host. Two paths:
+            #   1. Recipe-based: the mutation action attached a rebuild
+            #      callable; we feed it a synthetic host positioned at
+            #      target state and Transform the overlay smoothly to
+            #      the new geometry. Used for arrows (whose tips don't
+            #      scale linearly) and any geometry tied to host anchors.
+            #   2. Legacy scale+shift: the overlay is animated directly
+            #      using scale around the host's old center then a shift
+            #      so the math matches the host transform. Used for
+            #      overlays without a recipe.
+            if position_only:
+                delta = target_center - current_center
+                for overlay in self._overlays_by_host.get(id_, []):
+                    recipe = getattr(overlay, "_rebuild_recipe", None)
+                    if recipe is not None:
+                        # Position-only host — synthetic host has the same
+                        # geometry (no scale) just moved to the new center.
+                        synthetic = mob.copy().shift(delta)
+                        try:
+                            new_overlay = recipe(synthetic)
+                            anims.append(Transform(
+                                overlay, new_overlay, run_time=run_time,
+                            ))
+                            continue
+                        except Exception:
+                            pass
+                    if abs(delta[0]) + abs(delta[1]) > _RESTAGE_POS_TOL:
+                        anims.append(
+                            overlay.animate(run_time=run_time).shift(delta)
+                        )
+            else:
+                delta = target_center - current_center
+                for overlay in self._overlays_by_host.get(id_, []):
+                    recipe = getattr(overlay, "_rebuild_recipe", None)
+                    if recipe is not None:
+                        # Build a positioned + scaled copy of the host to
+                        # serve as the synthetic target. Manim's mob.copy()
+                        # snapshots the current state; we apply the same
+                        # scale + move_to as the real host's animation.
+                        synthetic = mob.copy()
+                        if scale_changed:
+                            synthetic.scale(
+                                relative_scale,
+                                about_point=current_center,
+                            )
+                        synthetic.move_to(target_center)
+                        try:
+                            new_overlay = recipe(synthetic)
+                            anims.append(Transform(
+                                overlay, new_overlay, run_time=run_time,
+                            ))
+                            continue
+                        except Exception:
+                            # Defensive: a misbehaving recipe shouldn't
+                            # break restage. Fall through to scale+shift.
+                            pass
+                    # Legacy walker — scale around host's current center
+                    # (not the overlay's), then shift. This produces the
+                    # mathematically correct transform: P_new =
+                    # host_target + scale * (P_old - host_old).
+                    ov_anim = overlay.animate(run_time=run_time)
+                    if scale_changed:
+                        ov_anim = ov_anim.scale(
+                            relative_scale, about_point=current_center,
+                        )
+                    if position_changed:
+                        ov_anim = ov_anim.shift(delta)
+                    anims.append(ov_anim)
 
         if _DEBUG:
             self._debug_trace(reason, targets, len(anims), run_time)
@@ -539,7 +614,7 @@ class JSONScene(MovingCameraScene):
             return 0.0
 
         self.play(AnimationGroup(*anims))
-        # PR W2 — after the Transform completes, re-anchor each subject
+        # after the Transform completes, re-anchor each subject
         # callout's leader to the host's new edge. Without this, the
         # leader stays at build-time geometry and visually detaches.
         self._reposition_subject_callouts()

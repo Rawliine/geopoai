@@ -282,3 +282,37 @@ These are decisions cheap now, expensive to change later:
 - Live-preview / hot reload. Render is batch.
 - Cross-clip transitions inside Manim. Those happen in ffmpeg/post.
 - Templates above the component layer. Pure timeline+slots system first; if patterns emerge across many videos, lift them into templates in Phase 4.
+
+
+---
+
+## Round 1–4 deltas (post-Phase 2)
+
+Four iterative fix passes after the original Phase 2 Roles+Restaging
+brief landed. Each addressed user-reported visual issues that surfaced
+once the system was rendering real content. Cumulative effect:
+
+- **Round 1 (responsive core):** removed the lone-primary passthrough,
+  added scale animation in `_restage`, brought subject callouts into
+  the solver cast, added `setLayout` action.
+- **Round 2 (visual fixes):** restored lone-primary passthrough behind
+  a sentinel rect; reposition hook so callout leaders re-anchor after
+  restage; setLayout pins slots-block ids instead of migrating them;
+  `GEOPOAI_DEBUG=1` trace + `debug_replay.py` Manim-free dry-run.
+- **Round 3 (overlay visibility):** auto-bind overlay events to the
+  layout's PRIMARY_SLOT; unify anchor + subject callouts (same
+  reflow + color + leader behavior); cap restage scale at 1.0 so
+  mobjects never grow beyond build size; `pick_subject_side` stays
+  in axis.
+- **Round 4 (root-cause sweep):** position-only sentinel for lone
+  primary (no scale at all, stops title shrinking); mutation overlay
+  rebuild recipes (Transform-based smooth follow); full-frame reflow
+  when only one slot is occupied; color inheritance via
+  `palette_color` attribute; showCalloutSequence cleanup registers
+  inner callouts as host overlays; PD vertical rewritten to use the
+  stacked layout (matrix on top, bar chart on bottom, callouts
+  flipping between them).
+
+The placement model is documented in detail in `AGENT.md` under
+"Current placement model". Decision rationale lives in `recap.md`
+§22d.

@@ -18,15 +18,20 @@ _TOL = 1e-3
 
 
 def test_lone_primary_owns_slot():
-    """Baseline: no callout → lone primary gets the slot rect verbatim
-    (PR W2 passthrough)."""
+    """Baseline: no callout → lone primary gets a position-only
+    sentinel at the slot's center. The runner reads the zero-size
+    sentinel and centers the mobject without scaling it."""
     layout = resolve_layout("hero", "horizontal")
     cast = [
         CastMember(id="host", role="primary", slot="main",
                    preferred_size=(6.0, 3.0)),
     ]
     out = layout.solve(cast)
-    assert out["host"] == layout.slots["main"]
+    slot = layout.slots["main"]
+    rect = out["host"]
+    assert rect.width == 0.0 and rect.height == 0.0
+    assert rect.cx == pytest.approx(slot.cx)
+    assert rect.cy == pytest.approx(slot.cy)
 
 
 def test_subject_callout_packs_tight_horizontal():

@@ -162,7 +162,7 @@ def _pick_subject_side_bbox(
     frame_w, frame_h = FRAME_BOUNDS.get(fmt, FRAME_BOUNDS["horizontal"])
     cw, ch = callout_size
 
-    # Round 3 — match `subject_placement.pick_subject_side`: horizontal
+    # match `subject_placement.pick_subject_side`: horizontal
     # layouts only consider horizontal sides, vertical only vertical.
     if layout_direction == "vertical":
         order = ("below", "above")
@@ -508,7 +508,7 @@ def check_collisions(scene: dict) -> list[str]:
     return errors
 
 
-# --- tier 4d: composition fit via the layout solver (PR N) ----------------
+# --- tier 4d: composition fit via the layout solver ----------------
 
 
 # Annotated cast member — extends `layouts.base.CastMember` with extra fields
@@ -628,7 +628,7 @@ def check_composition_fit(scene: dict) -> list[str]:
         except Exception:
             continue
 
-        # PR W: subject callouts join the host's slot so the solver
+        # subject callouts join the host's slot so the solver
         # carves a side region for them and shrinks the host.
         effective_slot = slot_name
         subject_host = None
@@ -688,7 +688,7 @@ def check_composition_fit(scene: dict) -> list[str]:
                 a = plan[ids[i]]
                 b = plan[ids[j]]
                 if _rects_overlap(a, b):
-                    # PR W: tag subject-host overlaps with a dedicated
+                    # tag subject-host overlaps with a dedicated
                     # error string so authors get actionable feedback.
                     mi = cast_by_id.get(ids[i])
                     mj = cast_by_id.get(ids[j])

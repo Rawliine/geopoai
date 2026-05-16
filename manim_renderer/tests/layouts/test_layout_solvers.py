@@ -49,37 +49,53 @@ def _member(id_: str, slot: str, role: str = "primary",
 
 
 @pytest.mark.parametrize("layout_name", list(_LAYOUT_FIXTURES.keys()))
-def test_lone_primary_per_slot_returns_slot_rect(layout_name):
-    """PR W2: a lone primary or hero with no subject annotations gets
-    the slot rect verbatim (restores Phase 1 'title fills its slot'
-    behavior). The previous round-1 change clamped every lone member to
-    its preferred size, causing tall titles to shrink. Roles still
-    matter for supporting/ambient (see test below) and multi-member
-    slots."""
+def test_lone_primary_per_slot_returns_position_only_sentinel(layout_name):
+    """A lone primary/hero with no subject annotations gets a
+    position-only sentinel rect (width=0, height=0) at the slot's
+    center. The runner reads the sentinel and centers the mobject at
+    that point without scaling it, so a tall TextCard isn't shrunk to
+    fit a short slot. Roles still matter for supporting/ambient (see
+    next test) and multi-member slots."""
     fmt = _fmt_for(layout_name)
     layout = resolve_layout(layout_name, fmt)
     slots = _LAYOUT_FIXTURES[layout_name]
     cast = [_member(f"c{i}", s) for i, s in enumerate(slots)]
     out = layout.solve(cast)
     for i, s in enumerate(slots):
-        assert out[f"c{i}"] == layout.slots[s], (layout_name, s)
+        slot_rect = layout.slots[s]
+        rect = out[f"c{i}"]
+        assert rect.width == 0.0, (layout_name, s)
+        assert rect.height == 0.0, (layout_name, s)
+        assert rect.cx == pytest.approx(slot_rect.cx), (layout_name, s)
+        assert rect.cy == pytest.approx(slot_rect.cy), (layout_name, s)
 
 
 @pytest.mark.parametrize("layout_name", list(_LAYOUT_FIXTURES.keys()))
 def test_lone_supporting_uses_preferred_size(layout_name):
-    """PR W2: lone supporting/ambient members still flex (the passthrough
-    is primary/hero-only). This keeps setRole-driven shrinking visible."""
+    """Lone supporting/ambient members still flex (the passthrough is
+    primary/hero-only). Use two slots both populated to exercise the
+    flex path without triggering the lone-occupied-slot reflow."""
     fmt = _fmt_for(layout_name)
     layout = resolve_layout(layout_name, fmt)
-    slot = _LAYOUT_FIXTURES[layout_name][0]
-    # Pick a preferred size strictly smaller than every slot in the
-    # fixtures so the flex result is unambiguously sub-slot regardless of
-    # which axis the layout flexes on.
-    cast = [_member("c", slot, role="supporting", size=(1.0, 0.8))]
+    slots = _LAYOUT_FIXTURES[layout_name]
+    if len(slots) == 1:
+        # Single-slot layout (hero) — supporting member still flexes
+        # inside the slot, no reflow possible.
+        cast = [_member("c", slots[0], role="supporting", size=(1.0, 0.8))]
+        out = layout.solve(cast)
+        rect = out["c"]
+        assert rect.width < layout.slots[slots[0]].width
+        assert rect.height < layout.slots[slots[0]].height
+        return
+    # Multi-slot layout: pad an extra primary into a second slot so the
+    # reflow doesn't fire (we're testing flex sizing, not reflow).
+    cast = [
+        _member("c", slots[0], role="supporting", size=(1.0, 0.8)),
+        _member("filler", slots[1], role="primary", size=(1.0, 1.0)),
+    ]
     out = layout.solve(cast)
-    slot_rect = layout.slots[slot]
+    slot_rect = layout.slots[slots[0]]
     rect = out["c"]
-    # Centered in slot, sized at preferred (not slot dims).
     assert rect.cx == pytest.approx(slot_rect.cx)
     assert rect.cy == pytest.approx(slot_rect.cy)
     assert rect.width < slot_rect.width
@@ -88,29 +104,38 @@ def test_lone_supporting_uses_preferred_size(layout_name):
 
 @pytest.mark.parametrize("layout_name", list(_LAYOUT_FIXTURES.keys()))
 def test_multi_member_slot_flexes_within_slot(layout_name):
-    """Putting two primaries in one slot should produce two rects, each
-    contained within that slot's bounds."""
+    """Putting two primaries in one slot produces two rects whose
+    centers cluster around the flex container's center. For multi-slot
+    layouts this test populates a sibling slot too, so the
+    lone-occupied reflow doesn't fire and the container stays at its
+    natural slot rect."""
     fmt = _fmt_for(layout_name)
     layout = resolve_layout(layout_name, fmt)
-    target_slot = _LAYOUT_FIXTURES[layout_name][0]
+    slots = _LAYOUT_FIXTURES[layout_name]
+    target_slot = slots[0]
     slot_rect = layout.slots[target_slot]
 
     cast = [
         _member("a", target_slot, size=(1.5, 1.5)),
         _member("b", target_slot, size=(1.5, 1.5)),
     ]
+    if len(slots) > 1:
+        cast.append(_member("filler", slots[1], size=(1.0, 1.0)))
     out = layout.solve(cast)
 
-    assert set(out) == {"a", "b"}
-    for rect in out.values():
-        # Rect center must lie inside the slot's bbox (with slack for
-        # padding).
+    assert {"a", "b"} <= set(out)
+    for key in ("a", "b"):
+        rect = out[key]
         assert abs(rect.cx - slot_rect.cx) <= slot_rect.width
         assert abs(rect.cy - slot_rect.cy) <= slot_rect.height
 
 
 @pytest.mark.parametrize("layout_name", list(_LAYOUT_FIXTURES.keys()))
 def test_hidden_member_excluded(layout_name):
+    """Hidden members never appear in the solver's output. Pads a
+    sibling slot for multi-slot layouts so the lone-occupied reflow
+    doesn't shift the visible member to frame center (that's tested
+    separately in test_reflow_when_one_slot.py)."""
     fmt = _fmt_for(layout_name)
     layout = resolve_layout(layout_name, fmt)
     slots = _LAYOUT_FIXTURES[layout_name]
@@ -118,12 +143,19 @@ def test_hidden_member_excluded(layout_name):
         _member("visible", slots[0], size=(2.0, 2.0)),
         _member("ghost", slots[0], role="hidden", size=(0.0, 0.0)),
     ]
+    if len(slots) > 1:
+        cast.append(_member("sibling", slots[1], size=(1.0, 1.0)))
     out = layout.solve(cast)
 
     assert "ghost" not in out
-    # PR W2: lone visible primary → slot rect verbatim.
+    # Lone visible primary in slot 0 → position-only sentinel at the
+    # slot's own center (sibling occupied → no full-frame reflow).
     slot_rect = layout.slots[slots[0]]
-    assert out["visible"] == slot_rect
+    rect = out["visible"]
+    assert rect.width == 0.0
+    assert rect.height == 0.0
+    assert rect.cx == pytest.approx(slot_rect.cx)
+    assert rect.cy == pytest.approx(slot_rect.cy)
 
 
 @pytest.mark.parametrize("layout_name", list(_LAYOUT_FIXTURES.keys()))
@@ -158,9 +190,12 @@ def test_title_body_title_slot_pinned():
     ]
     out = layout.solve(cast)
 
-    # PR W2: lone primary title → slot rect verbatim.
+    # Lone primary title → position-only sentinel at title slot center.
     title_rect = layout.slots["title"]
-    assert out["hdr"] == title_rect
+    hdr = out["hdr"]
+    assert hdr.width == 0.0 and hdr.height == 0.0
+    assert hdr.cx == pytest.approx(title_rect.cx)
+    assert hdr.cy == pytest.approx(title_rect.cy)
     # Body slot got the flex treatment — both fit inside it.
     body_rect = layout.slots["body"]
     for body_id in ("a", "b"):

@@ -32,14 +32,14 @@ Validator coverage:
   * Tier 2 (action-params): show_callout_sequence.json — each inner item
     must have text + (anchor or subject).
   * Tier 4 (anchors): inner anchor/subject targets are validated against
-    the existing _ID_REF / _ANCHOR machinery (PR O wires that in).
+    the existing _ID_REF / _ANCHOR machinery (wires that in).
 """
 
 from __future__ import annotations
 
 from typing import Optional
 
-from manim import Animation, Succession
+from manim import Animation, FadeIn, FadeOut, Succession, VGroup
 
 from manim_renderer.actions._context import ActionContext
 from manim_renderer.components.narrative.callout_box import CalloutBox
@@ -72,6 +72,7 @@ def show_callout_sequence(ctx: ActionContext) -> Optional[Animation]:
     fmt = ctx.format
 
     sequence_anims: list[Animation] = []
+    inner_callouts: list[CalloutBox] = []
 
     for i, item in enumerate(callouts):
         text = item["text"]
@@ -98,14 +99,16 @@ def show_callout_sequence(ctx: ActionContext) -> Optional[Animation]:
                 item_params["color"] = inherited
 
         callout = CalloutBox(item_params, format=fmt)
+        inner_callouts.append(callout)
 
         # Resolve anchor / subject → final on-screen placement.
         anchor_target = None
         anchor_str: str | None = None
+        host_id: str | None = None
         if "anchor" in item_params:
             anchor_str = item_params["anchor"]
-            _, target_id = parse_anchor(anchor_str)
-            anchor_target = ctx.id_to_mobject.get(target_id)
+            _, host_id = parse_anchor(anchor_str)
+            anchor_target = ctx.id_to_mobject.get(host_id)
         elif "subject" in item_params:
             from manim_renderer.resolvers.subject_placement import (
                 pick_subject_side, resolve_subject_target,
@@ -125,19 +128,36 @@ def show_callout_sequence(ctx: ActionContext) -> Optional[Animation]:
         if anchor_target is not None and anchor_str is not None:
             place_at_anchor(callout, anchor_target, anchor_str, fmt)
 
+        # Register each inner callout against its host so a later
+        # `removeComponent(host)` sweeps it. Even though Manim's
+        # `FadeOut` is a remover and should drop the mobject from the
+        # render list after fade-out, registering ensures the host
+        # exit also fades any inner callout still on screen.
+        if (
+            host_id is not None
+            and ctx.scene is not None
+            and hasattr(ctx.scene, "_overlays_by_host")
+        ):
+            ctx.scene._overlays_by_host.setdefault(
+                host_id, [],
+            ).append(callout)
+
         callout.position_finalized(
             anchor=anchor_str, target=anchor_target, format=fmt,
         )
 
-        enter = callout.entrance(
-            item.get("effect", "fade-in"),
-            timing_name,
-        )
-        exit_anim = callout.exit("fade-out", transition_name)
+        # FadeIn is a real introducer; AnimationGroup excludes its mobject
+        # from the upfront add, so the callout enters the scene only when
+        # its turn comes. CalloutBox.entrance wraps the bubble+leader in
+        # an inner Succession that isn't recognized as an introducer.
+        enter_run_time = TIMING.get(timing_name, TIMING[_DEFAULT_TIMING])
+        exit_run_time = transition_seconds
+        enter = FadeIn(callout, run_time=enter_run_time)
+        exit_anim = FadeOut(callout, run_time=exit_run_time)
 
         sequence_anims.extend([
             enter,
-            _Hold(callout, hold_seconds),
+            _Hold(hold_seconds),
             exit_anim,
         ])
 
@@ -145,7 +165,7 @@ def show_callout_sequence(ctx: ActionContext) -> Optional[Animation]:
     # We store the last-built callout as a sentinel handle; the scene
     # runner expects every id to map to a mobject. The actual mid-stream
     # cancel logic ships in a future PR — the registration alone is the
-    # PR O contract.
+    # contract.
     if ctx.scene is not None and seq_id not in ctx.id_to_mobject:
         ctx.id_to_mobject[seq_id] = callout  # last-built sentinel
 
@@ -155,15 +175,18 @@ def show_callout_sequence(ctx: ActionContext) -> Optional[Animation]:
 
 
 class _Hold(Animation):
-    """Animation that does nothing for `seconds` — keeps a mobject on
-    screen between an entrance and the next exit.
+    """Animation that does nothing for `seconds`. Holds the scene state
+    between an entrance and the next exit inside a `Succession`.
 
-    We avoid `Wait` because `Wait` requires a Scene context; this
-    Animation works inside a `Succession` without touching the scene.
+    Mobject MUST be an empty placeholder, not the callout. If the callout
+    were the mobject, `AnimationGroup` (Succession's base) would add it
+    to its `group` upfront — so every callout in the sequence would be
+    visible at t=0, before its own FadeIn fires. The empty VGroup keeps
+    the Hold animation valid without participating in the upfront add.
     """
 
-    def __init__(self, mobject, seconds: float):
-        super().__init__(mobject, run_time=max(0.01, float(seconds)))
+    def __init__(self, seconds: float):
+        super().__init__(VGroup(), run_time=max(0.01, float(seconds)))
 
     def interpolate_mobject(self, alpha: float) -> None:  # noqa: D401
         return None

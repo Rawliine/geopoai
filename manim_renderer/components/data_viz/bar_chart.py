@@ -124,7 +124,7 @@ class _BarValueLabel(VGroup):
         # `become()` mutates the existing mobject in place (fixes the Phase 2.0
         # leak from remove+add). MUST move new_text to `self._text.get_center()`
         # — the current SCENE position — not to `self._anchor_point` (the
-        # build-time LOCAL position). Phase 2.0 / PR E2 used `_anchor_point`,
+        # build-time LOCAL position). used `_anchor_point`,
         # which works at origin but jumps labels by `-slot.center` whenever
         # the parent BarChart has been moved. Mirrors `StatBlock.set_value`.
         new_text = self._render(value)
@@ -156,6 +156,15 @@ class BarChart(BaseComponent):
             )
             for i, d in enumerate(data)
         ]
+        # Palette key exposed for callouts that inherit a subject's
+        # accent color. The first bar's palette key is the BarChart's
+        # representative — mixed-color charts fall back to the first
+        # author-set color, then to highlight at the inheritance site.
+        first_palette = next(
+            (d.get("color") for d in data if d.get("color")),
+            None,
+        )
+        self.palette_color = first_palette
 
         self._value_format = p.get("value_format", "int")
         if self._value_format not in VALUE_FORMATS:
@@ -230,7 +239,7 @@ class BarChart(BaseComponent):
             self.add(bar)
 
             if self._show_value_labels:
-                # Phase 2.0 / PR E2 — Two-rule positioning for consistency:
+                # Two-rule positioning for consistency:
                 #   * value == 0 → fixed floor above the x-axis label band.
                 #   * value > 0  → always just above the bar's own top.
                 # Previous max()-based rule mixed branches per bar height,

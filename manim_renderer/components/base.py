@@ -40,8 +40,8 @@ class BaseComponent(VGroup):
         self.params = params
         self.format = format
         self.id = params.get("id")
-        # PR F: role lives on the component instance from creation. PR H will
-        # consume it in `preferred_size`; PR G restages whenever it changes.
+        # role lives on the component instance from creation. will
+        # consume it in `preferred_size`; restages whenever it changes.
         self.role = params.get("role", self.DEFAULT_ROLE)
         self.build()
 

@@ -11,7 +11,7 @@ Phase 1 actions:
   * `bestResponseArrow`  — arrow between two PayoffMatrix cells, actor-colored.
 
 Phase 2 actions:
-  * `setRole` (PR F)     — record a new role for an existing component;
+  * `setRole`     — record a new role for an existing component;
     becomes the trigger for restage in PR G.
 
 Phase 2 will further add:

@@ -299,7 +299,7 @@ class Axes2D(VGroup):
 
     def _title_font_size(self) -> int:
         # Axis titles ("Payoff", "Outcome", etc.).
-        # Phase 2.0 / PR E3: reduced from caption*0.95 to caption*0.75 so
+        # reduced from caption*0.95 to caption*0.75 so
         # titles read clearly on small charts without dominating ~9% of
         # chart height each.
         return int(FONT_SCALE[self._format]["caption"] * 0.75)

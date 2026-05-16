@@ -45,6 +45,10 @@ class TextCard(BaseComponent):
         text = self.params.get("text", "")
         size_role = self.params.get("size", "title")
         font_size = FONT_SCALE[self.format][size_role]
+        # Exposed for subject-color inheritance even though TextCard
+        # doesn't accept a color param today — keeps the surface uniform
+        # across components so resolvers don't need a special case.
+        self.palette_color = self.params.get("color")
 
         slot_bounds = self.params.get("_slot_bounds")  # set by scene runner if in a slot
         target_w = slot_bounds[0] if slot_bounds else None

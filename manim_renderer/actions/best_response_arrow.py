@@ -63,17 +63,22 @@ def best_response_arrow(ctx: ActionContext) -> Optional[Animation]:
     timing = ctx.params.get("timing", "normal")
     run_time = TIMING[timing]
 
-    start = np.asarray(target.get_anchor(f"cell:{int(src[0])},{int(src[1])}"))
-    end = np.asarray(target.get_anchor(f"cell:{int(dst[0])},{int(dst[1])}"))
+    def _build(host) -> Arrow:
+        start = np.asarray(host.get_anchor(f"cell:{int(src[0])},{int(src[1])}"))
+        end = np.asarray(host.get_anchor(f"cell:{int(dst[0])},{int(dst[1])}"))
+        return Arrow(
+            start=start,
+            end=end,
+            color=hex_color,
+            stroke_width=4.0,
+            buff=0.35,
+            max_tip_length_to_length_ratio=0.18,
+        )
 
-    arrow = Arrow(
-        start=start,
-        end=end,
-        color=hex_color,
-        stroke_width=4.0,
-        buff=0.35,  # leave room around cell centers so the arrow doesn't overlap text
-        max_tip_length_to_length_ratio=0.18,
+    arrow = _build(target)
+    ctx.register_overlay(
+        target_id, arrow,
+        overlay_id=ctx.params.get("id"),
+        rebuild=_build,
     )
-    # Phase 1.5: track overlay against host so removeComponent cleans it.
-    ctx.register_overlay(target_id, arrow, overlay_id=ctx.params.get("id"))
     return Create(arrow, run_time=run_time)

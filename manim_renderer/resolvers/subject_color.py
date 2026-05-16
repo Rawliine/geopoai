@@ -1,4 +1,4 @@
-"""Subject color inheritance resolver (Phase 2 / PR M).
+"""Subject color inheritance resolver.
 
 When a callout points at a subject and the author doesn't pass an
 explicit `color`, derive the accent from the subject's own palette
@@ -106,14 +106,21 @@ def _payoff_matrix_color(host, parts: list[str]) -> str:
 def _host_color(host) -> str:
     """Inspect a non-matrix host for a palette key.
 
-    StatBlock, BarChart, MetricGroup expose their accent color through
-    `params.color`. Falling back to that string is the simplest correct
-    behavior; the runner will validate it against the palette downstream.
+    Components expose their accent through two surfaces, both checked:
+        1. `host.palette_color` — set explicitly in build() on
+           StatBlock, MetricGroup, BarChart, TextCard. The reliable
+           path because the attribute survives Manim's mobject lifecycle.
+        2. `host.params['color']` — legacy fallback for components that
+           store params (BaseComponent keeps params, but rebuilds may
+           replace the mobject's identity).
     """
-    params = getattr(host, "params", None) or {}
-    color = params.get("color")
+    color = getattr(host, "palette_color", None)
     if color:
         return color
+    params = getattr(host, "params", None) or {}
+    fallback = params.get("color")
+    if fallback:
+        return fallback
     return _FALLBACK_KEY
 
 

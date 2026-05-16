@@ -85,6 +85,36 @@ def test_stat_block_without_color_falls_back():
     assert inherit_subject_color("k", {"k": stat}) == "highlight"
 
 
+def test_metric_group_child_anchor_returns_child_color():
+    """A callout anchored at a MetricGroup child stat (registered via
+    extra_id_registrations) inherits the child's palette key. The
+    inheritance walks the child mobject's `palette_color` attribute,
+    not the parent group's color_scheme."""
+    from manim_renderer.components.data_viz.metric_group import MetricGroup
+
+    group = MetricGroup(
+        {
+            "id": "kpis",
+            "orientation": "row",
+            "color_scheme": "actors",
+            "stats": [
+                {"id": "k-cooperate", "value": 28.4, "label": "Cooperate",
+                 "color": "actor_a"},
+                {"id": "k-defect", "value": 71.6, "label": "Defect",
+                 "color": "actor_b"},
+            ],
+        },
+        format="horizontal",
+    )
+    # The runner merges children into id_to_mobject via
+    # extra_id_registrations. Simulate that here.
+    id_to_mobject = {"kpis": group}
+    id_to_mobject.update(group.extra_id_registrations())
+
+    assert inherit_subject_color("k-cooperate", id_to_mobject) == "actor_a"
+    assert inherit_subject_color("k-defect", id_to_mobject) == "actor_b"
+
+
 def test_unknown_host_returns_fallback():
     assert inherit_subject_color("ghost", {}) == "highlight"
 

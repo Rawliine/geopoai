@@ -62,7 +62,7 @@ _BUBBLE_PADDING_X = 0.35
 _BUBBLE_PADDING_Y = 0.20
 _CORNER_RADIUS = 0.12
 
-# Neon stack — Phase 2.0 / PR E2 rewrite:
+# Neon stack — Phase 2.0 / rewrite:
 # 4 concentric strokes mirroring the CSS neon idiom
 # (text-shadow: 0 0 5px white, 0 0 10px accent, 0 0 20px accent, 0 0 40px accent):
 #
@@ -88,7 +88,7 @@ _CARD_BORDER_STROKE = 1.5
 _GLASS_FILL_OPACITY = 0.40
 _GLASS_BORDER_STROKE = 2.0
 
-# PR P — neon-bold dials each of neon's four layers higher and adds an
+# neon-bold dials each of neon's four layers higher and adds an
 # extra outer-outer glow for a 5-layer stack. Use sparingly: this style
 # dominates the frame.
 _NEON_BOLD_INNER_CORE_LIGHTEN = 0.70
@@ -103,12 +103,12 @@ _NEON_BOLD_OUTER_OUTER_GLOW_STROKE = 36.0
 _NEON_BOLD_OUTER_OUTER_GLOW_OPACITY = 0.08
 _NEON_BOLD_INTERIOR_FILL_OPACITY = 0.10
 
-# PR P — pull-quote: large stylized quote marks, no bubble, no leader.
+# pull-quote: large stylized quote marks, no bubble, no leader.
 # Quote glyphs scale relative to the text height (display-sized).
 _PULL_QUOTE_MARK_SCALE = 2.2
 _PULL_QUOTE_MARK_OPACITY = 0.85
 
-# PR P — inline-tag: small chip, accent fill, contrast-picked text color.
+# inline-tag: small chip, accent fill, contrast-picked text color.
 _INLINE_TAG_PADDING_X = 0.20
 _INLINE_TAG_PADDING_Y = 0.10
 _INLINE_TAG_CORNER_RADIUS = 0.08
@@ -208,7 +208,7 @@ def _glass_bubble(text_mob, accent_hex: str, format: str) -> VGroup:
     return VGroup(bubble)
 
 
-# --- PR P bubble builders --------------------------------------------------
+# --- bubble builders --------------------------------------------------
 
 
 def _neon_bold_bubble(text_mob, accent_hex: str, format: str) -> VGroup:
@@ -344,7 +344,7 @@ CALLOUT_STYLES: dict[str, CalloutStyleSpec] = {
         entrance=_fade_together_entrance,
         exit=_fade_together_exit,
     ),
-    # PR P — three new variants.
+    # three new variants.
     "neon-bold": CalloutStyleSpec(
         name="neon-bold",
         build_bubble=_neon_bold_bubble,

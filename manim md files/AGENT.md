@@ -318,3 +318,117 @@ bash manim_renderer/assets/setup_assets.sh
 - Read `recap.md` for the design reasoning behind any decision that looks weird.
 - Read `plan.md` for what's done, what's in progress, what's out of scope.
 - If a rule conflicts with making something work, write a note in the relevant section's "open questions" and proceed cautiously.
+
+---
+
+## Current placement model (live behavior reference)
+
+Anything an agent needs to know to author a scene that renders cleanly:
+
+### Slot binding for every show event
+
+Every component in a scene needs a slot binding so the layout solver can
+place it. There are three ways a component gets one:
+
+1. **Slots block** — `scene.slots.<slot_name>` events bind the component
+   to `<slot_name>` automatically.
+2. **Explicit `params.slot`** — any overlay or timeline show event can
+   set `"slot": "<slot_name>"` to bind itself. Honored verbatim if the
+   slot exists on the active layout.
+3. **Auto-bind to PRIMARY_SLOT** — when an overlay show event has no
+   slot, no anchor, AND no subject, the runner binds it to the active
+   layout's primary slot (`hero=main`, `title-body=body`, `split=left`,
+   `stacked=top`, `data-left=body`, `data-top=body`, `trio=A`,
+   `trio-stack=A`). See `manim_renderer/layouts/base.py:PRIMARY_SLOT`.
+
+Without any of these, the solver returns no rect for the component and
+it stacks at the scene origin. Always pick one.
+
+### Callouts: two modes, same behavior
+
+`showCalloutBox` accepts EITHER `anchor: "side:host"` OR
+`subject: "host"` (or `subject: "host:cell:1,0"` for matrix
+refinements). Both modes now:
+
+- inherit the host's slot so the solver carves a side region (host
+  shrinks to make room);
+- inherit the host's `palette_color` for the callout border;
+- re-anchor the leader line after every restage so it stays attached
+  when the host moves.
+
+The difference is who picks the side:
+- `anchor:` — the author picks (above/below/left-of/right-of). The
+  side stays whatever the token said.
+- `subject:` — the solver picks via `pick_subject_side`. Horizontal
+  layouts get a horizontal side; vertical layouts get a vertical side.
+  Never crosses axes.
+
+### Lone primary positioning is "center only"
+
+When a slot has exactly one visible primary or hero member and no
+subject annotations, the solver returns a position-only sentinel
+(width=0, height=0) at the slot's center. The runner reads the
+sentinel and centers the mobject at that point WITHOUT scaling it.
+This stops tall titles from being shrunk to fit short slots.
+
+Supporting/ambient/hidden roles, multi-member slots, and slots with
+subject annotations all flex normally — the sentinel is the
+exception, not the default.
+
+### Auto-reflow when one slot is occupied
+
+If exactly one slot of a multi-slot layout has visible members (e.g.
+`title-body` with the title removed), that slot's effective container
+expands to the full frame minus 0.4-unit padding. The body content
+sits at the visual center instead of leaving the title area blank.
+
+This only applies to single-slot occupancy. Multi-slot layouts with
+empty NEIGHBORS (but still multiple occupied slots) keep their slot
+positions.
+
+### Mutation overlays follow their host
+
+`highlightCell`, `crossOut`, `bestResponseArrow` attach a rebuild
+recipe on the overlay mobject. During restage, when the host (matrix)
+moves or scales, the runner builds a synthetic host at the target
+state, calls the recipe to produce a fresh overlay against the new
+cell anchors, and Transforms the old overlay into the new geometry.
+Arrows stay correctly tipped throughout the motion; dashed lines and
+highlight rectangles stay locked to their cells.
+
+### `setLayout` mid-scene
+
+`setLayout` swaps the active layout. Components from the slots block
+that no longer have a matching slot on the new layout are auto-hidden
+(role=hidden, slot=None) so they don't render in the wrong place. To
+bring them back, swap to a layout with that slot and `setRole(target,
+primary)`.
+
+### Debug trace
+
+Set `GEOPOAI_DEBUG=1` before rendering to dump per-restage cast +
+solver plan + animation count to stderr. For Manim-free diagnosis,
+run `python scripts/manim/debug_replay.py <scene.json>` which walks
+the JSON event-by-event using the same solver logic and prints the
+plan without spinning up a renderer.
+
+---
+
+## Authoring checklist for new scenes
+
+1. Pick a starting layout for the slots block. Title-body is the most
+   common; hero, split, stacked, data-left, data-top, trio, trio-stack
+   are the others.
+2. For every overlay/timeline show event, decide its slot. Use explicit
+   `slot:` if it's not the primary content slot, otherwise rely on
+   auto-bind.
+3. For callouts, pick a mode: `subject` for solver-picked sides, or
+   `anchor` for an explicit side. Both produce reflow + color inherit
+   + leader re-anchor; pick whichever reads better in source.
+4. Before swapping to a single-slot layout (hero), `removeComponent`
+   anything you don't want carried along.
+5. Use `showCalloutSequence` when you want a chain of callouts to play
+   in order — each fades out before the next enters.
+6. Validate with `python -m manim_renderer.schema.validator <scene>`.
+7. Dry-run with `python scripts/manim/debug_replay.py <scene>` and
+   confirm every `show` event has `plan (N)` with N > 0.

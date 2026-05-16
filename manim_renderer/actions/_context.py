@@ -19,10 +19,10 @@ Overlay tracking (Phase 1.5):
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable, Optional
 
 if TYPE_CHECKING:
-    from manim import MovingCameraScene
+    from manim import Mobject, MovingCameraScene
 
 
 @dataclass
@@ -37,6 +37,8 @@ class ActionContext:
         host_id: str,
         mob: Any,
         overlay_id: str | None = None,
+        *,
+        rebuild: Optional[Callable[["Mobject"], "Mobject"]] = None,
     ) -> None:
         """Track `mob` as an overlay against `host_id`.
 
@@ -47,9 +49,22 @@ class ActionContext:
         still applies — removing the host removes all its overlays even if
         they had ids.
 
+        `rebuild` is an optional callable that, given a host mobject at
+        a target state, returns a freshly-constructed overlay positioned
+        against that target state. The scene runner uses it during
+        restage to Transform the overlay smoothly into its new geometry
+        — important for shapes like arrows whose tip rendering doesn't
+        scale linearly under Manim's `.animate.scale`. Overlays without
+        a rebuild fall back to a scale+shift walker around the host's
+        current center.
+
         Raises ValueError on overlay-id collision with an existing id (the
         validator should catch this earlier via `_ACTION_ID_EXTRACTORS`).
         """
+        if rebuild is not None:
+            # Attach the recipe directly to the mobject so the runner can
+            # find it via `getattr(overlay, "_rebuild_recipe", None)`.
+            mob._rebuild_recipe = rebuild
         # `scene` may be None in unit tests that exercise an action callable
         # without a JSONScene runner — skip registration in that case but
         # still honor the opt-in id below so id-collision tests work.

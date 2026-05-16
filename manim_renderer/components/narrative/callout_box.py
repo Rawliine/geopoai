@@ -124,7 +124,7 @@ class CalloutBox(BaseComponent):
                 "or params.subject (e.g. 'matrix-1' / 'matrix-1:cell:0,0'); "
                 "without one, use TextCard instead."
             )
-        # Stash subject for the runner's solver-driven placement (PR L).
+        # Stash subject for the runner's solver-driven placement.
         # When `subject` is present and `anchor` absent, the scene runner
         # picks the side via `pick_subject_side` before calling
         # `position_finalized`.
@@ -246,7 +246,7 @@ class CalloutBox(BaseComponent):
     def position_finalized(self, *, anchor=None, target=None, format="horizontal"):
         if anchor is None or target is None:
             return  # no leader if no anchor target
-        # PR P — `pull-quote` and `inline-tag` styles deliberately have no
+        # `pull-quote` and `inline-tag` styles deliberately have no
         # leader line. They sit at the subject's edge (or as a chip nearby)
         # and rely on visual proximity instead of an explicit connector.
         if self._style_name in ("pull-quote", "inline-tag"):
@@ -257,7 +257,7 @@ class CalloutBox(BaseComponent):
         self._anchor_format = format
         self._build_leader(target)
 
-    # PR W2 — re-anchor the leader after a restage Transform moves the host.
+    # re-anchor the leader after a restage Transform moves the host.
     def reposition(self, *, host_mob=None, format="horizontal"):
         if host_mob is None:
             return

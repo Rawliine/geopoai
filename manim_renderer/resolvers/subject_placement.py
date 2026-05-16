@@ -1,4 +1,4 @@
-"""Subject-based placement resolver (Phase 2 / PR L).
+"""Subject-based placement resolver ().
 
 Given a subject mobject, the frame bounds, and the layout direction,
 pick the best anchor token + buff for a callout that points at the
@@ -104,7 +104,7 @@ def pick_subject_side(
     frame = _frame_rect(format)
 
     if candidate_order is None:
-        # Round 3: horizontal layouts only consider horizontal sides;
+        # horizontal layouts only consider horizontal sides;
         # vertical layouts only consider vertical sides. Falling across
         # the axis (e.g. callout above a centered host in a horizontal
         # layout) overlaps the title row and reads as "arrow pointing

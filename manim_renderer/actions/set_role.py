@@ -53,5 +53,5 @@ def set_role(ctx: ActionContext) -> Optional[Animation]:
     if hasattr(mob, "role"):
         mob.role = role
 
-    # PR F: no animation. PR G adds restage.
+    # no animation. adds restage.
     return None

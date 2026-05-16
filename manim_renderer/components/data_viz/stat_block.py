@@ -142,6 +142,11 @@ class StatBlock(BaseComponent):
 
         self._color_key = p.get("color")  # palette key or None
         self._color_hex = _color(self._color_key, default_key="text_accent")
+        # Expose the palette key for subject_color inheritance — callouts
+        # that point at this stat read this attribute to pick a matching
+        # border color. None means "no explicit color set" and the
+        # inheritor falls back to its own default.
+        self.palette_color = self._color_key
 
         self._size_role = p.get("size", "medium")  # for typography scaling
 

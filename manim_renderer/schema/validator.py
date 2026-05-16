@@ -82,7 +82,7 @@ _ACTION_ID_EXTRACTORS: dict[str, callable] = {
     "showAllianceWeb":  _ids_from_alliance_web,
 }
 
-# Phase 1.5: highlightCell / crossOut / bestResponseArrow accept an optional
+# highlightCell / crossOut / bestResponseArrow accept an optional
 # `id` exposing the overlay as a top-level addressable id. They DO NOT need
 # an extractor — `_ids_declared_by` picks up `params.id` automatically via
 # the `own = params.get("id")` path. Adding an extractor here would double-

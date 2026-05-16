@@ -696,3 +696,90 @@ StatBlock with `color: "actor_b"` inherits `actor_b`. But an explicit
 `params.color` always wins — the inheritance pass only runs when the
 author omits color. This keeps the visual default coherent without
 locking authors into the inference.
+
+
+---
+
+## §22d — Decision log (Round 1–4 deltas)
+
+After the original Phase 2 brief landed, four iterative passes refined
+the placement and motion model in response to render feedback. The
+deltas, with motivation:
+
+### Slot binding for every component
+**Decision:** every show event must end up bound to a slot. Three
+sources: slots block, explicit `params.slot`, or auto-bind to the
+active layout's PRIMARY_SLOT.
+**Why:** the original design had overlay events with `slot=None` and
+no anchor/subject, so the solver returned no rect and they stacked at
+origin. Auto-bind keeps backwards-compatible JSON working without
+forcing authors to specify slot for every event; explicit `params.slot`
+is the escape hatch for multi-slot layouts where the default isn't
+right.
+
+### Anchor and subject callouts unified
+**Decision:** `anchor:` and `subject:` callouts both inherit the
+host's slot, get color inheritance, re-anchor their leader after
+restage, and pack as a centered group with the host. The only
+difference is who picks the side.
+**Why:** the original split treated `anchor:` as legacy-static and
+`subject:` as solver-driven. In practice authors mix the two and want
+the same reflow behavior from both. Unifying simplifies the mental
+model.
+
+### Position-only sentinel for lone primary
+**Decision:** when `Layout.solve` returns a rect with width=0/height=0,
+the runner centers the mobject without scaling it.
+**Why:** the original lone-primary passthrough returned the slot rect
+verbatim. When a tall TextCard at size:title was placed in a 1.5-tall
+title slot, the runner computed scale=slot.h/built.h<1 and shrunk it.
+The sentinel decouples "where to position" from "what size to
+display" — slot defines position; the component keeps its built size.
+
+### Full-frame reflow when one slot is occupied
+**Decision:** if exactly one slot of a multi-slot layout has visible
+members, that slot's effective container becomes the full frame minus
+0.4-unit padding.
+**Why:** `title-body` with the title removed left the body at cy=-1.0
+(the slot's natural position), leaving the top half of the frame
+blank. The reflow makes the lone occupied content sit at visual
+center without forcing authors to swap layouts mid-scene.
+
+### Mutation overlay rebuild recipes
+**Decision:** mutation actions attach a `_rebuild_recipe` callable on
+their overlay mobject. During restage, the runner builds a synthetic
+host at the target state, calls the recipe to produce a fresh overlay
+against the new cell anchors, and Transforms the old overlay into the
+new geometry.
+**Why:** the original overlay walker did `mob.animate.scale(s).shift(
+delta)` which scales around the overlay's own center (mathematically
+wrong) and produces non-linear tip rendering for Manim's `Arrow`.
+Rebuild via Transform gives smooth, geometrically correct motion for
+arrows, dashed strikes, and cell highlights.
+
+### Subject-color inheritance via palette_color attribute
+**Decision:** components expose their accent palette key as a
+`palette_color` instance attribute set in `build()`. The inheritance
+resolver reads this attribute first, falling back to params.color.
+**Why:** the original inheritance read `host.params.color`, but
+`params` is built-time scratch — accessing it post-build returned None
+in many code paths. The attribute is set explicitly and survives the
+Manim mobject lifecycle.
+
+### Targeted comment cleanup vs aggressive doc rewrite
+**Decision:** strip project-management label prefixes (`PR W2 —`,
+`Round 3 —`, `Phase 2 / PR G —`) from inline code comments but keep
+the explanatory text. Add round-deltas sections to md files instead of
+rewriting them.
+**Why:** the labels are git/PR metadata, not code documentation. They
+age poorly and violate the WHY-comments rule. The historical narrative
+in module docstrings stays as onboarding context for future agents.
+
+### `GEOPOAI_DEBUG=1` + `debug_replay.py`
+**Decision:** env-var-gated trace from `_restage` writes one line per
+event to stderr. A separate replay script walks scene JSONs without
+Manim, using the same cast + solver state machine, and prints the
+plan.
+**Why:** visual bugs are expensive to describe in text. The trace
+lets agents diagnose mis-allocation from the terminal alone, and the
+replay script makes the dry-run instant.

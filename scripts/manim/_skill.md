@@ -738,3 +738,106 @@ When a new component or action lands:
 
 The schema is the contract; this file is the LLM's reference. Both must say
 the same thing.
+
+
+---
+
+## Placement reference
+
+Every show event needs a slot binding so the layout solver can place it.
+
+### `params.slot` — explicit slot binding
+
+Any show event (slots block, overlays, timeline) can set `slot` to
+target a named slot of the active layout:
+
+```json
+{ "action": "showStatBlock",
+  "params": { "id": "kpi", "value": 42, "label": "USA", "slot": "data" } }
+```
+
+Required when:
+- The component is in `overlays` or `timeline` and you want it in a
+  slot OTHER than the layout's default content slot.
+- Multiple overlay components in a single beat each go to different
+  slots (e.g. a LineChart in `left` and a GameTree in `right` under
+  the `split` layout).
+
+### Auto-bind to PRIMARY_SLOT
+
+When an overlay show event has no `slot`, no `anchor`, AND no
+`subject`, the runner auto-binds it to the layout's primary content
+slot:
+
+| Layout       | Primary slot |
+|--------------|--------------|
+| `hero`       | `main`       |
+| `split`      | `left`       |
+| `stacked`    | `top`        |
+| `data-left`  | `body`       |
+| `data-top`   | `body`       |
+| `trio`       | `A`          |
+| `trio-stack` | `A`          |
+| `title-body` | `body`       |
+
+So a bare `showStatBlock` overlay in a `hero` layout lands in `main`
+without any extra params.
+
+### Callouts: `anchor` vs `subject`
+
+Both `showCalloutBox` modes now produce the same reflow + color +
+leader behavior. Pick whichever fits the source:
+
+- **`anchor: "right-of:pd"`** — author commits to a side. The token
+  determines which side the callout takes.
+- **`subject: "pd"` or `subject: "pd:cell:1,0"`** — author commits to
+  a target. The solver picks the side based on layout direction
+  (horizontal → right/left; vertical → below/above). Refined subjects
+  like `pd:cell:1,0` also drive color inheritance (cell dominance
+  determines actor color).
+
+Both modes:
+- inherit the host's slot (host shrinks to make room),
+- inherit the host's `palette_color` for the border,
+- re-anchor the leader after every restage.
+
+### `setLayout` swaps the active layout
+
+```json
+{ "at": 12.0, "action": "setLayout",
+  "params": { "layout": "split", "timing": "normal" } }
+```
+
+Components from the slots block whose slot disappears on the new
+layout are auto-hidden (role=hidden, slot=None). To bring them back,
+swap to a layout with that slot and `setRole(target, primary)`.
+
+### Lone primary doesn't scale
+
+When a slot has exactly one visible primary or hero member and no
+subject annotation, the runner centers the mobject at the slot's
+center WITHOUT scaling it. This stops tall titles from being shrunk
+to fit short slots. Supporting/ambient roles, multi-member slots, and
+slots with subject annotations all flex normally.
+
+### Auto-reflow when one slot is occupied
+
+If exactly one slot of a multi-slot layout has visible members (e.g.
+`title-body` with the title removed), the content reflows into the
+full frame minus a 0.4-unit padding. Authors don't need to switch
+layouts mid-scene when they remove a slot's content — the lone slot
+expands automatically.
+
+### Debug from the terminal
+
+```bash
+# Manim-free dry-run — see every event's solver plan
+python scripts/manim/debug_replay.py scripts/manim/<scene>.json
+
+# Full render with per-event trace
+GEOPOAI_DEBUG=1 python pipeline/render.py scripts/manim/<scene>.json <name>
+
+# Filter the trace (Manim's progress bars use \r)
+GEOPOAI_DEBUG=1 python pipeline/render.py <scene> <name> 2> trace.log
+tr '\r' '\n' < trace.log | grep -E "^(\[restage\]|    )"
+```

@@ -29,16 +29,22 @@ def _cast(*entries: tuple[str, str, str | None, tuple[float, float]]) -> list[Ca
 # --- split (horizontal) ---------------------------------------------------
 
 
-def test_split_one_primary_per_slot_returns_slot_rect():
-    """PR W2: lone primary per slot → slot rect verbatim."""
+def test_split_one_primary_per_slot_returns_position_only_sentinel():
+    """Lone primary per slot → position-only sentinel at slot center."""
     layout = resolve_layout("split", "horizontal")
     cast = _cast(
         ("a", "primary", "left",  (3.0, 2.0)),
         ("b", "primary", "right", (3.0, 2.0)),
     )
     out = layout.solve(cast)
-    assert out["a"] == layout.slots["left"]
-    assert out["b"] == layout.slots["right"]
+    left = layout.slots["left"]
+    right = layout.slots["right"]
+    assert out["a"].width == 0.0 and out["a"].height == 0.0
+    assert out["a"].cx == pytest.approx(left.cx)
+    assert out["a"].cy == pytest.approx(left.cy)
+    assert out["b"].width == 0.0 and out["b"].height == 0.0
+    assert out["b"].cx == pytest.approx(right.cx)
+    assert out["b"].cy == pytest.approx(right.cy)
 
 
 def test_split_two_primaries_in_same_slot_side_by_side():
@@ -59,15 +65,23 @@ def test_split_two_primaries_in_same_slot_side_by_side():
 
 
 def test_split_hidden_member_takes_no_space():
+    """Hidden members never appear in the solver's output. Pads the
+    right slot to avoid triggering the lone-occupied reflow."""
     layout = resolve_layout("split", "horizontal")
     cast = _cast(
         ("a", "primary", "left", (3.0, 2.0)),
         ("ghost", "hidden", "left", (0.0, 0.0)),
+        ("sibling", "primary", "right", (2.0, 2.0)),
     )
     out = layout.solve(cast)
 
-    # PR W2: lone primary → slot rect verbatim.
-    assert out["a"] == layout.slots["left"]
+    # Lone primary in left slot → position-only sentinel at slot center
+    # (right slot populated → no full-frame reflow).
+    left = layout.slots["left"]
+    rect = out["a"]
+    assert rect.width == 0.0 and rect.height == 0.0
+    assert rect.cx == pytest.approx(left.cx)
+    assert rect.cy == pytest.approx(left.cy)
     assert "ghost" not in out
 
 
@@ -84,23 +98,28 @@ def test_split_no_slot_members_excluded():
     out = layout.solve(cast)
 
     assert "note" not in out
-    assert out["a"] == layout.slots["left"]
-    assert out["b"] == layout.slots["right"]
+    left = layout.slots["left"]
+    right = layout.slots["right"]
+    # Both lone primaries → position-only sentinels at slot centers.
+    assert out["a"].width == 0.0 and out["a"].cx == pytest.approx(left.cx)
+    assert out["b"].width == 0.0 and out["b"].cx == pytest.approx(right.cx)
 
 
 # --- stacked (vertical) ---------------------------------------------------
 
 
-def test_stacked_one_primary_per_slot_returns_slot_rect():
-    """PR W2: lone primary per slot → slot rect verbatim."""
+def test_stacked_one_primary_per_slot_returns_position_only_sentinel():
+    """Lone primary per slot → position-only sentinel at slot center."""
     layout = resolve_layout("stacked", "vertical")
     cast = _cast(
         ("a", "primary", "top",    (2.0, 3.0)),
         ("b", "primary", "bottom", (2.0, 3.0)),
     )
     out = layout.solve(cast)
-    assert out["a"] == layout.slots["top"]
-    assert out["b"] == layout.slots["bottom"]
+    top = layout.slots["top"]
+    bottom = layout.slots["bottom"]
+    assert out["a"].width == 0.0 and out["a"].cy == pytest.approx(top.cy)
+    assert out["b"].width == 0.0 and out["b"].cy == pytest.approx(bottom.cy)
 
 
 def test_stacked_two_in_same_slot_flex_vertically():

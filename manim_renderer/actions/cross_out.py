@@ -57,25 +57,29 @@ def cross_out(ctx: ActionContext) -> Optional[Animation]:
     timing = ctx.params.get("timing", "normal")
     run_time = TIMING[timing]
 
-    cell_w, cell_h = target.cell_dims()
-
-    if axis == "row":
-        n = target.n_cols()
-        left = target.get_anchor(f"cell:{idx},0")
-        right = target.get_anchor(f"cell:{idx},{n - 1}")
-        # Extend just past the edge cells.
-        start = np.asarray(left) + np.array([-cell_w / 2 * 0.95, 0.0, 0.0])
-        end = np.asarray(right) + np.array([+cell_w / 2 * 0.95, 0.0, 0.0])
-    else:
-        n = target.n_rows()
-        top = target.get_anchor(f"cell:0,{idx}")
-        bottom = target.get_anchor(f"cell:{n - 1},{idx}")
-        start = np.asarray(top) + np.array([0.0, +cell_h / 2 * 0.95, 0.0])
-        end = np.asarray(bottom) + np.array([0.0, -cell_h / 2 * 0.95, 0.0])
-
     color = SEMANTIC["negative"]
     cls = DashedLine if style == "dashed" else Line
-    line = cls(start=start, end=end, color=color, stroke_width=_STROKE_WIDTH)
-    # Phase 1.5: track overlay against host so removeComponent cleans it.
-    ctx.register_overlay(target_id, line, overlay_id=ctx.params.get("id"))
+
+    def _build(host):
+        cell_w, cell_h = host.cell_dims()
+        if axis == "row":
+            n = host.n_cols()
+            left = host.get_anchor(f"cell:{idx},0")
+            right = host.get_anchor(f"cell:{idx},{n - 1}")
+            start = np.asarray(left) + np.array([-cell_w / 2 * 0.95, 0.0, 0.0])
+            end = np.asarray(right) + np.array([+cell_w / 2 * 0.95, 0.0, 0.0])
+        else:
+            n = host.n_rows()
+            top = host.get_anchor(f"cell:0,{idx}")
+            bottom = host.get_anchor(f"cell:{n - 1},{idx}")
+            start = np.asarray(top) + np.array([0.0, +cell_h / 2 * 0.95, 0.0])
+            end = np.asarray(bottom) + np.array([0.0, -cell_h / 2 * 0.95, 0.0])
+        return cls(start=start, end=end, color=color, stroke_width=_STROKE_WIDTH)
+
+    line = _build(target)
+    ctx.register_overlay(
+        target_id, line,
+        overlay_id=ctx.params.get("id"),
+        rebuild=_build,
+    )
     return Create(line, run_time=run_time)

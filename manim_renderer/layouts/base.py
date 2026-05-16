@@ -21,7 +21,7 @@ FRAME_BOUNDS: dict[str, tuple[float, float]] = {
 }
 
 
-# Phase 2 / PR H — per-role linear scale applied by the default
+# per-role linear scale applied by the default
 # `BaseComponent.preferred_size`. Content-driven components override the
 # whole method when linear scaling doesn't fit their content (text width
 # floors, axis labels, etc.). `hidden` → (0, 0) so the solver allocates no
@@ -36,7 +36,7 @@ ROLE_SCALE: dict[str, float] = {
 }
 
 
-# Round 3 — per-layout "primary content slot". When an overlay show event
+# per-layout "primary content slot". When an overlay show event
 # arrives with no anchor, subject, or explicit slot, the runner falls back
 # to this slot so the solver actually places the component. Without this
 # map, overlay components stack at the origin (their natural mobject
@@ -77,7 +77,7 @@ class CastMember:
     `_id_to_slot` whenever it calls `Layout.solve(cast)`. Fields are
     immutable per-pass so the solver can be cached safely.
 
-    `subject_host_id` (PR W) is set for `annotation` members that point at
+    `subject_host_id` is set for `annotation` members that point at
     a host via `params.subject`. The solver uses it to reserve a side
     region of the host's slot for the callout, shrinking the host.
     """
@@ -86,7 +86,7 @@ class CastMember:
     preferred_size: tuple[float, float]
     slot: str | None = None
     subject_host_id: str | None = None
-    # Round 3 — when the callout came from `anchor: "<token>:host"`, the
+    # when the callout came from `anchor: "<token>:host"`, the
     # token (above/below/left-of/right-of) is recorded here so the solver
     # can place the callout on the author-specified side. None means the
     # callout used `subject:` and the solver picks the side itself.
@@ -97,6 +97,28 @@ class CastMember:
 # carved out of the same slot. Matches `resolvers/anchor.DEFAULT_ANCHOR_BUFF`
 # so visual spacing is consistent with anchor-based placement.
 _SUBJECT_CALLOUT_GAP: float = 0.5
+
+# Padding kept on each side of the frame when a single-slot layout
+# reflows to use the full frame. Prevents content from touching the
+# rendered edge.
+_REFLOW_FRAME_PADDING: float = 0.4
+
+
+def _full_frame_container(fmt: str) -> Rect:
+    """Return a rect spanning the whole renderable frame minus padding.
+
+    Used when only one of a multi-slot layout's slots is occupied —
+    instead of leaving the empty slots' space blank, the lone occupied
+    slot reflows into the full frame so content sits at the visual
+    center.
+    """
+    fw, fh = FRAME_BOUNDS.get(fmt, FRAME_BOUNDS["horizontal"])
+    return Rect(
+        cx=0.0,
+        cy=0.0,
+        width=fw - 2 * _REFLOW_FRAME_PADDING,
+        height=fh - 2 * _REFLOW_FRAME_PADDING,
+    )
 
 
 def _pack_host_with_subject(
@@ -114,7 +136,7 @@ def _pack_host_with_subject(
     exactly `gap` between them, then the combined block is centered in
     the slot. Cross-axis: both rects sit at the slot's cross-axis center.
 
-    `anchor_side` (Round 3): when set to `"above"`, `"below"`, `"left-of"`,
+    `anchor_side`: when set to `"above"`, `"below"`, `"left-of"`,
     or `"right-of"`, the callout takes that side regardless of layout
     format — this supports `anchor:`-based callouts where the author
     chose the side explicitly. When `None`, the default is:
@@ -207,7 +229,7 @@ class Layout:
     def has_slot(self, name: str) -> bool:
         return name in self.slots
 
-    # --- Phase 2 / PR J — solver interface ----------------------------------
+    # --- solver interface ----------------------------------
 
     def solve(self, cast: "list[CastMember]") -> dict[str, Rect]:
         """Allocate scene rects for the live cast.
@@ -222,7 +244,7 @@ class Layout:
           * Members without a slot AND no subject host (legacy anchored
             callouts) are NOT placed by the solver — the runner keeps
             their static anchor.
-          * Roles drive `preferred_size`, which the solver consumes (PR W).
+          * Roles drive `preferred_size`, which the solver consumes.
         """
         from manim_renderer.layouts._flex import flex_solve
 
@@ -234,13 +256,35 @@ class Layout:
 
         direction = _LAYOUT_FLEX_DIRECTION.get(self.name, "horizontal")
 
+        # When only one slot in a multi-slot layout has visible members,
+        # expand that slot's effective container to the full frame minus
+        # padding. Otherwise the layout's static slot positions leave the
+        # empty slots' space blank (e.g. title-body with hidden title
+        # would render the body content below frame center). For
+        # single-slot layouts (hero), the reflow is a no-op.
+        occupied_with_visible = {
+            s for s, ms in members_by_slot.items()
+            if any(m.role != "hidden" for m in ms)
+        }
+        reflow_single_slot = (
+            len(occupied_with_visible) == 1 and len(self.slots) > 1
+        )
+        reflow_container = (
+            _full_frame_container(self.format)
+            if reflow_single_slot else None
+        )
+
         for slot_name, members in members_by_slot.items():
-            slot_rect = self.slots[slot_name]
+            slot_rect = (
+                reflow_container
+                if reflow_single_slot and slot_name in occupied_with_visible
+                else self.slots[slot_name]
+            )
             visible = [m for m in members if m.role != "hidden"]
             if not visible:
                 continue
 
-            # PR W: split visible members into subject-bound annotations
+            # split visible members into subject-bound annotations
             # vs everything else. The annotations reserve a side region;
             # the hosts flex-solve in the shrunken interior.
             subject_annotations = [
@@ -254,7 +298,7 @@ class Layout:
 
             host_container = slot_rect
             if subject_annotations:
-                # PR W2: pack host + callout as a centered group. Only the
+                # pack host + callout as a centered group. Only the
                 # first annotation participates in the pack; additional
                 # annotations stack on the same side of the host.
                 ann = subject_annotations[0]
@@ -292,17 +336,24 @@ class Layout:
                 host_container = host_rect
 
             if non_subject:
-                # PR W2: lone primary/hero with no subject annotations gets
-                # the full host_container (= slot rect when no subject pack
-                # happened) verbatim. Restores Phase 1 "title fills its
-                # slot" behavior while preserving role-driven shrinking for
-                # supporting/ambient and multi-member slots.
+                # Lone primary/hero with no subject annotations: return a
+                # POSITION-ONLY sentinel rect (width=0, height=0) at the
+                # host_container's center. The runner reads the sentinel
+                # and skips its scale animation entirely, so the mobject
+                # stays at its rendered size — preventing a tall TextCard
+                # from being shrunk to fit a short slot. Other roles and
+                # multi-member slots flex normally.
                 if (
                     len(non_subject) == 1
                     and non_subject[0].role in ("primary", "hero")
                     and not subject_annotations
                 ):
-                    out[non_subject[0].id] = host_container
+                    out[non_subject[0].id] = Rect(
+                        cx=host_container.cx,
+                        cy=host_container.cy,
+                        width=0.0,
+                        height=0.0,
+                    )
                 else:
                     allocs = flex_solve(
                         [(m.id, m.role, m.preferred_size) for m in non_subject],

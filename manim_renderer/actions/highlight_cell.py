@@ -58,27 +58,33 @@ def highlight_cell(ctx: ActionContext) -> Optional[Animation]:
     timing = ctx.params.get("timing", "fast")
     run_time = TIMING[timing]
 
-    # cell_dims() is part of the PayoffMatrix public surface; if the target
-    # isn't a PayoffMatrix, this fails loudly with a clear AttributeError.
     if not hasattr(target, "cell_dims"):
         raise ValueError(
             f"highlightCell target {target_id!r} is not a PayoffMatrix-shaped "
             f"component (missing cell_dims/get_anchor); got {type(target).__name__}"
         )
 
-    cell_center = target.get_anchor(f"cell:{i},{j}")
-    cell_w, cell_h = target.cell_dims()
+    def _build(host) -> Rectangle:
+        # Re-query the host's geometry on each invocation. When restage
+        # rebuilds the overlay against a synthetic host at the target
+        # state, this returns the cell's new center + size.
+        cell_center = host.get_anchor(f"cell:{i},{j}")
+        cell_w, cell_h = host.cell_dims()
+        rect = Rectangle(
+            width=cell_w,
+            height=cell_h,
+            color=hex_color,
+            stroke_width=3.0,
+            fill_color=hex_color,
+            fill_opacity=0.30,
+        )
+        rect.move_to(np.asarray(cell_center))
+        return rect
 
-    overlay = Rectangle(
-        width=cell_w,
-        height=cell_h,
-        color=hex_color,
-        stroke_width=3.0,
-        fill_color=hex_color,
-        fill_opacity=0.30,
+    overlay = _build(target)
+    ctx.register_overlay(
+        target_id, overlay,
+        overlay_id=ctx.params.get("id"),
+        rebuild=_build,
     )
-    overlay.move_to(np.asarray(cell_center))
-    # Phase 1.5: track overlay against host so removeComponent cleans it.
-    # Optional `id` exposes the overlay as a top-level id (3b).
-    ctx.register_overlay(target_id, overlay, overlay_id=ctx.params.get("id"))
     return FadeIn(overlay, run_time=run_time)

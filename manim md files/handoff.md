@@ -1,10 +1,53 @@
-# handoff.md — Phase 1 → Phase 2
+# handoff.md
 
-Read this first if you are picking up work after Phase 1.
+Read this first if you are picking up work on the Manim engine.
 
 ---
 
-## TL;DR
+## Current architecture seams (as of round 4)
+
+Phase 1 + Phase 2 (Roles + Restaging) shipped. Four follow-up rounds
+refined the placement, motion, and validator surfaces in response to
+visual feedback. The seams a new agent will most often touch:
+
+- **`manim_renderer/layouts/base.py`** — `Layout.solve(cast)` is the
+  placement engine. Lone primary returns a position-only sentinel
+  (width=0/height=0); subject-bound annotations pack with their host
+  via `_pack_host_with_subject`; one-occupied-slot layouts reflow to
+  the full frame via `_full_frame_container`. `PRIMARY_SLOT` maps each
+  layout to its default content slot for overlay auto-bind.
+- **`manim_renderer/scene.py:_restage`** — FLIP pass that captures
+  state, asks `_compute_target_rects` for a plan, animates host
+  transforms plus mutation overlay rebuilds via `Transform(old,
+  recipe(synthetic_host))`. Reads the position-only sentinel and
+  skips scale when present. `GEOPOAI_DEBUG=1` emits a per-event trace.
+- **`manim_renderer/scene.py:_dispatch_component`** — anchor + subject
+  callouts unified: both inherit the host's slot, color, and trigger
+  reflow + leader re-anchor. Auto-binds overlays with no slot/anchor/
+  subject to `PRIMARY_SLOT[layout]`.
+- **`manim_renderer/actions/_context.py:register_overlay`** — accepts
+  an optional `rebuild=` callable. Mutation actions
+  (`highlight_cell`, `cross_out`, `best_response_arrow`) all attach
+  one so the restage walker can rebuild the overlay against the
+  host's new geometry.
+- **`manim_renderer/actions/set_layout.py`** — swaps `scene._layout`
+  mid-scene. Components from the slots block (provenance tracked in
+  `scene._slot_origin_by_id`) auto-hide when their slot disappears on
+  the new layout.
+- **`manim_renderer/resolvers/subject_color.py`** — `inherit_subject_color`
+  reads each component's `palette_color` attribute (set in `build()`)
+  to derive the callout border color. Works for top-level components
+  AND MetricGroup child stats.
+- **`scripts/manim/debug_replay.py`** — walks a scene JSON event-by-
+  event using the same cast + solver state machine, prints the plan,
+  doesn't touch Manim.
+
+The detailed model is in `AGENT.md` under "Current placement model".
+Decision rationale is in `recap.md` §22d.
+
+---
+
+## TL;DR (historical)
 
 Phase 1 (core component library + 8 layouts + 4 mutation actions + 4-tier
 schema validation) is **complete**. Both `prisoners_dilemma.json` and
