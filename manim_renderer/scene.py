@@ -308,12 +308,13 @@ class JSONScene(MovingCameraScene):
                     "slots" if slot_name is not None else "overlays"
                 )
 
-            # callouts inherit the host's slot so the
-            # solver can carve a side region for them and shrink the host.
-            # Works for both subject:-based and anchor:-based callouts —
-            # the only difference is which side the callout takes (subject
-            # = solver picks; anchor = explicit token).
-            if action == "showCalloutBox" and not slot_name:
+            # Callouts inherit subject-pack semantics from their host
+            # whenever a subject/anchor is present — even when the author
+            # also specified an explicit `slot`. Without this, a callout
+            # written as `{slot:"body", subject:"bars"}` would be treated
+            # as a peer of bars (both flexed inside body) and drift on
+            # restage instead of packing as host+callout pair.
+            if action == "showCalloutBox":
                 callout_host_id: str | None = None
                 if subject:
                     from manim_renderer.resolvers.subject_placement import (
@@ -325,7 +326,13 @@ class JSONScene(MovingCameraScene):
                 if callout_host_id is not None:
                     host_slot = self._id_to_slot.get(callout_host_id)
                     if host_slot is not None:
-                        self._id_to_slot[component.id] = host_slot
+                        # Inherit only when the author didn't pick one
+                        # explicitly. An author-set slot wins so multi-slot
+                        # custom placements stay honored, but the subject
+                        # host link is recorded either way so the solver
+                        # packs them when they share a slot.
+                        if not slot_name:
+                            self._id_to_slot[component.id] = host_slot
                         self._subject_host_by_id[component.id] = callout_host_id
 
         # Merge child-component ids the parent exposes (e.g. MetricGroup's
@@ -488,6 +495,24 @@ class JSONScene(MovingCameraScene):
         targets = self._compute_target_rects()
         target = targets.get(new_id)
         if target is not None:
+            # Pre-apply both scale AND position so the restage identity
+            # check skips this mobject — otherwise restage would queue
+            # a scale animation, add the mobject to scene via the
+            # AnimationGroup, and the user sees the callout shrink into
+            # place before the entrance fires.
+            if target.width > 0 and target.height > 0:
+                base_w, base_h = self._restage_base_size.get(
+                    new_id,
+                    (float(getattr(new_mob, "width", 0.0) or 0.01),
+                     float(getattr(new_mob, "height", 0.0) or 0.01)),
+                )
+                target_scale = min(
+                    target.width / max(1e-4, base_w),
+                    target.height / max(1e-4, base_h),
+                    1.0,
+                )
+                if abs(target_scale - 1.0) > _RESTAGE_SCALE_TOL:
+                    new_mob.scale(target_scale)
             new_mob.move_to(target.center)
 
         consumed = self._restage("post-show", timing=timing)
