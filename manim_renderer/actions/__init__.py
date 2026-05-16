@@ -25,7 +25,6 @@ from manim_renderer.actions.highlight_cell import highlight_cell
 from manim_renderer.actions.remove_component import remove_component
 from manim_renderer.actions.set_layout import set_layout
 from manim_renderer.actions.set_role import set_role
-from manim_renderer.actions.show_callout_sequence import show_callout_sequence
 
 __all__ = [
     "ActionContext",
@@ -35,5 +34,4 @@ __all__ = [
     "best_response_arrow",
     "set_layout",
     "set_role",
-    "show_callout_sequence",
 ]

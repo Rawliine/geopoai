@@ -1,13 +1,9 @@
-"""PR Q — new QA scenes (qa_roles, qa_roles_v, qa_sequence) validate cleanly.
+"""QA scenes (qa_roles, qa_roles_v, qa_sequence) validate cleanly.
 
-These exercise the Phase 2 surface end-to-end:
   * `qa_roles.json` / `qa_roles_v.json` — role transitions via setRole +
     subject-based callouts.
-  * `qa_sequence.json` — showCalloutSequence with three callouts on a
-    PayoffMatrix.
-
-Validation must pass for every shipping scene; any [composition-fit] or
-schema regression breaks Phase 2 content authoring.
+  * `qa_sequence.json` — sequential showCalloutBox + removeComponent
+    pairs cycling through PayoffMatrix cells.
 """
 
 from __future__ import annotations

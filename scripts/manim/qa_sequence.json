@@ -30,19 +30,26 @@
     }
   },
   "overlays": [
-    { "at": 5.0, "action": "showCalloutSequence",
-      "params": {
-        "id": "iesds",
-        "callouts": [
-          { "subject": "pd:cell:1,0", "text": "If P2 cooperates, P1 prefers to defect." },
-          { "subject": "pd:cell:0,1", "text": "Symmetric on P2's side." },
-          { "subject": "pd:cell:1,1", "text": "Both defect — Nash equilibrium." }
-        ],
-        "hold_each": "slow",
-        "transition": "fast",
-        "style": "neon"
-      }
-    }
+    { "at": 5.0, "action": "showCalloutBox",
+      "params": { "id": "iesds-0", "slot": "main", "subject": "pd:cell:1,0",
+        "text": "If P2 cooperates, P1 prefers to defect.",
+        "width": 2.6, "style": "neon", "timing": "fast" } },
+    { "at": 10.0, "action": "removeComponent",
+      "params": { "target": "iesds-0", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 11.0, "action": "showCalloutBox",
+      "params": { "id": "iesds-1", "slot": "main", "subject": "pd:cell:0,1",
+        "text": "Symmetric on P2's side.",
+        "width": 2.6, "style": "neon", "timing": "fast" } },
+    { "at": 16.0, "action": "removeComponent",
+      "params": { "target": "iesds-1", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 17.0, "action": "showCalloutBox",
+      "params": { "id": "iesds-2", "slot": "main", "subject": "pd:cell:1,1",
+        "text": "Both defect — Nash equilibrium.",
+        "width": 2.6, "style": "neon", "timing": "fast" } },
+    { "at": 22.0, "action": "removeComponent",
+      "params": { "target": "iesds-2", "effect": "fade-out", "timing": "fast" } }
   ],
   "timeline": []
 }

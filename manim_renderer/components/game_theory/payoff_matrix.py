@@ -256,6 +256,27 @@ class PayoffMatrix(BaseComponent):
 
         self.move_to(ORIGIN)
 
+        # Snapshot the overall width AND each cell's center relative to
+        # the matrix center. `mob.copy()` doesn't update custom dict refs
+        # to point at copied submobjects, so `self._cell_rects` lookups
+        # go stale on a scaled copy. Plain numpy arrays and floats survive
+        # the copy by value, so we use them to derive cell geometry from
+        # the live matrix center + scale factor.
+        self._build_width = float(self.width) if self.width else 1.0
+        center = self.get_center()
+        self._cell_offsets: dict[tuple[int, int], np.ndarray] = {
+            key: np.asarray(rect.get_center() - center, dtype=float)
+            for key, rect in self._cell_rects.items()
+        }
+        self._row_label_offsets: list[np.ndarray] = [
+            np.asarray(lbl.get_center() - center, dtype=float)
+            for lbl in self._row_labels
+        ]
+        self._col_label_offsets: list[np.ndarray] = [
+            np.asarray(lbl.get_center() - center, dtype=float)
+            for lbl in self._col_labels
+        ]
+
     # --- bespoke entrance ---------------------------------------------------
 
     def entrance(self, effect: str, timing: str, **extra):
@@ -285,8 +306,22 @@ class PayoffMatrix(BaseComponent):
     # --- helpers (called by mutation actions) -------------------------------
 
     def cell_dims(self) -> tuple[float, float]:
-        """(width, height) of a single cell, used by highlightCell overlay sizing."""
-        return (self._cell_w, self._cell_h)
+        """(width, height) of a single cell. Reads the live overall width
+        of the matrix against the build-time snapshot to derive the
+        current scale factor — works whether this is the original mobject
+        or a scaled `.copy()` that the restage walker passes as the
+        synthetic host. `self._cell_rects` can't be trusted on a copy
+        because Manim's deep-copy doesn't rewrite custom dict refs to
+        point at the copied submobjects."""
+        scale = self._live_scale_factor()
+        return (self._cell_w * scale, self._cell_h * scale)
+
+    def _live_scale_factor(self) -> float:
+        build = getattr(self, "_build_width", 0.0)
+        current = float(self.width) if self.width else 0.0
+        if build <= 0 or current <= 0:
+            return 1.0
+        return current / build
 
     def row_player_color(self) -> str:
         return self._row_color
@@ -316,7 +351,10 @@ class PayoffMatrix(BaseComponent):
                 f"PayoffMatrix cell ({i},{j}) out of bounds "
                 f"({self._n_rows}×{self._n_cols})"
             )
-        return self._cell_rects[(i, j)].get_center()
+        offsets = getattr(self, "_cell_offsets", None)
+        if offsets is None:
+            return self._cell_rects[(i, j)].get_center()
+        return self.get_center() + offsets[(i, j)] * self._live_scale_factor()
 
     def _get_anchor_row(self, arg: str) -> np.ndarray:
         """`row:i` -> center of the row's left edge (where the row label sits)."""
@@ -326,7 +364,10 @@ class PayoffMatrix(BaseComponent):
             raise KeyError(f"PayoffMatrix row anchor expects an int; got {arg!r}")
         if not 0 <= i < self._n_rows:
             raise KeyError(f"PayoffMatrix row {i} out of range [0, {self._n_rows})")
-        return self._row_labels[i].get_center()
+        offsets = getattr(self, "_row_label_offsets", None)
+        if offsets is None:
+            return self._row_labels[i].get_center()
+        return self.get_center() + offsets[i] * self._live_scale_factor()
 
     def _get_anchor_col(self, arg: str) -> np.ndarray:
         """`col:j` -> center of the column's top edge (where the col label sits)."""
@@ -336,4 +377,7 @@ class PayoffMatrix(BaseComponent):
             raise KeyError(f"PayoffMatrix col anchor expects an int; got {arg!r}")
         if not 0 <= j < self._n_cols:
             raise KeyError(f"PayoffMatrix col {j} out of range [0, {self._n_cols})")
-        return self._col_labels[j].get_center()
+        offsets = getattr(self, "_col_label_offsets", None)
+        if offsets is None:
+            return self._col_labels[j].get_center()
+        return self.get_center() + offsets[j] * self._live_scale_factor()

@@ -31,7 +31,6 @@ from manim_renderer.actions import (
     remove_component,
     set_layout,
     set_role,
-    show_callout_sequence,
 )
 from manim_renderer.components.data_viz.bar_chart import BarChart
 from manim_renderer.components.data_viz.line_chart import LineChart
@@ -64,7 +63,6 @@ ACTION_REGISTRY: dict[str, Callable[[ActionContext], Optional[Animation]]] = {
     "bestResponseArrow":   best_response_arrow,
     "setLayout":           set_layout,
     "setRole":             set_role,
-    "showCalloutSequence": show_callout_sequence,
 }
 
 # Back-compat alias — same dict identity. Will be removed once nothing imports it.

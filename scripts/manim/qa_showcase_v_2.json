@@ -56,20 +56,33 @@
         "size": "medium", "timing": "slow", "effect": "level-by-level",
         "role": "primary" } },
 
-    { "at": 20.0, "action": "showCalloutSequence",
-      "params": { "id": "seq",
-        "style": "neon", "hold_each": "slow", "transition": "fast",
-        "callouts": [
-          { "subject": "pd:cell:0,0", "text": "Both cooperate.",
-            "width": 4.5 },
-          { "subject": "pd:cell:1,0", "text": "Alice defects.",
-            "width": 4.5 },
-          { "subject": "pd:cell:0,1", "text": "Bob defects.",
-            "width": 4.5 },
-          { "subject": "pd:cell:1,1", "text": "Nash equilibrium.",
-            "width": 4.5 }
-        ]
-      } },
+    { "at": 20.0, "action": "showCalloutBox",
+      "params": { "id": "pd-seq-0", "slot": "main", "subject": "pd:cell:0,0",
+        "text": "Both cooperate.", "width": 4.5,
+        "style": "neon", "timing": "fast" } },
+    { "at": 26.5, "action": "removeComponent",
+      "params": { "target": "pd-seq-0", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 27.5, "action": "showCalloutBox",
+      "params": { "id": "pd-seq-1", "slot": "main", "subject": "pd:cell:1,0",
+        "text": "Alice defects.", "width": 4.5,
+        "style": "neon", "timing": "fast" } },
+    { "at": 34.0, "action": "removeComponent",
+      "params": { "target": "pd-seq-1", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 35.0, "action": "showCalloutBox",
+      "params": { "id": "pd-seq-2", "slot": "main", "subject": "pd:cell:0,1",
+        "text": "Bob defects.", "width": 4.5,
+        "style": "neon", "timing": "fast" } },
+    { "at": 41.5, "action": "removeComponent",
+      "params": { "target": "pd-seq-2", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 42.5, "action": "showCalloutBox",
+      "params": { "id": "pd-seq-3", "slot": "main", "subject": "pd:cell:1,1",
+        "text": "Nash equilibrium.", "width": 4.5,
+        "style": "neon", "timing": "fast" } },
+    { "at": 49.0, "action": "removeComponent",
+      "params": { "target": "pd-seq-3", "effect": "fade-out", "timing": "fast" } },
 
     { "at": 50.0, "action": "highlightCell",
       "params": { "target": "pd", "index": [1, 1], "color": "highlight",
