@@ -191,3 +191,27 @@ class BaseComponent(VGroup):
         """
         return None
 
+    def reposition(
+        self,
+        *,
+        host_mob=None,
+        format: str = "horizontal",
+    ) -> None:
+        """Hook called by the scene runner AFTER each restage Transform
+        completes. Lets a component re-anchor sub-mobjects whose geometry
+        depends on a host that just moved.
+
+        CalloutBox overrides this to redraw its leader line so the
+        endpoint stays on the host's edge after the host shrinks or
+        slides. Components without host-dependent geometry don't need it.
+
+        Args:
+            host_mob: the live host mobject (resolved via the runner's
+                `_id_to_mobject` map). Use its current bbox/edges to
+                re-anchor.
+            format: scene format ("horizontal" | "vertical").
+
+        Default: no-op.
+        """
+        return None
+

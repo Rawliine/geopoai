@@ -44,6 +44,7 @@ def remove_component(ctx: ActionContext) -> Optional[Animation]:
     for attr in (
         "_roles", "_id_to_slot", "_params_by_id", "_class_by_id",
         "_restage_base_size", "_subject_host_by_id",
+        "_slot_origin_by_id",
     ):
         bookkeeping = getattr(ctx.scene, attr, None)
         if bookkeeping is not None:

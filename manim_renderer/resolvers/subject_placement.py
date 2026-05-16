@@ -104,10 +104,15 @@ def pick_subject_side(
     frame = _frame_rect(format)
 
     if candidate_order is None:
+        # Round 3: horizontal layouts only consider horizontal sides;
+        # vertical layouts only consider vertical sides. Falling across
+        # the axis (e.g. callout above a centered host in a horizontal
+        # layout) overlaps the title row and reads as "arrow pointing
+        # the wrong way" relative to the layout's flow.
         if layout_direction == "vertical":
-            order = ("below", "above", "right-of", "left-of")
+            order = ("below", "above")
         else:
-            order = ("right-of", "left-of", "below", "above")
+            order = ("right-of", "left-of")
     else:
         order = tuple(candidate_order)
 

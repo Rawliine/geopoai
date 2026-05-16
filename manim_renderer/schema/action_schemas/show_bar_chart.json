@@ -3,53 +3,119 @@
   "title": "showBarChart.params",
   "description": "Categorical bar chart with themed axes and per-bar palette colors.",
   "type": "object",
-  "required": ["id", "data"],
+  "required": [
+    "id",
+    "data"
+  ],
   "properties": {
-    "id": { "$ref": "../scene_schema.json#/definitions/id_string" },
+    "id": {
+      "$ref": "../scene_schema.json#/definitions/id_string"
+    },
     "data": {
       "type": "array",
       "minItems": 1,
       "maxItems": 12,
       "items": {
         "type": "object",
-        "required": ["label", "value"],
+        "required": [
+          "label",
+          "value"
+        ],
         "properties": {
-          "label": { "type": "string", "minLength": 1, "maxLength": 24 },
-          "value": { "type": "number" },
-          "color": { "$ref": "../scene_schema.json#/definitions/color_role" }
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24
+          },
+          "value": {
+            "type": "number"
+          },
+          "color": {
+            "$ref": "../scene_schema.json#/definitions/color_role"
+          }
         },
         "additionalProperties": false
       }
     },
-    "size": { "$ref": "../scene_schema.json#/definitions/size_role" },
-    "value_format": { "$ref": "../scene_schema.json#/definitions/value_format" },
-    "decimals":     { "type": "integer", "minimum": 0, "maximum": 6 },
-    "symbol":       { "type": "string", "maxLength": 4 },
-    "suffix":       { "enum": ["K", "M", "B", "auto"] },
-    "show_value_labels": { "type": "boolean" },
+    "size": {
+      "$ref": "../scene_schema.json#/definitions/size_role"
+    },
+    "value_format": {
+      "$ref": "../scene_schema.json#/definitions/value_format"
+    },
+    "decimals": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 6
+    },
+    "symbol": {
+      "type": "string",
+      "maxLength": 4
+    },
+    "suffix": {
+      "enum": [
+        "K",
+        "M",
+        "B",
+        "auto"
+      ]
+    },
+    "show_value_labels": {
+      "type": "boolean"
+    },
     "y_axis": {
       "type": "object",
       "properties": {
-        "min":   { "type": "number" },
-        "max":   { "type": "number" },
-        "ticks": { "type": "integer", "minimum": 2, "maximum": 12 },
-        "label": { "type": "string", "minLength": 1, "maxLength": 32 }
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "ticks": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 12
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        }
       },
       "additionalProperties": false
     },
     "x_axis": {
       "type": "object",
       "properties": {
-        "label": { "type": "string", "minLength": 1, "maxLength": 32 }
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        }
       },
       "additionalProperties": false
     },
-    "anchor": { "$ref": "../scene_schema.json#/definitions/anchor_string" },
-    "timing": { "$ref": "../scene_schema.json#/definitions/timing_name" },
-    "effect": {
-      "enum": ["fade-in", "grow-up", "level-by-level", "count-up"]
+    "anchor": {
+      "$ref": "../scene_schema.json#/definitions/anchor_string"
     },
-    "role":   { "$ref": "../scene_schema.json#/definitions/role_name" }
+    "timing": {
+      "$ref": "../scene_schema.json#/definitions/timing_name"
+    },
+    "effect": {
+      "enum": [
+        "fade-in",
+        "grow-up",
+        "level-by-level",
+        "count-up"
+      ]
+    },
+    "role": {
+      "$ref": "../scene_schema.json#/definitions/role_name"
+    },
+    "slot": {
+      "$ref": "../scene_schema.json#/definitions/slot_name"
+    }
   },
   "additionalProperties": false
 }

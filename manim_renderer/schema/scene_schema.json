@@ -103,6 +103,17 @@
       ],
       "description": "Layout name. Some are format-specific (split=horizontal, stacked=vertical); the validator's LAYOUT_FORMATS map enforces compatibility."
     },
+    "slot_name": {
+      "enum": [
+        "main",
+        "title", "body",
+        "left", "right",
+        "top", "bottom",
+        "data",
+        "A", "B", "C"
+      ],
+      "description": "Slot name within a layout. Union of every layout's slots. The runner validates that the chosen slot exists on the active layout at dispatch time."
+    },
     "callout_style": {
       "enum": ["neon", "card", "glass", "neon-bold", "pull-quote", "inline-tag"],
       "description": "Visual style for CalloutBox. Default is 'neon'. See manim_renderer/components/narrative/_callout_styles.py. (Phase 2 / PR P: added 'neon-bold' (dominate-the-frame variant), 'pull-quote' (no bubble, accent quote marks), 'inline-tag' (chip-style label, no leader). Phase 2.0 dropped 'bracket'.)"

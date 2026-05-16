@@ -251,16 +251,39 @@ class CalloutBox(BaseComponent):
         # and rely on visual proximity instead of an explicit connector.
         if self._style_name in ("pull-quote", "inline-tag"):
             return
-        token, _ = parse_anchor(anchor)
+        # Stash the anchor + initial target for later `reposition` calls so
+        # the leader can re-anchor after restage moves the host.
+        self._anchor_token, _ = parse_anchor(anchor)
+        self._anchor_format = format
+        self._build_leader(target)
 
-        # Apply the same format flip as resolve_anchor so leader edges match
-        # the bubble's actual placement.
-        if format == "vertical":
+    # PR W2 — re-anchor the leader after a restage Transform moves the host.
+    def reposition(self, *, host_mob=None, format="horizontal"):
+        if host_mob is None:
+            return
+        if self._style_name in ("pull-quote", "inline-tag"):
+            return
+        if getattr(self, "_anchor_token", None) is None:
+            return
+        # If a leader was built before, drop it and rebuild from the new
+        # host edge. `_build_leader` re-uses the stashed format.
+        if self._leader_mob is not None:
+            self.remove(self._leader_mob)
+            self._leader_mob = None
+        self._build_leader(host_mob, format_override=format)
+
+    def _build_leader(self, target, *, format_override: str | None = None):
+        """Compute leader endpoints from current bubble and target geometry,
+        then construct + add the Arrow/Line. Shared by `position_finalized`
+        and `reposition`."""
+        token = self._anchor_token
+        fmt = format_override or getattr(self, "_anchor_format", "horizontal")
+        if fmt == "vertical":
             token = _VERTICAL_FLIP_TOKEN.get(token, token)
 
         edges = _LEADER_EDGES_HORIZONTAL.get(token)
         if edges is None:
-            return  # unknown token — no leader (defensive)
+            return
 
         bubble_edge_method, target_edge_method = edges
         bubble_pt = getattr(self._bubble_mob, bubble_edge_method)()
@@ -268,7 +291,7 @@ class CalloutBox(BaseComponent):
 
         if token == "inside":
             self._leader_endpoints = None
-            return  # bubble overlays target — no leader
+            return
 
         self._leader_endpoints = (np.asarray(bubble_pt), np.asarray(target_pt))
 

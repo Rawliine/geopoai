@@ -3,36 +3,94 @@
   "title": "showMetricGroup.params",
   "description": "A row or column of StatBlocks under one id, with shared styling.",
   "type": "object",
-  "required": ["id", "stats"],
+  "required": [
+    "id",
+    "stats"
+  ],
   "properties": {
-    "id":           { "$ref": "../scene_schema.json#/definitions/id_string" },
+    "id": {
+      "$ref": "../scene_schema.json#/definitions/id_string"
+    },
     "stats": {
       "type": "array",
       "minItems": 2,
       "maxItems": 6,
       "items": {
         "type": "object",
-        "required": ["value", "label"],
+        "required": [
+          "value",
+          "label"
+        ],
         "properties": {
-          "id":           { "$ref": "../scene_schema.json#/definitions/id_string" },
-          "value":        { "type": "number" },
-          "label":        { "type": "string", "minLength": 1 },
-          "unit":         { "type": "string", "maxLength": 8 },
-          "value_format": { "$ref": "../scene_schema.json#/definitions/value_format" },
-          "decimals":     { "type": "integer", "minimum": 0, "maximum": 6 },
-          "symbol":       { "type": "string", "maxLength": 4 },
-          "suffix":       { "enum": ["K", "M", "B", "auto"] },
-          "color":        { "$ref": "../scene_schema.json#/definitions/color_role" },
-          "size":         { "$ref": "../scene_schema.json#/definitions/size_role" },
+          "id": {
+            "$ref": "../scene_schema.json#/definitions/id_string"
+          },
+          "value": {
+            "type": "number"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1
+          },
+          "unit": {
+            "type": "string",
+            "maxLength": 8
+          },
+          "value_format": {
+            "$ref": "../scene_schema.json#/definitions/value_format"
+          },
+          "decimals": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 6
+          },
+          "symbol": {
+            "type": "string",
+            "maxLength": 4
+          },
+          "suffix": {
+            "enum": [
+              "K",
+              "M",
+              "B",
+              "auto"
+            ]
+          },
+          "color": {
+            "$ref": "../scene_schema.json#/definitions/color_role"
+          },
+          "size": {
+            "$ref": "../scene_schema.json#/definitions/size_role"
+          },
           "trend": {
             "type": "object",
-            "required": ["delta", "direction"],
+            "required": [
+              "delta",
+              "direction"
+            ],
             "properties": {
-              "delta":     { "type": "number" },
-              "direction": { "enum": ["up", "down", "flat"] },
-              "color":     { "$ref": "../scene_schema.json#/definitions/color_role" },
-              "decimals":  { "type": "integer", "minimum": 0, "maximum": 6 },
-              "unit":      { "type": "string", "maxLength": 8 }
+              "delta": {
+                "type": "number"
+              },
+              "direction": {
+                "enum": [
+                  "up",
+                  "down",
+                  "flat"
+                ]
+              },
+              "color": {
+                "$ref": "../scene_schema.json#/definitions/color_role"
+              },
+              "decimals": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 6
+              },
+              "unit": {
+                "type": "string",
+                "maxLength": 8
+              }
             },
             "additionalProperties": false
           },
@@ -40,28 +98,70 @@
             "type": "array",
             "minItems": 2,
             "maxItems": 64,
-            "items": { "type": "number" }
+            "items": {
+              "type": "number"
+            }
           }
         },
         "additionalProperties": false
       }
     },
-    "orientation":  { "enum": ["row", "column"] },
-    "spacing":      { "type": "number", "minimum": 0.0, "maximum": 4.0 },
-    "size":         { "$ref": "../scene_schema.json#/definitions/size_role" },
-    "value_format": { "$ref": "../scene_schema.json#/definitions/value_format" },
-    "color_scheme": { "enum": ["actors", "semantic", "accent"] },
-    "anchor": { "$ref": "../scene_schema.json#/definitions/anchor_string" },
-    "timing": { "$ref": "../scene_schema.json#/definitions/timing_name" },
-    "effect": {
-      "anyOf": [
-        { "$ref": "../scene_schema.json#/definitions/entrance_effect" },
-        { "const": "staggered" }
+    "orientation": {
+      "enum": [
+        "row",
+        "column"
       ]
     },
-    "stagger": { "enum": ["dense", "normal", "dramatic"] },
-    "child_effect": { "$ref": "../scene_schema.json#/definitions/entrance_effect" },
-    "role":   { "$ref": "../scene_schema.json#/definitions/role_name" }
+    "spacing": {
+      "type": "number",
+      "minimum": 0.0,
+      "maximum": 4.0
+    },
+    "size": {
+      "$ref": "../scene_schema.json#/definitions/size_role"
+    },
+    "value_format": {
+      "$ref": "../scene_schema.json#/definitions/value_format"
+    },
+    "color_scheme": {
+      "enum": [
+        "actors",
+        "semantic",
+        "accent"
+      ]
+    },
+    "anchor": {
+      "$ref": "../scene_schema.json#/definitions/anchor_string"
+    },
+    "timing": {
+      "$ref": "../scene_schema.json#/definitions/timing_name"
+    },
+    "effect": {
+      "anyOf": [
+        {
+          "$ref": "../scene_schema.json#/definitions/entrance_effect"
+        },
+        {
+          "const": "staggered"
+        }
+      ]
+    },
+    "stagger": {
+      "enum": [
+        "dense",
+        "normal",
+        "dramatic"
+      ]
+    },
+    "child_effect": {
+      "$ref": "../scene_schema.json#/definitions/entrance_effect"
+    },
+    "role": {
+      "$ref": "../scene_schema.json#/definitions/role_name"
+    },
+    "slot": {
+      "$ref": "../scene_schema.json#/definitions/slot_name"
+    }
   },
   "additionalProperties": false
 }

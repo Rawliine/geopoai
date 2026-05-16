@@ -49,27 +49,41 @@ def _member(id_: str, slot: str, role: str = "primary",
 
 
 @pytest.mark.parametrize("layout_name", list(_LAYOUT_FIXTURES.keys()))
-def test_one_primary_per_slot_centered_at_preferred_size(layout_name):
-    """PR W: a lone primary's rect is centered in its slot at the
-    member's preferred size (not the full slot rect verbatim). The
-    previous backward-compat passthrough silently swallowed role scaling."""
+def test_lone_primary_per_slot_returns_slot_rect(layout_name):
+    """PR W2: a lone primary or hero with no subject annotations gets
+    the slot rect verbatim (restores Phase 1 'title fills its slot'
+    behavior). The previous round-1 change clamped every lone member to
+    its preferred size, causing tall titles to shrink. Roles still
+    matter for supporting/ambient (see test below) and multi-member
+    slots."""
     fmt = _fmt_for(layout_name)
     layout = resolve_layout(layout_name, fmt)
     slots = _LAYOUT_FIXTURES[layout_name]
     cast = [_member(f"c{i}", s) for i, s in enumerate(slots)]
     out = layout.solve(cast)
     for i, s in enumerate(slots):
-        slot_rect = layout.slots[s]
-        rect = out[f"c{i}"]
-        # Same center as the slot.
-        assert rect.cx == pytest.approx(slot_rect.cx), (layout_name, s)
-        assert rect.cy == pytest.approx(slot_rect.cy), (layout_name, s)
-        # Preferred (2,2) is used unless the slot is smaller along the
-        # flex axis (e.g. title-body's 1.5-tall title strip clamps to 1.5).
-        assert rect.width <= 2.0 + 1e-6, (layout_name, s)
-        assert rect.height <= 2.0 + 1e-6, (layout_name, s)
-        # Never collapses to zero.
-        assert rect.width > 0 and rect.height > 0, (layout_name, s)
+        assert out[f"c{i}"] == layout.slots[s], (layout_name, s)
+
+
+@pytest.mark.parametrize("layout_name", list(_LAYOUT_FIXTURES.keys()))
+def test_lone_supporting_uses_preferred_size(layout_name):
+    """PR W2: lone supporting/ambient members still flex (the passthrough
+    is primary/hero-only). This keeps setRole-driven shrinking visible."""
+    fmt = _fmt_for(layout_name)
+    layout = resolve_layout(layout_name, fmt)
+    slot = _LAYOUT_FIXTURES[layout_name][0]
+    # Pick a preferred size strictly smaller than every slot in the
+    # fixtures so the flex result is unambiguously sub-slot regardless of
+    # which axis the layout flexes on.
+    cast = [_member("c", slot, role="supporting", size=(1.0, 0.8))]
+    out = layout.solve(cast)
+    slot_rect = layout.slots[slot]
+    rect = out["c"]
+    # Centered in slot, sized at preferred (not slot dims).
+    assert rect.cx == pytest.approx(slot_rect.cx)
+    assert rect.cy == pytest.approx(slot_rect.cy)
+    assert rect.width < slot_rect.width
+    assert rect.height < slot_rect.height
 
 
 @pytest.mark.parametrize("layout_name", list(_LAYOUT_FIXTURES.keys()))
@@ -107,13 +121,9 @@ def test_hidden_member_excluded(layout_name):
     out = layout.solve(cast)
 
     assert "ghost" not in out
-    # The lone visible primary centered at preferred size (or clamped to
-    # the smaller slot axis — see title-body's 1.5-tall title strip).
+    # PR W2: lone visible primary → slot rect verbatim.
     slot_rect = layout.slots[slots[0]]
-    rect = out["visible"]
-    assert rect.cx == pytest.approx(slot_rect.cx)
-    assert rect.cy == pytest.approx(slot_rect.cy)
-    assert rect.width > 0 and rect.height > 0
+    assert out["visible"] == slot_rect
 
 
 @pytest.mark.parametrize("layout_name", list(_LAYOUT_FIXTURES.keys()))
@@ -148,10 +158,9 @@ def test_title_body_title_slot_pinned():
     ]
     out = layout.solve(cast)
 
-    # Title rect centered in the title slot at preferred size.
+    # PR W2: lone primary title → slot rect verbatim.
     title_rect = layout.slots["title"]
-    assert out["hdr"].cx == pytest.approx(title_rect.cx)
-    assert out["hdr"].cy == pytest.approx(title_rect.cy)
+    assert out["hdr"] == title_rect
     # Body slot got the flex treatment — both fit inside it.
     body_rect = layout.slots["body"]
     for body_id in ("a", "b"):

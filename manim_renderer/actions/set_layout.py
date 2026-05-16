@@ -85,20 +85,33 @@ def set_layout(ctx: ActionContext) -> Optional[Animation]:
 
     scene._layout = new_layout
 
-    # Remap slot bindings. Components whose slot vanishes on the new
-    # layout migrate per `_SLOT_MIGRATION`; orphans drop to None so the
-    # solver leaves them in place (next restage may pick them up if a
-    # showCalloutBox or setRole event reassigns them).
+    # Remap slot bindings. Components from the `overlays`/`timeline` blocks
+    # whose slot vanishes on the new layout migrate per `_SLOT_MIGRATION`;
+    # orphan overlay components fall back to the first slot of the new
+    # layout. Components from the `slots` block (provenance = "slots") are
+    # PINNED — when the new layout has no compatible slot we hide them
+    # rather than dragging them into a body slot (which produced visible
+    # title drift in round 1).
     migration = _SLOT_MIGRATION.get((old_name, new_name), {})
     fallback = (sorted(new_layout.slots)[0] if new_layout.slots else None)
 
     slot_map = getattr(scene, "_id_to_slot", None)
+    origin_map = getattr(scene, "_slot_origin_by_id", None) or {}
+    roles_map = getattr(scene, "_roles", None) or {}
     if slot_map is not None:
         for ident, slot in list(slot_map.items()):
             if slot is None:
                 continue
             if slot in new_layout.slots:
                 continue  # slot name carried over verbatim
+            if origin_map.get(ident) == "slots":
+                # Slots-block component on an incompatible layout swap →
+                # hide it. Author can `setRole(target, primary)` to bring
+                # it back when they swap to a compatible layout, or
+                # `removeComponent` it for good.
+                slot_map[ident] = None
+                roles_map[ident] = "hidden"
+                continue
             new_slot = migration.get(slot, fallback)
             slot_map[ident] = new_slot
 

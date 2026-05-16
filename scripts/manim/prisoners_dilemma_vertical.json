@@ -57,7 +57,7 @@
 
     { "at": 11.5, "action": "showPayoffMatrix",
       "params": { "id": "pd",
-        "anchor": "below:title",
+        "slot": "body",
         "players": [
           { "name": "P1", "color": "actor_a" },
           { "name": "P2", "color": "actor_b" }
@@ -107,7 +107,7 @@
 
     { "at": 42.0, "action": "showBarChart",
       "params": { "id": "payoffs",
-        "anchor": "below:title",
+        "slot": "body",
         "data": [
           { "label": "C, C", "value": 3, "color": "positive" },
           { "label": "C, D", "value": 0, "color": "negative" },

@@ -27,6 +27,9 @@ Restage (Phase 2 / PR G+):
 
 from __future__ import annotations
 
+import os
+import sys
+
 import numpy as np
 from manim import AnimationGroup, MovingCameraScene
 
@@ -36,6 +39,11 @@ from manim_renderer.layouts.resolver import resolve_layout
 from manim_renderer.registry import ACTION_REGISTRY, COMPONENT_REGISTRY
 from manim_renderer.resolvers.anchor import parse_anchor, place_at_anchor
 from manim_renderer.theme.timing import TIMING
+
+# PR W2 — opt-in terminal trace. Set GEOPOAI_DEBUG=1 to print a per-restage
+# summary (cast composition + solver plan + animation count) to stderr.
+# Costs ~zero when unset (one os.environ check per restage).
+_DEBUG = bool(os.environ.get("GEOPOAI_DEBUG"))
 
 # Phase ordering for sort tiebreaks at the same `at`.
 _PHASE_SLOT = 0
@@ -92,6 +100,10 @@ class JSONScene(MovingCameraScene):
         # here so the solver can split that host's slot rect and reserve a
         # side region for the callout. Absent → static-anchor path used.
         self._subject_host_by_id: dict[str, str] = {}
+        # PR W2 — provenance per id: "slots" vs "overlays". Consumed by
+        # setLayout to keep slots-block components pinned (hidden on
+        # incompatible swaps) rather than auto-migrating to a fallback.
+        self._slot_origin_by_id: dict[str, str] = {}
 
         events = self._collect_events(scene)
 
@@ -137,6 +149,18 @@ class JSONScene(MovingCameraScene):
 
     # --- dispatch ------------------------------------------------------------
 
+    @staticmethod
+    def _anchor_host_id_from(anchor: str | None) -> str | None:
+        """Parse the host id out of an anchor string (`right-of:pd` → `pd`).
+        Returns None if the input isn't a valid anchor string."""
+        if not isinstance(anchor, str):
+            return None
+        try:
+            _, host_id = parse_anchor(anchor)
+        except ValueError:
+            return None
+        return host_id
+
     def _dispatch_component(
         self,
         action: str,
@@ -151,6 +175,25 @@ class JSONScene(MovingCameraScene):
         # different things in different schemas (typography role for TextCard,
         # resolve_size role for charts).
 
+        # Round 3 — overlay events arrive with slot_name=None. If the event
+        # also lacks anchor/subject, the solver would never place it and the
+        # mobject would render at scene origin. Auto-bind to the layout's
+        # primary content slot, or use the author-specified `params.slot`.
+        if slot_name is None:
+            explicit_slot = params.get("slot")
+            if (
+                explicit_slot is None
+                and not params.get("anchor")
+                and not params.get("subject")
+            ):
+                from manim_renderer.layouts.base import PRIMARY_SLOT
+                explicit_slot = PRIMARY_SLOT.get(self._layout.name)
+            if (
+                explicit_slot is not None
+                and self._layout.has_slot(explicit_slot)
+            ):
+                slot_name = explicit_slot
+
         # Slot-bounds hint: when a component is placed in a slot, expose the
         # slot's (width, height) so text-bearing components can auto-fit. Pass
         # via params with a leading-underscore key to mark it as internal
@@ -159,23 +202,25 @@ class JSONScene(MovingCameraScene):
         if slot_rect is not None:
             params = {**params, "_slot_bounds": (slot_rect.width, slot_rect.height)}
 
-        # PR M — subject color inheritance for callouts. When the author
-        # sets `subject` (not `anchor`) and omits `color`, walk the
-        # subject's palette position. Explicit `color` always wins, so
-        # we only patch params when both conditions hold.
+        # PR M / Round 3 — subject color inheritance for callouts. When the
+        # author omits `color`, walk the subject (or anchor target) and use
+        # the host's palette key. Explicit `params.color` always wins.
         if (
             action == "showCalloutBox"
-            and params.get("subject")
             and not params.get("color")
         ):
             from manim_renderer.resolvers.subject_color import (
                 inherit_subject_color,
             )
-            inherited = inherit_subject_color(
-                params["subject"], self._id_to_mobject,
+            inheritance_target = params.get("subject") or self._anchor_host_id_from(
+                params.get("anchor"),
             )
-            if inherited is not None:
-                params = {**params, "color": inherited}
+            if inheritance_target:
+                inherited = inherit_subject_color(
+                    inheritance_target, self._id_to_mobject,
+                )
+                if inherited is not None:
+                    params = {**params, "color": inherited}
 
         component = ComponentCls(params, format=fmt)
 
@@ -249,21 +294,34 @@ class JSONScene(MovingCameraScene):
             self._params_by_id[component.id] = clean_params
             self._class_by_id[component.id] = ComponentCls
             self._id_to_slot[component.id] = slot_name
-
-            # PR W: subject-anchored callouts inherit the host's slot so
-            # the solver can carve a side region for them and shrink the
-            # host. The host's slot is looked up after the registration
-            # above so chains of subject callouts work.
-            if (action == "showCalloutBox" and subject
-                    and not slot_name):
-                from manim_renderer.resolvers.subject_placement import (
-                    parse_subject as _ps,
+            # PR W2 — slots-block events arrive with a non-None slot_name;
+            # overlay/timeline events arrive with slot_name=None. The
+            # distinction lets setLayout keep slots-block components pinned.
+            # Tolerate test fixtures that bypass construct().
+            if hasattr(self, "_slot_origin_by_id"):
+                self._slot_origin_by_id[component.id] = (
+                    "slots" if slot_name is not None else "overlays"
                 )
-                _host_id, _ = _ps(subject)
-                host_slot = self._id_to_slot.get(_host_id)
-                if host_slot is not None:
-                    self._id_to_slot[component.id] = host_slot
-                    self._subject_host_by_id[component.id] = _host_id
+
+            # PR W / Round 3 — callouts inherit the host's slot so the
+            # solver can carve a side region for them and shrink the host.
+            # Works for both subject:-based and anchor:-based callouts —
+            # the only difference is which side the callout takes (subject
+            # = solver picks; anchor = explicit token).
+            if action == "showCalloutBox" and not slot_name:
+                callout_host_id: str | None = None
+                if subject:
+                    from manim_renderer.resolvers.subject_placement import (
+                        parse_subject as _ps,
+                    )
+                    callout_host_id, _ = _ps(subject)
+                elif anchor:
+                    callout_host_id = self._anchor_host_id_from(anchor)
+                if callout_host_id is not None:
+                    host_slot = self._id_to_slot.get(callout_host_id)
+                    if host_slot is not None:
+                        self._id_to_slot[component.id] = host_slot
+                        self._subject_host_by_id[component.id] = callout_host_id
 
         # Merge child-component ids the parent exposes (e.g. MetricGroup's
         # named stats). Same duplicate guard applies — collisions either with
@@ -341,9 +399,20 @@ class JSONScene(MovingCameraScene):
             else:
                 pref = (float(getattr(mob, "width", 0.0) or 0.01),
                         float(getattr(mob, "height", 0.0) or 0.01))
+            # Round 3 — anchor-mode callouts carry their explicit side in
+            # `params.anchor` so the solver pack respects it.
+            anchor_side = None
+            if id_ in subject_map and params is not None:
+                anchor_str = params.get("anchor")
+                if isinstance(anchor_str, str):
+                    try:
+                        anchor_side, _ = parse_anchor(anchor_str)
+                    except ValueError:
+                        anchor_side = None
             out.append(CastMember(
                 id=id_, role=role, preferred_size=pref, slot=slot,
                 subject_host_id=subject_map.get(id_),
+                anchor_side=anchor_side,
             ))
         return out
 
@@ -424,7 +493,11 @@ class JSONScene(MovingCameraScene):
             cur_h = max(1e-4, float(getattr(mob, "height", 0.0) or 0.0))
             target_scale_w = target.width / max(1e-4, base_w)
             target_scale_h = target.height / max(1e-4, base_h)
-            target_scale = min(target_scale_w, target_scale_h)
+            # Round 3 — never scale a mobject larger than its build-time
+            # size. A lone primary's slot rect can be much bigger than the
+            # mobject's natural bbox; growing it visibly distorts (the
+            # "1.20M too zoomed" complaint). Shrinking stays uncapped.
+            target_scale = min(target_scale_w, target_scale_h, 1.0)
             current_scale = max(cur_w / base_w, cur_h / base_h)
             # `mob.animate.scale(k)` is RELATIVE to current size in Manim;
             # we want absolute target_scale relative to build size, so
@@ -458,11 +531,74 @@ class JSONScene(MovingCameraScene):
                     ov_anim = ov_anim.shift(delta)
                 anims.append(ov_anim)
 
+        if _DEBUG:
+            self._debug_trace(reason, targets, len(anims), run_time)
+
         if not anims:
+            self._reposition_subject_callouts()
             return 0.0
 
         self.play(AnimationGroup(*anims))
+        # PR W2 — after the Transform completes, re-anchor each subject
+        # callout's leader to the host's new edge. Without this, the
+        # leader stays at build-time geometry and visually detaches.
+        self._reposition_subject_callouts()
         return float(run_time)
+
+    def _debug_trace(
+        self,
+        reason: str,
+        targets: dict[str, Rect],
+        num_anims: int,
+        run_time: float,
+    ) -> None:
+        """Print a multi-line restage summary to stderr. Gated by
+        GEOPOAI_DEBUG. Writes nothing to the rendered MP4."""
+        cast = self._cast()
+        renderer_time = getattr(self, "renderer", None)
+        # Manim doesn't expose a public cursor; we approximate via the
+        # restage_state snapshot timestamp. For simplicity emit "?" — the
+        # `reason` already encodes which event triggered this restage.
+        lines = [
+            f"[restage] reason={reason!r} layout={self._layout.name!r}"
+            f" cast={len(cast)} plan={len(targets)} anims={num_anims}"
+            f" run_time={run_time:.2f}s",
+        ]
+        for m in cast:
+            subject = m.subject_host_id or "-"
+            lines.append(
+                f"    {m.id:<22} role={m.role:<10} slot={str(m.slot):<8}"
+                f" subject={subject}"
+            )
+        for id_, rect in targets.items():
+            cur_mob = self._id_to_mobject.get(id_)
+            cur_w = float(getattr(cur_mob, "width", 0.0) or 0.0) if cur_mob else 0.0
+            cur_h = float(getattr(cur_mob, "height", 0.0) or 0.0) if cur_mob else 0.0
+            lines.append(
+                f"    plan {id_:<18} target=({rect.cx:+6.2f}, {rect.cy:+6.2f})"
+                f" size=({rect.width:5.2f}x{rect.height:5.2f})"
+                f" cur=({cur_w:5.2f}x{cur_h:5.2f})"
+            )
+        # Prepend \n so the block lands on its own line even when Manim's
+        # \r-based progress bars share stderr. Saved logs can still be
+        # filtered cleanly with `tr '\r' '\n' < log | grep '^\[restage\]'`.
+        sys.stderr.write("\n" + "\n".join(lines) + "\n")
+        sys.stderr.flush()
+
+    def _reposition_subject_callouts(self) -> None:
+        """Tell every subject-bound callout to rebuild its leader line
+        from the host's current edge. Called at the end of `_restage`."""
+        subject_map = getattr(self, "_subject_host_by_id", {}) or {}
+        if not subject_map:
+            return
+        for callout_id, host_id in subject_map.items():
+            callout = self._id_to_mobject.get(callout_id)
+            host = self._id_to_mobject.get(host_id)
+            if callout is None or host is None:
+                continue
+            reposition = getattr(callout, "reposition", None)
+            if callable(reposition):
+                reposition(host_mob=host, format=self._format)
 
     # --- event collection ----------------------------------------------------
 

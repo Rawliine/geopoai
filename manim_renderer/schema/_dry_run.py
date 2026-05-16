@@ -162,10 +162,12 @@ def _pick_subject_side_bbox(
     frame_w, frame_h = FRAME_BOUNDS.get(fmt, FRAME_BOUNDS["horizontal"])
     cw, ch = callout_size
 
+    # Round 3 — match `subject_placement.pick_subject_side`: horizontal
+    # layouts only consider horizontal sides, vertical only vertical.
     if layout_direction == "vertical":
-        order = ("below", "above", "right-of", "left-of")
+        order = ("below", "above")
     else:
-        order = ("right-of", "left-of", "below", "above")
+        order = ("right-of", "left-of")
 
     def fits(side: str) -> bool:
         if side == "right-of":

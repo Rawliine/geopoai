@@ -3,20 +3,35 @@
   "title": "showAllianceWeb.params",
   "description": "Nodes + edges. Deterministic circular layout. Edges by kind: alliance/rivalry/neutral.",
   "type": "object",
-  "required": ["id", "nodes"],
+  "required": [
+    "id",
+    "nodes"
+  ],
   "properties": {
-    "id": { "$ref": "../scene_schema.json#/definitions/id_string" },
+    "id": {
+      "$ref": "../scene_schema.json#/definitions/id_string"
+    },
     "nodes": {
       "type": "array",
       "minItems": 2,
       "maxItems": 12,
       "items": {
         "type": "object",
-        "required": ["id"],
+        "required": [
+          "id"
+        ],
         "properties": {
-          "id":    { "$ref": "../scene_schema.json#/definitions/id_string" },
-          "label": { "type": "string", "minLength": 1, "maxLength": 24 },
-          "color": { "$ref": "../scene_schema.json#/definitions/color_role" }
+          "id": {
+            "$ref": "../scene_schema.json#/definitions/id_string"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24
+          },
+          "color": {
+            "$ref": "../scene_schema.json#/definitions/color_role"
+          }
         },
         "additionalProperties": false
       }
@@ -26,23 +41,54 @@
       "maxItems": 64,
       "items": {
         "type": "object",
-        "required": ["from", "to"],
+        "required": [
+          "from",
+          "to"
+        ],
         "properties": {
-          "from": { "$ref": "../scene_schema.json#/definitions/id_string" },
-          "to":   { "$ref": "../scene_schema.json#/definitions/id_string" },
-          "kind": { "enum": ["alliance", "rivalry", "neutral"] }
+          "from": {
+            "$ref": "../scene_schema.json#/definitions/id_string"
+          },
+          "to": {
+            "$ref": "../scene_schema.json#/definitions/id_string"
+          },
+          "kind": {
+            "enum": [
+              "alliance",
+              "rivalry",
+              "neutral"
+            ]
+          }
         },
         "additionalProperties": false
       }
     },
-    "size": { "$ref": "../scene_schema.json#/definitions/size_role" },
-    "seed": { "type": "integer", "minimum": 0, "maximum": 1000000 },
-    "anchor": { "$ref": "../scene_schema.json#/definitions/anchor_string" },
-    "timing": { "$ref": "../scene_schema.json#/definitions/timing_name" },
-    "effect": {
-      "enum": ["fade-in", "level-by-level"]
+    "size": {
+      "$ref": "../scene_schema.json#/definitions/size_role"
     },
-    "role":   { "$ref": "../scene_schema.json#/definitions/role_name" }
+    "seed": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1000000
+    },
+    "anchor": {
+      "$ref": "../scene_schema.json#/definitions/anchor_string"
+    },
+    "timing": {
+      "$ref": "../scene_schema.json#/definitions/timing_name"
+    },
+    "effect": {
+      "enum": [
+        "fade-in",
+        "level-by-level"
+      ]
+    },
+    "role": {
+      "$ref": "../scene_schema.json#/definitions/role_name"
+    },
+    "slot": {
+      "$ref": "../scene_schema.json#/definitions/slot_name"
+    }
   },
   "additionalProperties": false
 }

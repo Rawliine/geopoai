@@ -1,11 +1,12 @@
-"""PR L — `pick_subject_side` picks the best anchor token for a callout.
+"""PR L / Round 3 — `pick_subject_side` picks the best anchor token.
 
 Contract:
-  * Horizontal: prefer `right-of`; fall back to `left-of`, then `below`,
-    then `above`.
-  * Vertical: prefer `below`; fall back to `above`, then `right-of`,
-    then `left-of`.
-  * When the preferred side is blocked by the frame edge, switch.
+  * Horizontal: prefer `right-of`; fall back to `left-of`. Never crosses
+    to above/below (Round 3) — arrows pointing along the layout axis.
+  * Vertical: prefer `below`; fall back to `above`. Never crosses to
+    right-of/left-of.
+  * If neither preferred side fits, return the last candidate (callout
+    overflows; validator catches this).
   * `parse_subject` splits subject strings reliably.
 """
 
@@ -47,10 +48,14 @@ def test_horizontal_falls_back_to_left_when_subject_hugs_right_edge():
     assert side == "left-of"
 
 
-def test_horizontal_falls_back_to_below_when_both_lateral_sides_blocked():
+def test_horizontal_never_crosses_to_vertical_sides():
+    """Round 3: horizontal layouts never fall back to above/below. When
+    neither lateral side fits, the picker still returns a lateral
+    side (left-of as the last candidate) — the solver clamps. Crossing
+    to vertical would fight the layout's reading direction."""
     subject = _rect(0.0, 0.0, w=14.0, h=1.0)  # nearly fills frame width
     side = pick_subject_side(subject, "horizontal", callout_size=(3.0, 1.0))
-    assert side == "below"
+    assert side in ("right-of", "left-of")
 
 
 # --- vertical preferences -----------------------------------------------
@@ -82,10 +87,11 @@ def test_vertical_falls_back_to_above_when_subject_hugs_bottom():
 def test_picker_always_returns_a_known_token():
     """Even when nothing fits, the picker returns the last candidate so
     the caller can still place the callout (it will overflow, validator
-    in PR N catches this earlier)."""
+    in PR N catches this earlier). Round 3: only the layout-direction
+    candidates are returned."""
     subject = _rect(0.0, 0.0, w=20.0, h=20.0)  # bigger than any frame
     side = pick_subject_side(subject, "horizontal", callout_size=(3.0, 1.0))
-    assert side in ("above", "below", "left-of", "right-of")
+    assert side in ("right-of", "left-of")
 
 
 # --- parse_subject ------------------------------------------------------
