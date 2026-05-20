@@ -1,0 +1,14 @@
+{
+  "shot_id": "phase0-smoke-001",
+  "intent": "aerial view of container ships at sea at dawn",
+  "kind": "establishing",
+  "duration_seconds": 4,
+  "queries": [
+    "container ship aerial",
+    "cargo ship ocean drone",
+    "shipping vessels sea dawn"
+  ],
+  "stock_first": true,
+  "format": "horizontal",
+  "tone": "calm, observational"
+}

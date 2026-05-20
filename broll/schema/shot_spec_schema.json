@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://geopoai.local/broll/shot_spec.schema.json",
+  "title": "B-Roll Shot Spec",
+  "description": "What the orchestrator's LLM emits per shot beat. The B-roll layer consumes one of these and returns one (asset, .meta.json) pair.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["shot_id", "intent", "kind", "duration_seconds"],
+  "properties": {
+    "shot_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.\\-]{0,127}$",
+      "description": "Immutable join key — propagates through asset_path, meta, attribution, logs."
+    },
+    "intent": {
+      "type": "string",
+      "minLength": 4,
+      "description": "Human-language description of what the shot should show. The verifier checks candidates against this."
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "real_named_event",
+        "real_named_person",
+        "recognizable_place",
+        "archival_pre_2010",
+        "establishing",
+        "conceptual",
+        "stylized_continuity",
+        "filler"
+      ],
+      "description": "Drives the decision matrix. See broll/lib/decision.py:DECISION_TABLE."
+    },
+    "duration_seconds": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "maximum": 60,
+      "description": "Target on-screen length. The wrapper may trim downloaded clips to duration + buffer."
+    },
+    "queries": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1},
+      "minItems": 0,
+      "maxItems": 10,
+      "description": "Pre-seeded keyword queries from the orchestrator. May be empty — keyword_generator will fill in."
+    },
+    "stock_first": {
+      "type": "boolean",
+      "description": "Orchestrator hint. The decision layer may override for kinds where AI is forbidden or required."
+    },
+    "format": {
+      "type": "string",
+      "enum": ["horizontal", "vertical", "square"]
+    },
+    "tone": {
+      "type": "string",
+      "description": "Atmospheric guidance for AI prompt assembly (e.g. 'calm, observational')."
+    },
+    "negative_intent": {
+      "type": "string",
+      "description": "Optional: what the shot must NOT contain. Used by verify + AI negative prompt."
+    },
+    "format_hint": {
+      "type": "object",
+      "description": "Optional explicit resolution / aspect hint forwarded to AI generation.",
+      "additionalProperties": false,
+      "properties": {
+        "width": {"type": "integer", "minimum": 64},
+        "height": {"type": "integer", "minimum": 64},
+        "fps": {"type": "integer", "minimum": 1, "maximum": 120}
+      }
+    }
+  }
+}

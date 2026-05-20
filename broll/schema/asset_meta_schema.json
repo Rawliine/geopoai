@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://geopoai.local/broll/asset_meta.schema.json",
+  "title": "B-Roll Asset Meta",
+  "description": "Canonical .meta.json shape for every B-roll asset on disk. Companion file to <asset_path>; the absence of this file means the asset is orphaned and the audit removes it.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["shot_id", "asset_path", "kind", "source", "license"],
+  "properties": {
+    "shot_id": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9_.\\-]{0,127}$",
+      "description": "Immutable join key. Once assigned, never changes."
+    },
+    "asset_path": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Repo-relative path to the asset file (e.g. output/broll/<shot_id>.mp4)."
+    },
+    "kind": {
+      "type": "string",
+      "enum": ["stock_video", "ai_video", "ai_image"]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "url", "fetched_at"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Source identifier (wikimedia, loc, nara, archive_org, pexels, pixabay, ltx-2.3, wan-2.2, ...)."
+        },
+        "version": {
+          "type": ["string", "null"],
+          "description": "Model or dataset version where meaningful (e.g. '2.3' for LTX). Null for stock sources."
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Canonical URL of the asset on the source. For AI gen, the ComfyUI job/result URL."
+        },
+        "fetched_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 UTC timestamp of when the asset was retrieved."
+        },
+        "source_metadata": {
+          "type": "object",
+          "description": "Free-form payload from the source (search id, author, page, etc.). Not interpreted by the wrapper."
+        }
+      }
+    },
+    "license": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "attribution_required", "commercial_use_ok"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "cc-by",
+            "cc-by-sa",
+            "cc-by-nc",
+            "cc-by-nc-sa",
+            "cc0",
+            "pd",
+            "pexels",
+            "pixabay",
+            "non_commercial",
+            "unclear",
+            "ai_generated"
+          ]
+        },
+        "attribution_required": {"type": "boolean"},
+        "attribution_text": {"type": ["string", "null"]},
+        "commercial_use_ok": {"type": "boolean"},
+        "license_url": {"type": ["string", "null"], "format": "uri"}
+      }
+    },
+    "verification": {
+      "anyOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["clip_score", "vision_llm_passed"],
+          "properties": {
+            "clip_score": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+            "vision_llm_passed": {"type": "boolean"},
+            "vision_llm_reason": {"type": ["string", "null"]},
+            "verifier_model": {"type": ["string", "null"]}
+          }
+        }
+      ]
+    },
+    "ai_metadata": {
+      "anyOf": [
+        {"type": "null"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["model", "prompt", "seed"],
+          "properties": {
+            "model": {"type": "string", "minLength": 1},
+            "prompt": {"type": "string", "minLength": 1},
+            "negative_prompt": {"type": ["string", "null"]},
+            "seed": {"type": "integer"},
+            "lora_stack": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["name", "strength"],
+                "properties": {
+                  "name": {"type": "string"},
+                  "strength": {"type": "number"}
+                }
+              }
+            },
+            "sampler": {"type": ["string", "null"]},
+            "steps": {"type": ["integer", "null"], "minimum": 1},
+            "resolution": {
+              "type": ["array", "null"],
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {"type": "integer", "minimum": 1}
+            },
+            "duration_seconds": {"type": ["number", "null"], "minimum": 0}
+          }
+        }
+      ]
+    },
+    "modifications": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "Ordered log of in-pipeline modifications applied after fetch (e.g. 'trimmed_to_4s', 'resized_to_1920x1080')."
+    },
+    "schema_version": {
+      "type": "string",
+      "description": "Pinning hook for future schema migrations."
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"kind": {"const": "stock_video"}}},
+      "then": {"properties": {"ai_metadata": {"type": "null"}}}
+    },
+    {
+      "if": {"properties": {"kind": {"enum": ["ai_video", "ai_image"]}}},
+      "then": {"properties": {"ai_metadata": {"type": "object"}}, "required": ["ai_metadata"]}
+    }
+  ]
+}
