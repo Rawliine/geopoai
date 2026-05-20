@@ -59,6 +59,10 @@
     },
     "slot": {
       "$ref": "../scene_schema.json#/definitions/slot_name"
+    },
+    "strict_axis": {
+      "type": "boolean",
+      "description": "When true, the vertical-format auto-flip of right-of/left-of anchors to below/above is suppressed. Use to place callouts on the literal right/left side of a target in a vertical scene (e.g., side-of-stacked-stat demos). Defaults to false (auto-flip on)."
     }
   },
   "additionalProperties": false

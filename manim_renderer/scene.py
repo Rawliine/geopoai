@@ -251,7 +251,10 @@ class JSONScene(MovingCameraScene):
                     f"anchor {anchor!r}: target id {target_id!r} not in "
                     f"registry (validator should have caught this)"
                 )
-            place_at_anchor(component, anchor_target, anchor, fmt)
+            place_at_anchor(
+                component, anchor_target, anchor, fmt,
+                strict_axis=bool(params.get("strict_axis", False)),
+            )
         elif subject:
             # solver-driven placement. Resolve the subject's
             # host, do an initial `place_at_anchor` so the callout has a

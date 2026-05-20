@@ -367,6 +367,24 @@ when chaining callouts. Long text auto-wraps to fit `width`.
 Format-aware: in vertical scenes, `right-of`/`left-of` flip to `below`/`above`
 for both the bubble position AND the leader endpoints.
 
+**Side override (`strict_axis`):**
+By default in vertical scenes, anchor tokens `right-of` and `left-of`
+auto-flip to `below` and `above` so authors stay axis-agnostic. When you
+*specifically* want a side-of-target callout in a vertical scene (e.g. to
+demo callouts to the right/left of a stat in a `trio-stack` row), pass
+`"strict_axis": true` alongside the explicit `anchor`. The flip is
+suppressed for both bubble placement AND the leader line.
+
+```json
+{ "action": "showCalloutBox", "params": {
+    "id": "side", "slot": "A",
+    "anchor": "right-of:trio-a", "strict_axis": true,
+    "text": "Right side of the row.", "style": "neon", "width": 2.4 } }
+```
+
+Leave `strict_axis` unset (or `false`) for axis-agnostic authoring — the
+default flip keeps callouts placed inside the active layout's main axis.
+
 **Style (Phase 1.5 + 2.0):**
 - `neon` (default) — no fill; **three-layer** accent stroke (outer glow +
   mid glow + tight border) traces in via `Create`, then text fades. Exit
@@ -723,6 +741,40 @@ use the right name for the format. The validator rejects mismatches.
 `split`; in vertical use `stacked`. The format-only design forces explicit
 choice — anchors auto-flip lateral direction (`right-of` → `below` in vertical),
 but layout *names* don't.
+
+**Anti-pattern — two sequential TextCards in `title-body`.**
+A `title-body` scene with a TextCard in `title` AND a sequential TextCard
+in `body` reads jarringly: while only one slot is occupied (the title
+appears first or the body appears alone), the lone-slot auto-reflow
+centers the surviving text in the full frame. When the second text fades
+in, the first jumps to its real slot to make room. When the second
+fades out, the first jumps back to center. With two text elements the
+positional flicker is visible.
+
+Prefer one of these patterns for sequential intro text:
+
+1. **Sequential cards in a single `hero` slot** (recommended for clean
+   intro/outro pairs):
+   ```json
+   { "slots": { "main": { "at": 0.0, "action": "showTextCard",
+       "params": { "id": "title", "text": "Title", "size": "title" } } },
+     "overlays": [
+       { "at": 5.0, "action": "removeComponent", "params": { "target": "title" } },
+       { "at": 6.0, "action": "showTextCard", "params": {
+           "id": "subtitle", "slot": "main",
+           "text": "Subtitle.", "size": "body" } },
+       { "at": 10.0, "action": "removeComponent", "params": { "target": "subtitle" } }
+     ] }
+   ```
+
+2. **Title-body kept with non-text body content.** The reflow looks fine
+   when the body element is a stat, chart, or matrix — the visual weight
+   difference between the title strip and the body block masks the
+   transition. The flicker is only painful with two text-on-text beats.
+
+3. **A `title-body` chapter card** (title pinned for a long beat as
+   multiple body components cycle below it) is the original use case —
+   keep using `title-body` here.
 
 ---
 

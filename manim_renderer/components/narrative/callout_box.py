@@ -134,6 +134,10 @@ class CalloutBox(BaseComponent):
         self._max_width = float(p.get("width", 4.0))
         self._draw_arrow = bool(p.get("arrow", True))
         self._color_key = p.get("color")  # palette key or None
+        # When true, suppress the vertical-format auto-flip of right-of/left-of
+        # anchor tokens (so leaders draw to the literal target side). Mirrors
+        # the same param on `place_at_anchor` in the scene runner.
+        self._strict_axis = bool(p.get("strict_axis", False))
 
         # Style dispatch (Phase 1.5).
         style_name = p.get("style", _DEFAULT_STYLE)
@@ -278,7 +282,7 @@ class CalloutBox(BaseComponent):
         and `reposition`."""
         token = self._anchor_token
         fmt = format_override or getattr(self, "_anchor_format", "horizontal")
-        if fmt == "vertical":
+        if fmt == "vertical" and not getattr(self, "_strict_axis", False):
             token = _VERTICAL_FLIP_TOKEN.get(token, token)
 
         edges = _LEADER_EDGES_HORIZONTAL.get(token)

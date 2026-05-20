@@ -164,8 +164,36 @@ class MetricGroup(BaseComponent):
         for prev, curr in zip(self._stats, self._stats[1:]):
             curr.next_to(prev, direction, buff=self._buff)
 
+        # `next_to` aligns by bbox centers, but each StatBlock's bbox center
+        # drifts based on which optional children it has (unit, trend,
+        # sparkline). Anchor every child off the canonical value-text center
+        # so the row reads as a clean baseline, not a jagged stack.
+        self._align_to_value_baseline()
+
         # Center the whole group at origin.
         self.move_to(ORIGIN)
+
+    def _align_to_value_baseline(self) -> None:
+        """Re-shift each child so its `_value_mob` center is colinear with
+        the first child's value center along the cross axis.
+        Row → align y-coords; Column → align x-coords."""
+        ref = self._stats[0]
+        ref_value = getattr(ref, "_value_mob", None)
+        if ref_value is None:
+            return
+        ref_center = ref_value.get_center()
+        for stat in self._stats[1:]:
+            value_mob = getattr(stat, "_value_mob", None)
+            if value_mob is None:
+                continue
+            curr_center = value_mob.get_center()
+            if self._orientation == "row":
+                # Match y; keep x.
+                delta = np.array([0.0, ref_center[1] - curr_center[1], 0.0])
+            else:
+                # Match x; keep y.
+                delta = np.array([ref_center[0] - curr_center[0], 0.0, 0.0])
+            stat.shift(delta)
 
     # --- child id registration -----------------------------------------------
 

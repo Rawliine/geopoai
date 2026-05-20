@@ -45,9 +45,10 @@ _AXIS_TITLE_EXTRA = 0.05  # added if that axis has a title
 _AXIS_STROKE_WIDTH = 1.5
 _TICK_LENGTH = 0.08
 _TICK_LABEL_BUFF = 0.10
-# Bumped in PR E: previously 0.18 caused the x-axis title ("Outcome",
-# "Strategy") to crowd into the x-axis tick label band, especially when
-# bar value labels for zero-value bars also sat in that area.
+# Buff between the tick-label band and the axis title. Titles are now
+# positioned RELATIVE to the tick-label band (not the bbox edge), so this
+# constant directly controls the visible gap users perceive between e.g.
+# the y-tick numbers ("80", "60") and the axis title ("%").
 _AXIS_TITLE_BUFF = 0.30
 
 # Default number of ticks if `y_axis.ticks` is omitted.
@@ -322,6 +323,9 @@ class Axes2D(VGroup):
 
     def _build_y_ticks(self, target_count: int) -> None:
         ticks = nice_ticks(self.y_min, self.y_max, target_count)
+        # Track leftmost x of the y-tick label band so the y-axis title can
+        # be placed with a clean buff to its left (instead of pinned to bbox).
+        self._y_tick_label_left = self.plot.left - _TICK_LENGTH - _TICK_LABEL_BUFF
         for v in ticks:
             y = self.value_to_y(v)
             mark = Line(
@@ -341,9 +345,15 @@ class Axes2D(VGroup):
                 y,
                 0.0,
             ]))
+            label_left = label.get_left()[0]
+            if label_left < self._y_tick_label_left:
+                self._y_tick_label_left = label_left
             self.add(mark, label)
 
     def _build_x_labels(self, target_count: int) -> None:
+        # Track the lowest y of the x-tick label band so the x-axis title
+        # can be placed below it with a clean buff (instead of pinned to bbox).
+        self._x_tick_label_bottom = self.plot.bottom - _TICK_LABEL_BUFF
         if self._categorical:
             for i, name in enumerate(self.x_categories):
                 x = self.category_to_x(i)
@@ -358,6 +368,9 @@ class Axes2D(VGroup):
                     self.plot.bottom - _TICK_LABEL_BUFF - label.height / 2,
                     0.0,
                 ]))
+                lbl_bottom = label.get_bottom()[1]
+                if lbl_bottom < self._x_tick_label_bottom:
+                    self._x_tick_label_bottom = lbl_bottom
                 self.add(label)
             return
 
@@ -381,6 +394,9 @@ class Axes2D(VGroup):
                 self.plot.bottom - _TICK_LENGTH - _TICK_LABEL_BUFF - label.height / 2,
                 0.0,
             ]))
+            lbl_bottom = label.get_bottom()[1]
+            if lbl_bottom < self._x_tick_label_bottom:
+                self._x_tick_label_bottom = lbl_bottom
             self.add(mark, label)
 
     def _build_y_title(self, text: str) -> None:
@@ -391,8 +407,17 @@ class Axes2D(VGroup):
             color=UI["text_primary"],
         )
         title.rotate(np.pi / 2)
+        # Position the y-axis title to the LEFT of the y-tick label band
+        # with a clear buff. Falls back to bbox-pinning if the title would
+        # overflow past the bbox left edge.
+        band_left = getattr(
+            self, "_y_tick_label_left", self.plot.left - _TICK_LENGTH - _TICK_LABEL_BUFF
+        )
+        title_center_x = band_left - _AXIS_TITLE_BUFF - title.width / 2
+        bbox_left_min = -self.plot.bbox_width / 2 + 0.02 + title.width / 2
+        title_center_x = max(title_center_x, bbox_left_min)
         title.move_to(np.array([
-            -self.plot.bbox_width / 2 + 0.02 + title.width / 2,
+            title_center_x,
             (self.plot.bottom + self.plot.top) / 2,
             0.0,
         ]))
@@ -405,9 +430,18 @@ class Axes2D(VGroup):
             font_size=self._title_font_size(),
             color=UI["text_primary"],
         )
+        # Position the x-axis title BELOW the x-tick label band with a clear
+        # buff. Falls back to bbox-pinning if the title would overflow past
+        # the bbox bottom edge.
+        band_bottom = getattr(
+            self, "_x_tick_label_bottom", self.plot.bottom - _TICK_LABEL_BUFF
+        )
+        title_center_y = band_bottom - _AXIS_TITLE_BUFF - title.height / 2
+        bbox_bottom_min = -self.plot.bbox_height / 2 + 0.02 + title.height / 2
+        title_center_y = max(title_center_y, bbox_bottom_min)
         title.move_to(np.array([
             (self.plot.left + self.plot.right) / 2,
-            -self.plot.bbox_height / 2 + 0.02 + title.height / 2,
+            title_center_y,
             0.0,
         ]))
         self.add(title)

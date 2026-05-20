@@ -1,0 +1,10 @@
+name: geopo-env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.15
+  - terraform
+  - pip
+  - pip:
+    - -r requirements.txt 
