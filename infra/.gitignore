@@ -1,0 +1,17 @@
+# Local Terraform clutter (never commit .terraform/)
+.terraform/
+
+# Crash diagnostics
+crash.log
+crash.*.log
+
+# State sidecars (keep terraform.tfstate itself unless you adopt a remote backend;
+# see README.md for guidance.)
+*.tfstate.backup
+.terraform.tfstate.lock.info
+
+# Local overrides experiments
+override.tf
+*_override.tf
+secrets.auto.tfvars
+*-secrets.tfvars

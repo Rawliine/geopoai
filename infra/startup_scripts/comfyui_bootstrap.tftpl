@@ -1,0 +1,77 @@
+# -----------------------------------------------------------------------------
+# ComfyUI workload body (concatenated AFTER lib_mount.sh by Terraform)
+# -----------------------------------------------------------------------------
+# Installs ComfyUI under /home/ubuntu/ComfyUI, wires model dirs to /mnt/models,
+# and starts a detached tmux session so the server survives SSH disconnects.
+#
+# Template variables (templatefile from locals.tf):
+#   - geopoai_git_repo
+#   - comfyui_listen_port
+# -----------------------------------------------------------------------------
+
+echo "[geopoai:comfyui] installing OS packages" >&2
+apt-get install -y --no-install-recommends \
+  git \
+  curl \
+  ca-certificates \
+  tmux \
+  jq \
+  rsync \
+  python3 \
+  python3-venv \
+  python3-pip
+
+sudo -u ubuntu bash <<'EOSU'
+set -euo pipefail
+cd /home/ubuntu
+
+%{ if geopoai_git_repo != "" ~}
+if [[ ! -d GeoPoAI ]]; then
+  echo "[geopoai:comfyui] cloning GeoPoAI repo"
+  git clone ${jsonencode(geopoai_git_repo)} GeoPoAI
+else
+  echo "[geopoai:comfyui] GeoPoAI directory already exists; skipping clone"
+fi
+%{ else ~}
+echo "[geopoai:comfyui] geopoai_git_repo empty — skipping GeoPoAI clone"
+%{ endif ~}
+
+if [[ ! -d ComfyUI ]]; then
+  echo "[geopoai:comfyui] cloning ComfyUI"
+  git clone https://github.com/comfyanonymous/ComfyUI.git
+fi
+
+cd ComfyUI
+if [[ ! -d .venv ]]; then
+  python3 -m venv .venv
+fi
+# shellcheck disable=SC1091
+source .venv/bin/activate
+python -m pip install --upgrade pip wheel setuptools
+python -m pip install -r requirements.txt
+
+mkdir -p models
+cd models
+# Replace heavy dirs with symlinks into the persistent volume.
+rm -rf checkpoints loras input output user || true
+ln -sfn /mnt/models/checkpoints checkpoints
+ln -sfn /mnt/models/loras loras
+ln -sfn /mnt/models/input input
+ln -sfn /mnt/models/output output
+ln -sfn /mnt/models/user user
+rm -rf diffusers controlnet || true
+ln -sfn /mnt/models/diffusers diffusers
+ln -sfn /mnt/models/controlnet controlnet
+EOSU
+
+echo "[geopoai:comfyui] starting ComfyUI in tmux (session: comfyui)" >&2
+sudo -u ubuntu bash <<EOSU2
+set -euo pipefail
+cd /home/ubuntu/ComfyUI
+# shellcheck disable=SC1091
+source .venv/bin/activate
+tmux has-session -t comfyui 2>/dev/null && tmux kill-session -t comfyui || true
+tmux new-session -d -s comfyui "cd /home/ubuntu/ComfyUI && . .venv/bin/activate && exec python main.py --listen 0.0.0.0 --port ${comfyui_listen_port}"
+EOSU2
+
+echo "[geopoai:comfyui] ComfyUI should be listening on 0.0.0.0:${comfyui_listen_port} (use SSH tunnel from laptop if needed)" >&2
