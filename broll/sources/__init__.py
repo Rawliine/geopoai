@@ -1,16 +1,31 @@
 """Stock + AI source clients.
 
-A source module exposes:
-    search(query: str, limit: int) -> list[SearchResult]   # stock only
-    fetch(result: SearchResult, target_path, *, shot_id) -> dict  # stock only
-    generate(prompt: str, seed: int, params: dict, *, shot_id, target_path) -> dict  # AI only
+Public surface
+--------------
+* ``SOURCES``: name → module mapping for the cascade walker.
+* ``CASCADE_ORDER``: stable ordering used by ``broll.lib.cascade``. The order
+  is from recap(1).md §2 — Wikimedia/LoC/NARA/Archive favour archival and
+  named content; Pexels/Pixabay are last because they're generic-modern.
+* ``SearchResult``: re-exported normalized candidate type.
 
-All disk writes must go through broll.lib.asset_wrapper. The SOURCES registry
-is used by broll/lib/cascade.py (Phase 1). Phase 0 ships only the Pexels client.
+Each source module exposes:
+    NAME = "<name>"
+    def search(query, limit, *, orientation=None) -> list[SearchResult]
+    def fetch(result, target_path, *, shot_id, verification=None) -> dict
 """
 
-from . import pexels
+from . import archive_org, loc, nara, pexels, pixabay, wikimedia
+from ._base import SearchResult
 
 SOURCES = {
-    "pexels": pexels,
+    "wikimedia":   wikimedia,
+    "loc":         loc,
+    "nara":        nara,
+    "archive_org": archive_org,
+    "pexels":      pexels,
+    "pixabay":     pixabay,
 }
+
+CASCADE_ORDER = ("wikimedia", "loc", "nara", "archive_org", "pexels", "pixabay")
+
+__all__ = ["SOURCES", "CASCADE_ORDER", "SearchResult"]

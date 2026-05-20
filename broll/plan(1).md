@@ -27,6 +27,19 @@ output/broll/<shot_id>.mp4 + .meta.json
 
 ---
 
+## Status (2026-05-21)
+
+* **Phase 0** — ✅ shipped. See `HANDOFF_PHASE_0.md`.
+* **Phase 1** — ✅ shipped (functionally). 6 sources, cascade, two-stage verify
+  (heuristic-default with optional OpenCLIP and Claude backends), rate limit,
+  disk cache, per-shot log.json. 117/117 offline tests, 5/5 enabled live tests.
+  The 30-shot ≥70% benchmark is the one remaining measurement task — tooling
+  is in place. See `HANDOFF_PHASE_1.md`.
+* **Phase 2** — pending. See "What's ready for Phase 2 to plug into" in
+  `HANDOFF_PHASE_1.md`.
+
+---
+
 ## Phase 0 — Foundation (≈3-4 days)
 
 Goal: the asset wrapper exists, every fetch produces meta, schema is locked.
