@@ -14,9 +14,10 @@ Each source module exposes:
     def fetch(result, target_path, *, shot_id, verification=None) -> dict
 """
 
-from . import archive_org, loc, nara, pexels, pixabay, wikimedia
+from . import archive_org, loc, ltx_video, nara, pexels, pixabay, wan_video, wikimedia
 from ._base import SearchResult
 
+# Stock sources — used by the cascade walker.
 SOURCES = {
     "wikimedia":   wikimedia,
     "loc":         loc,
@@ -26,6 +27,13 @@ SOURCES = {
     "pixabay":     pixabay,
 }
 
+# AI sources — invoked directly by the pipeline via ai_router. Not part of
+# the cascade. Keys match the strings returned by ``broll.lib.ai_router``.
+AI_SOURCES = {
+    "ltx-2.3":  ltx_video,
+    "wan-2.2":  wan_video,
+}
+
 CASCADE_ORDER = ("wikimedia", "loc", "nara", "archive_org", "pexels", "pixabay")
 
-__all__ = ["SOURCES", "CASCADE_ORDER", "SearchResult"]
+__all__ = ["SOURCES", "AI_SOURCES", "CASCADE_ORDER", "SearchResult"]

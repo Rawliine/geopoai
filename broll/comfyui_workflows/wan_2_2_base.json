@@ -1,0 +1,79 @@
+{
+  "_doc": "Wan 2.2 text-to-video reference workflow for broll/sources/wan_video.py. Wan uses its own checkpoint loader + text encoder; the slot markers are identical to the LTX template so the same comfyui_runtime substitution code drives both. Adjust checkpoint name if your Verda volume uses a different filename.",
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "wan-2-2-t2v.safetensors"
+    }
+  },
+  "2": {
+    "class_type": "LoraLoader",
+    "inputs": {
+      "lora_name": "<<LORA_0_NAME>>",
+      "strength_model": "<<LORA_0_STRENGTH>>",
+      "strength_clip": "<<LORA_0_STRENGTH>>",
+      "model": ["1", 0],
+      "clip": ["1", 1]
+    }
+  },
+  "3": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "<<PROMPT>>",
+      "clip": ["2", 1]
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "<<NEGATIVE_PROMPT>>",
+      "clip": ["2", 1]
+    }
+  },
+  "5": {
+    "class_type": "EmptyHunyuanLatentVideo",
+    "inputs": {
+      "width": "<<WIDTH>>",
+      "height": "<<HEIGHT>>",
+      "length": "<<NUM_FRAMES>>",
+      "batch_size": 1
+    }
+  },
+  "6": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": "<<SEED>>",
+      "steps": "<<STEPS>>",
+      "cfg": "<<CFG>>",
+      "sampler_name": "<<SAMPLER>>",
+      "scheduler": "normal",
+      "denoise": 1.0,
+      "model": ["2", 0],
+      "positive": ["3", 0],
+      "negative": ["4", 0],
+      "latent_image": ["5", 0]
+    }
+  },
+  "7": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["6", 0],
+      "vae": ["1", 2]
+    }
+  },
+  "8": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": ["7", 0],
+      "frame_rate": "<<FPS>>",
+      "loop_count": 0,
+      "filename_prefix": "<<FILENAME_PREFIX>>",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "pingpong": false,
+      "save_output": true
+    }
+  }
+}

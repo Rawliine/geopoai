@@ -32,11 +32,18 @@ output/broll/<shot_id>.mp4 + .meta.json
 * **Phase 0** — ✅ shipped. See `HANDOFF_PHASE_0.md`.
 * **Phase 1** — ✅ shipped (functionally). 6 sources, cascade, two-stage verify
   (heuristic-default with optional OpenCLIP and Claude backends), rate limit,
-  disk cache, per-shot log.json. 117/117 offline tests, 5/5 enabled live tests.
-  The 30-shot ≥70% benchmark is the one remaining measurement task — tooling
-  is in place. See `HANDOFF_PHASE_1.md`.
-* **Phase 2** — pending. See "What's ready for Phase 2 to plug into" in
+  disk cache, per-shot log.json. 30-shot ≥70% benchmark deferred. See
   `HANDOFF_PHASE_1.md`.
+* **Phase 2** — ✅ shipped (functionally). LTX-2.3 + Wan 2.2 sources sharing a
+  ComfyUI client, recipe cache, deterministic seeds, channel-aesthetic prompt
+  assembly, AI router, and a strategy dispatcher in `pipeline/broll.py` that
+  handles all 4 decision-matrix strategies (`stock_only`, `stock_first`,
+  `ai_first`, `ai_only`) with allowed fallbacks. 176/176 offline tests pass.
+  Live verification against real Verda is one env var (`BROLL_COMFYUI_URL`)
+  away. See `HANDOFF_PHASE_2.md`.
+* **Phase 3** — pending. Refinement loop should read `output/broll/*.log.json`
+  and orchestrate retries. See "What's ready for Phase 3 to plug into" in
+  `HANDOFF_PHASE_2.md`.
 
 ---
 

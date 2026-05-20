@@ -111,18 +111,22 @@ def test_hermetic_full_pipeline(monkeypatch, tmp_path, fake_cdn) -> None:
     log = tmp_path / "hermetic-001.log.json"
     assert log.exists()
     log_doc = json.loads(log.read_text())
-    assert log_doc["outcome"] == "fetched"
+    # Phase 2: outcome reflects the strategy that succeeded.
+    assert log_doc["outcome"] in ("stock_first", "stock_only")
+    assert log_doc["stock_outcome"] == "fetched"
     assert "wikimedia" in log_doc["cascade"]["by_source"]
 
 
 def test_hermetic_reject_all_writes_log(monkeypatch, tmp_path) -> None:
+    """Verifier rejects; spec is a stock-only kind so the pipeline cannot
+    fall back to AI. log.json should record the reject."""
     from broll.sources import SOURCES
     from broll.lib import rate_limit, vision_verifier
     monkeypatch.setenv("BROLL_NO_RATE_LIMIT", "1")
     monkeypatch.setenv("BROLL_NO_CACHE", "1")
+    monkeypatch.setenv("BROLL_NO_AI_CACHE", "1")
     rate_limit.reset()
 
-    # Provide one candidate but force verifier to reject everything.
     cand = SearchResult(
         id="x", source_name="pexels",
         thumbnail_url="https://t/x.jpg",
@@ -135,7 +139,6 @@ def test_hermetic_reject_all_writes_log(monkeypatch, tmp_path) -> None:
     for s in ("wikimedia", "loc", "nara", "archive_org", "pixabay"):
         monkeypatch.setattr(SOURCES[s], "search", lambda *a, **k: [])
 
-    # Force a strict heuristic verifier.
     monkeypatch.setattr(vision_verifier, "load_backend",
                         lambda prefer=None: vision_verifier.HeuristicVerifier(threshold=99.0))
 
@@ -143,12 +146,14 @@ def test_hermetic_reject_all_writes_log(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(pipeline_broll, "_OUTPUT_DIR", tmp_path)
 
     spec = {
+        # Stock-only kind: AI fallback is forbidden, so verifier-reject
+        # surfaces all the way up.
         "shot_id": "reject-001",
-        "intent": "Suez Canal aerial container shipping",
-        "kind": "establishing",
+        "intent": "Red Square parade",
+        "kind": "real_named_place" if False else "recognizable_place",
         "duration_seconds": 4,
         "format": "horizontal",
-        "queries": ["Suez Canal aerial"],
+        "queries": ["Red Square Moscow"],
     }
     with pytest.raises(Exception):
         pipeline_broll.run_shot(spec)
@@ -156,7 +161,7 @@ def test_hermetic_reject_all_writes_log(monkeypatch, tmp_path) -> None:
     log_path = tmp_path / "reject-001.log.json"
     assert log_path.exists()
     log_doc = json.loads(log_path.read_text())
-    assert log_doc["outcome"] == "reject_all"
+    assert log_doc["stock_outcome"] == "reject_all"
 
 
 # ── Live network smoke per source ───────────────────────────────────────────

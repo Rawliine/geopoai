@@ -1,0 +1,14 @@
+{
+  "_comment": "Default LoRA stack applied to every AI generation. Override per-shot via spec._lora_stack. Each entry: name (without .safetensors) + strength in [0, 1]. Strength <=0 disables the LoRA without removing it from the recipe (useful for A/B).",
+  "default": [
+    {"name": "Soft_Enhance_Style_LoRa", "strength": 0.4}
+  ],
+  "by_model": {
+    "ltx-2.3": [
+      {"name": "Soft_Enhance_Style_LoRa", "strength": 0.4}
+    ],
+    "wan-2.2": [
+      {"name": "Soft_Enhance_Style_LoRa", "strength": 0.3}
+    ]
+  }
+}
