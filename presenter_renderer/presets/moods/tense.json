@@ -1,0 +1,5 @@
+{
+  "name": "tense",
+  "notes": "Lighting mood applied by lib/lighting.py on top of scene practicals. Color grade is separate (presets/grade/). TODO: define light energies/colors/positions.",
+  "lights": []
+}

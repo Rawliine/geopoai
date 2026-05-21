@@ -1,0 +1,9 @@
+{
+  "name": "booth_close",
+  "scene_restriction": "diner",
+  "position": [1.6, -1.2, 1.5],
+  "rotation_euler": [1.45, 0, 0.25],
+  "focal_length_mm": 85,
+  "depth_of_field": { "focus_object": "Owl_Rig", "f_stop": 2.0 },
+  "notes": "tight close-up on the face for emphasis beats"
+}

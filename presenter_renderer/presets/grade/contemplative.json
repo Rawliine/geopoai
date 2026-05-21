@@ -1,0 +1,10 @@
+{
+  "name": "contemplative",
+  "notes": "Post-render color grade applied by lib/compositor.py (rule #5).",
+  "lift": [0.0, 0.0, 0.0],
+  "gamma": [1.0, 1.0, 1.0],
+  "gain": [1.0, 1.0, 1.0],
+  "grain": 0.02,
+  "vignette": 0.15,
+  "chromatic_aberration": 0.0
+}

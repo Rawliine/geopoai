@@ -1,0 +1,19 @@
+{
+  "_description": "name -> action mapping for the gesture library (AGENT.md 'How to add a gesture'). Each gesture is a Blender Action on the owl armature, ~1-3s, returning to neutral so they chain. duration in seconds; scene_restrictions null or e.g. [\"diner\"].",
+  "owl_idle_breathing":        { "duration": 4.0, "loop": true,  "scene_restrictions": null, "notes": "subtle chest movement (idle loop)" },
+  "owl_idle_micro_blink":      { "duration": 0.3, "loop": true,  "scene_restrictions": null, "notes": "blink pattern, parallel-safe" },
+  "owl_lean_in":               { "duration": 1.5, "scene_restrictions": null, "notes": "lean toward camera, returns to neutral" },
+  "owl_lean_back":             { "duration": 1.5, "scene_restrictions": null, "notes": "lean back" },
+  "owl_head_tilt_left":        { "duration": 1.0, "scene_restrictions": null, "notes": "" },
+  "owl_head_tilt_right":       { "duration": 1.0, "scene_restrictions": null, "notes": "" },
+  "owl_glance_down":           { "duration": 1.0, "scene_restrictions": null, "notes": "look at table briefly" },
+  "owl_glance_up":             { "duration": 1.0, "scene_restrictions": null, "notes": "" },
+  "owl_beak_tap":              { "duration": 0.7, "scene_restrictions": null, "notes": "small thinking beat" },
+  "owl_wings_settle":          { "duration": 2.0, "scene_restrictions": null, "notes": "rare emphasis beat" },
+  "owl_lift_coffee":           { "duration": 3.0, "scene_restrictions": ["diner"], "notes": "prop interaction" },
+  "owl_remove_glasses_thoughtful": { "duration": 2.0, "scene_restrictions": null, "notes": "gesture beat" },
+  "owl_steeple_talons":        { "duration": 1.0, "scene_restrictions": null, "notes": "contemplative" },
+  "owl_point_at_map":          { "duration": 1.5, "scene_restrictions": ["war_table"], "notes": "" },
+  "owl_shake_head_no":         { "duration": 1.2, "scene_restrictions": null, "notes": "" },
+  "owl_nod_yes":               { "duration": 1.0, "scene_restrictions": null, "notes": "" }
+}

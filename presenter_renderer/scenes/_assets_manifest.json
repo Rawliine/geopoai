@@ -1,0 +1,17 @@
+{
+  "_description": "Tracks every third-party asset used per scene file. Blend files don't carry license metadata, so this is the source of truth for attribution + license audits (AGENT.md rule #2). One entry per sourced asset.",
+  "scenes": [
+    {
+      "scene": "<name>",
+      "assets": [
+        {
+          "name": "example_asset_v1",
+          "source": "polyhaven|blenderkit|sketchfab",
+          "url": "",
+          "license": "CC0|CC-BY-4.0",
+          "attribution": ""
+        }
+      ]
+    }
+  ]
+}

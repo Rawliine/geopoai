@@ -1,0 +1,34 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Presenter shot",
+  "description": "Schema for the shot JSON the orchestrator produces (AGENT.md 'The shot JSON'). Enums are the source of truth for valid scenes/presets/gestures and act as the CI gate.",
+  "type": "object",
+  "required": ["shot_id", "scene", "duration_seconds", "camera_preset", "mood_preset", "audio_path"],
+  "properties": {
+    "shot_id":          { "type": "string" },
+    "scene":            { "enum": ["diner", "war_table"] },
+    "duration_seconds": { "type": "number", "exclusiveMinimum": 0 },
+    "camera_preset":    { "enum": ["booth_medium", "booth_close", "war_table_lean_in", "establishing"] },
+    "mood_preset":      { "enum": ["contemplative", "tense", "analytical", "conclusive"] },
+    "format":           { "enum": ["horizontal", "vertical"], "default": "horizontal" },
+    "audio_path":       { "type": "string" },
+    "timeline": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["at", "gesture"],
+        "properties": {
+          "at":      { "type": "number", "minimum": 0 },
+          "gesture": { "enum": ["owl_idle_breathing","owl_idle_micro_blink","owl_lean_in","owl_lean_back","owl_head_tilt_left","owl_head_tilt_right","owl_glance_down","owl_glance_up","owl_beak_tap","owl_wings_settle","owl_lift_coffee","owl_remove_glasses_thoughtful","owl_steeple_talons","owl_point_at_map","owl_shake_head_no","owl_nod_yes"] },
+          "loop":    { "type": "boolean" }
+        }
+      }
+    },
+    "map_texture": {
+      "type": "object",
+      "properties": { "target": { "type": "string" }, "source": { "type": "string" } }
+    },
+    "quality": { "enum": ["preview", "draft", "full"], "default": "preview" },
+    "seed":    { "type": "integer" }
+  }
+}

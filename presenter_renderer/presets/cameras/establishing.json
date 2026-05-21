@@ -1,0 +1,9 @@
+{
+  "name": "establishing",
+  "scene_restriction": null,
+  "position": [4.0, -4.0, 2.2],
+  "rotation_euler": [1.25, 0, 0.78],
+  "focal_length_mm": 35,
+  "depth_of_field": { "focus_object": "Owl_Rig", "f_stop": 5.6 },
+  "notes": "wide establishing shot of the whole set"
+}

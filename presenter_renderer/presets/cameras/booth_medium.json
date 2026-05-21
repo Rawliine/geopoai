@@ -1,0 +1,9 @@
+{
+  "name": "booth_medium",
+  "scene_restriction": "diner",
+  "position": [2.5, -1.8, 1.4],
+  "rotation_euler": [1.4, 0, 0.3],
+  "focal_length_mm": 50,
+  "depth_of_field": { "focus_object": "Owl_Rig", "f_stop": 2.8 },
+  "notes": "medium shot, owl from waist up, slight angle"
+}

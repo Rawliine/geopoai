@@ -1,0 +1,12 @@
+{
+  "_description": "Rhubarb's 9 human-mouth shapes -> owl shape-key blends (AGENT.md 'The owl viseme mapping'). Owls have a beak, not a mouth, so the mapping cheats with facial-disc feather deformation + slight beak part.",
+  "A": { "viseme_A": 1.0 },
+  "B": { "viseme_B": 0.7, "beak_part_slight": 0.3 },
+  "C": { "viseme_C": 1.0 },
+  "D": { "viseme_D": 0.8, "beak_part_slight": 0.6 },
+  "E": { "viseme_E": 0.9, "beak_part_slight": 0.4 },
+  "F": { "viseme_F": 1.0 },
+  "G": { "viseme_G": 0.8 },
+  "H": { "viseme_H": 1.0 },
+  "X": { "viseme_X": 1.0 }
+}

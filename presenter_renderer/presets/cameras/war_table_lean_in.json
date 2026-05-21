@@ -1,0 +1,9 @@
+{
+  "name": "war_table_lean_in",
+  "scene_restriction": "war_table",
+  "position": [1.9, -2.2, 1.3],
+  "rotation_euler": [1.5, 0, 0.4],
+  "focal_length_mm": 50,
+  "depth_of_field": { "focus_object": "Owl_Rig", "f_stop": 2.8 },
+  "notes": "owl leaning over the glowing tactical table"
+}
