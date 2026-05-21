@@ -46,13 +46,15 @@ export HUGGING_FACE_HUB_TOKEN="${HF_TOKEN}"
 chmod +x "${INFRA_DIR}/verda_ssh.sh" "${INFRA_DIR}/wait_for_instance_ip.sh" 2>/dev/null || true
 
 echo "[geopoai] repairing bootstrap on setup VM (run_id=${RUN_ID})..." >&2
-"${INFRA_DIR}/verda_ssh.sh" -- env \
-  GEOPOAI_GIT_REPO="${GEOPOAI_GIT_REPO}" \
-  GEOPOAI_SSH_PUBLIC_KEY_LINE="${GEOPOAI_SSH_PUBLIC_KEY_LINE}" \
-  COMFYUI_LISTEN_PORT="${COMFYUI_LISTEN_PORT}" \
-  HF_TOKEN="${HF_TOKEN}" \
-  HUGGING_FACE_HUB_TOKEN="${HF_TOKEN}" \
-  bash -s < "${INFRA_DIR}/scripts/resume_bootstrap_on_vm.sh"
+# Do not use `env KEY=ssh-ed25519 AAAA...` — spaces in the public key break remote parsing.
+{
+  printf 'export GEOPOAI_GIT_REPO=%q\n' "${GEOPOAI_GIT_REPO}"
+  printf 'export GEOPOAI_SSH_PUBLIC_KEY_LINE=%q\n' "${GEOPOAI_SSH_PUBLIC_KEY_LINE}"
+  printf 'export COMFYUI_LISTEN_PORT=%q\n' "${COMFYUI_LISTEN_PORT}"
+  printf 'export HF_TOKEN=%q\n' "${HF_TOKEN}"
+  printf 'export HUGGING_FACE_HUB_TOKEN=%q\n' "${HF_TOKEN}"
+  cat "${INFRA_DIR}/scripts/resume_bootstrap_on_vm.sh"
+} | "${INFRA_DIR}/verda_ssh.sh" -- bash -s
 
 if [[ "${WATCH}" == true ]]; then
   exec "${INFRA_DIR}/verda_ssh.sh" -- tail -f /var/log/geopoai-bootstrap.log
