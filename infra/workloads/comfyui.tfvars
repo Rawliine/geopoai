@@ -19,9 +19,16 @@ gpu_type = "1H100.80S.30V"
 # Batch / overnight jobs: true. Short interactive debugging sessions: false.
 use_spot = true
 
-# Optional: clone your fork for on-VM iteration (HTTPS or SSH URL).
-# Leave empty to skip; you can always `git clone` manually after SSH.
+# Required for first automated launch: GeoPoAI repo (SSH deploy key on instance, or HTTPS).
+# Example: geopoai_git_repo = "git@github.com:YOUR_USER/GeoPoAI.git"
 geopoai_git_repo = ""
+
+# Hugging Face read token — pass via -var or TF_VAR_huggingface_token (sensitive).
+# Accept licenses on huggingface.co for Lightricks/LTX-2.3 before first boot.
+# huggingface_token = "hf_..."
+
+# First-time setup: use on-demand (use_spot = false) so bootstrap is not interrupted.
+# use_spot = false
 
 # ComfyUI listen port (remember SSH port-forwarding if the network is untrusted).
 # comfyui_listen_port = 8188

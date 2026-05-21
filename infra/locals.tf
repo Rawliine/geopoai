@@ -27,6 +27,7 @@ locals {
     var.workload == "comfyui" ? templatefile("${path.module}/startup_scripts/comfyui_bootstrap.tftpl", {
       geopoai_git_repo    = var.geopoai_git_repo
       comfyui_listen_port = var.comfyui_listen_port
+      huggingface_token   = var.huggingface_token
     }) :
     var.workload == "lora_train" ? file("${path.module}/startup_scripts/lora_bootstrap.sh") :
     file("${path.module}/startup_scripts/render_blender.sh")

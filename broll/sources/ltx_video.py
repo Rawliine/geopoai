@@ -34,7 +34,7 @@ log = logging.getLogger("broll.sources.ltx_video")
 class LTXVideoGenerator(BaseAIGenerator):
     NAME = "ltx-2.3"
     MODEL_VERSION = "2.3"
-    WORKFLOW_FILENAME = "ltx_2_3_base.json"
+    WORKFLOW_FILENAME = "ltx_2_3_t2v.json"
     DEFAULTS = SamplingParams(
         width=1280, height=720, fps=24,
         duration_seconds=5.0,

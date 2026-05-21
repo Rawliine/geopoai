@@ -83,7 +83,13 @@ geopoai_mount_models_volume() {
   fi
 
   mkdir -p \
-    "${mp}/checkpoints" \
+    "${mp}/checkpoints/ltx" \
+    "${mp}/checkpoints/wan" \
+    "${mp}/checkpoints/flux" \
+    "${mp}/diffusion_models" \
+    "${mp}/vae" \
+    "${mp}/text_encoders" \
+    "${mp}/latent_upscale_models" \
     "${mp}/diffusers" \
     "${mp}/loras" \
     "${mp}/controlnet" \

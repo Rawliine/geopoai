@@ -1,0 +1,79 @@
+{
+  "_doc": "LTX-2.3 text-to-video (API). Requires ComfyUI-LTXVideo + VHS. Checkpoint on volume: checkpoints/ltx/ltx-2.3-22b-dev-fp8.safetensors",
+  "1": {
+    "class_type": "CheckpointLoaderSimple",
+    "inputs": {
+      "ckpt_name": "ltx/ltx-2.3-22b-dev-fp8.safetensors"
+    }
+  },
+  "2": {
+    "class_type": "LoraLoader",
+    "inputs": {
+      "lora_name": "<<LORA_0_NAME>>",
+      "strength_model": "<<LORA_0_STRENGTH>>",
+      "strength_clip": "<<LORA_0_STRENGTH>>",
+      "model": ["1", 0],
+      "clip": ["1", 1]
+    }
+  },
+  "3": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "<<PROMPT>>",
+      "clip": ["2", 1]
+    }
+  },
+  "4": {
+    "class_type": "CLIPTextEncode",
+    "inputs": {
+      "text": "<<NEGATIVE_PROMPT>>",
+      "clip": ["2", 1]
+    }
+  },
+  "5": {
+    "class_type": "EmptyLTXVLatentVideo",
+    "inputs": {
+      "width": "<<WIDTH>>",
+      "height": "<<HEIGHT>>",
+      "length": "<<NUM_FRAMES>>",
+      "batch_size": 1
+    }
+  },
+  "6": {
+    "class_type": "KSampler",
+    "inputs": {
+      "seed": "<<SEED>>",
+      "steps": "<<STEPS>>",
+      "cfg": "<<CFG>>",
+      "sampler_name": "<<SAMPLER>>",
+      "scheduler": "normal",
+      "denoise": 1.0,
+      "model": ["2", 0],
+      "positive": ["3", 0],
+      "negative": ["4", 0],
+      "latent_image": ["5", 0]
+    }
+  },
+  "7": {
+    "class_type": "VAEDecode",
+    "inputs": {
+      "samples": ["6", 0],
+      "vae": ["1", 2]
+    }
+  },
+  "8": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "images": ["7", 0],
+      "frame_rate": "<<FPS>>",
+      "loop_count": 0,
+      "filename_prefix": "<<FILENAME_PREFIX>>",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 19,
+      "save_metadata": true,
+      "pingpong": false,
+      "save_output": true
+    }
+  }
+}

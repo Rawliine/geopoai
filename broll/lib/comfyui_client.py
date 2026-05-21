@@ -87,18 +87,22 @@ class ComfyJobResult:
     raw_history: dict[str, Any] | None = None
 
     def primary_video(self) -> ComfyOutputFile | None:
-        """Best guess for the user-facing video output.
-
-        Walks ``self.files`` in node-id order and picks the first one whose
-        filename has a video extension. Falls back to the last file if no
-        clearly-video extension is found (some custom video savers strip
-        the extension).
-        """
+        """Best guess for the user-facing video output."""
         if not self.files:
             return None
         video_exts = (".mp4", ".webm", ".mov", ".mkv", ".avi", ".m4v")
         for f in self.files:
             if f.filename.lower().endswith(video_exts):
+                return f
+        return self.files[-1]
+
+    def primary_image(self) -> ComfyOutputFile | None:
+        """Best guess for a still image output (SaveImage, etc.)."""
+        if not self.files:
+            return None
+        image_exts = (".png", ".jpg", ".jpeg", ".webp")
+        for f in self.files:
+            if f.filename.lower().endswith(image_exts):
                 return f
         return self.files[-1]
 
@@ -124,6 +128,42 @@ class ComfyUIClient:
             os.environ.get("BROLL_COMFYUI_JOB_TIMEOUT_SEC", _DEFAULT_JOB_TIMEOUT)
         )
         self.poll_interval = poll_interval
+
+    def upload_image(self, image_path: Path, *, subfolder: str = "") -> dict[str, Any]:
+        """Upload a local image to ComfyUI ``input/`` for LoadImage nodes."""
+        import mimetypes
+
+        path = Path(image_path)
+        if not path.is_file():
+            raise ComfyJobError(f"upload_image: not a file: {path}")
+        mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+        boundary = f"----geopoai{uuid.uuid4().hex}"
+        body_start = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="image"; filename="{path.name}"\r\n'
+            f"Content-Type: {mime}\r\n\r\n"
+        ).encode("utf-8")
+        body_end = (
+            f"\r\n--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="subfolder"\r\n\r\n'
+            f"{subfolder}\r\n"
+            f"--{boundary}--\r\n"
+        ).encode("utf-8")
+        body = body_start + path.read_bytes() + body_end
+        req = urllib.request.Request(
+            f"{self.url}/upload/image",
+            data=body,
+            method="POST",
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "User-Agent": "GeoPoAI-broll/0.1",
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.download_timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except (urllib.error.URLError, urllib.error.HTTPError) as exc:
+            raise ComfyJobError(f"comfyui upload_image failed: {exc}") from exc
 
     # ── HTTP primitives ─────────────────────────────────────────────────────
     def _post_json(self, path: str, payload: dict[str, Any], *, timeout: float) -> dict[str, Any]:
@@ -303,17 +343,20 @@ class ComfyUIClient:
         workflow: dict[str, Any],
         *,
         download_to: Path | None = None,
+        prefer_image: bool = False,
     ) -> ComfyJobResult:
-        """Submit, poll, extract — and optionally download the primary video."""
+        """Submit, poll, extract — and optionally download the primary artifact."""
         prompt_id = self.submit(workflow)
         history = self.poll_until_done(prompt_id)
         files = self.extract_outputs(history)
         result = ComfyJobResult(prompt_id=prompt_id, files=files, raw_history=history)
         if download_to is not None:
-            primary = result.primary_video()
+            primary = result.primary_image() if prefer_image else result.primary_video()
+            if primary is None:
+                primary = result.primary_video() or result.primary_image()
             if primary is None:
                 raise ComfyJobError(
-                    f"comfyui job {prompt_id} completed but produced no recognizable video file"
+                    f"comfyui job {prompt_id} completed but produced no recognizable output file"
                 )
             self.download(primary, download_to)
         return result

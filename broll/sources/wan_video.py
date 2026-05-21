@@ -23,7 +23,7 @@ log = logging.getLogger("broll.sources.wan_video")
 class WanVideoGenerator(BaseAIGenerator):
     NAME = "wan-2.2"
     MODEL_VERSION = "2.2"
-    WORKFLOW_FILENAME = "wan_2_2_base.json"
+    WORKFLOW_FILENAME = "wan_2_2_t2v.json"
     DEFAULTS = SamplingParams(
         width=1280, height=720, fps=24,
         duration_seconds=5.0,

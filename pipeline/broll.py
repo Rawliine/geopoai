@@ -173,7 +173,7 @@ def _run_ai(spec: dict[str, Any], log_payload: dict[str, Any], *, dry_run: bool)
     internal retries). The pipeline catches and decides whether to fall
     back further.
     """
-    model = ai_router.pick_model(spec)
+    model = ai_router.pick_ai_model(spec)
     log_payload["ai"] = {"model": model}
     if model not in AI_SOURCES:
         raise BrollError(f"ai_router returned unknown model {model!r}")

@@ -31,8 +31,11 @@ log = logging.getLogger("broll.ai_router")
 
 MODEL_LTX = "ltx-2.3"
 MODEL_WAN = "wan-2.2"
+MODEL_FLUX_LTX = "flux-ltx"
 
-KNOWN_MODELS: set[str] = {MODEL_LTX, MODEL_WAN}
+KNOWN_MODELS: set[str] = {MODEL_LTX, MODEL_WAN, MODEL_FLUX_LTX}
+
+PIPELINE_FLUX_LTX_I2V = "flux_ltx_i2v"
 
 # Words that strongly suggest a face/person foreground. Lowercased substring
 # match against intent + tone + negative_intent. Conservative — false
@@ -80,6 +83,27 @@ def _explicit_override(shot_spec: dict[str, Any]) -> str | None:
             f"shot_spec._ai_model={explicit!r} is unknown; valid: {sorted(KNOWN_MODELS)}"
         )
     return explicit
+
+
+def pick_pipeline(shot_spec: dict[str, Any]) -> str | None:
+    """Return ``flux_ltx_i2v`` when shot_spec requests the chained pipeline."""
+    pipeline = shot_spec.get("_pipeline")
+    if pipeline is None:
+        return None
+    if pipeline == PIPELINE_FLUX_LTX_I2V:
+        return PIPELINE_FLUX_LTX_I2V
+    raise BrollError(f"shot_spec._pipeline={pipeline!r} is unknown")
+
+
+def pick_ai_model(shot_spec: dict[str, Any]) -> str:
+    """Pick the AI source module key (``ltx-2.3``, ``wan-2.2``, ``flux-ltx``)."""
+    if pick_pipeline(shot_spec) == PIPELINE_FLUX_LTX_I2V:
+        log.info(
+            "ai_router pick %s for shot_id=%s (flux_ltx_i2v pipeline)",
+            MODEL_FLUX_LTX, shot_spec.get("shot_id"),
+        )
+        return MODEL_FLUX_LTX
+    return pick_model(shot_spec)
 
 
 def pick_model(shot_spec: dict[str, Any]) -> str:

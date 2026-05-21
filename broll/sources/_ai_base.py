@@ -163,6 +163,9 @@ class BaseAIGenerator:
     WORKFLOW_FILENAME: ClassVar[str] = ""     # in broll/comfyui_workflows/
     DEFAULTS: ClassVar[SamplingParams] = SamplingParams()
     max_resubmits: ClassVar[int] = 2
+    # Output artifact: video (mp4) vs still image (png) for ComfyUI SaveImage workflows.
+    OUTPUT_SUFFIX: ClassVar[str] = ".mp4"
+    FINALIZE_KIND: ClassVar[str] = "ai_video"
 
     @classmethod
     def _load_workflow(cls) -> dict[str, Any]:
@@ -207,6 +210,7 @@ class BaseAIGenerator:
         params: SamplingParams,
         lora_stack: list[dict[str, Any]],
         filename_prefix: str,
+        extra: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         # Only LORA_0 is supported by the base template. Multi-LoRA requires
         # extending the workflow JSON; see HANDOFF_PHASE_2.md.
@@ -215,7 +219,7 @@ class BaseAIGenerator:
         lora_name = first_lora.get("name") or ""
         if lora_name and not lora_name.endswith((".safetensors", ".pt", ".ckpt")):
             lora_name = f"{lora_name}.safetensors"
-        return {
+        slots: dict[str, Any] = {
             "PROMPT": positive,
             "NEGATIVE_PROMPT": negative,
             "SEED": int(seed),
@@ -230,6 +234,14 @@ class BaseAIGenerator:
             "LORA_0_STRENGTH": float(first_lora.get("strength") or 0.0),
             "FILENAME_PREFIX": filename_prefix,
         }
+        if extra:
+            slots.update(extra)
+        return slots
+
+    @classmethod
+    def _extra_slots(cls, shot_spec: dict[str, Any]) -> dict[str, Any]:
+        """Hook for I2V / chained pipelines (INPUT_IMAGE, KEYFRAME_PATH, etc.)."""
+        return {}
 
     # ── Public API ──────────────────────────────────────────────────────────
     @classmethod
@@ -299,6 +311,7 @@ class BaseAIGenerator:
             params=params,
             lora_stack=assembled.lora_stack,
             filename_prefix=f"broll/{shot_id}",
+            extra=cls._extra_slots(shot_spec),
         )
         workflow = _substitute_slots(cls._load_workflow(), slots)
 
@@ -307,9 +320,9 @@ class BaseAIGenerator:
         # ``finalize`` copies (not moves) it into the target path.
         if not _cache_disabled():
             _AI_CACHE_DIR.mkdir(parents=True, exist_ok=True)
-            staging = _AI_CACHE_DIR / f"{recipe_key}.mp4"
+            staging = _AI_CACHE_DIR / f"{recipe_key}{cls.OUTPUT_SUFFIX}"
         else:
-            staging = _AI_CACHE_DIR.parent / f".uncached-{uuid.uuid4().hex}.mp4"
+            staging = _AI_CACHE_DIR.parent / f".uncached-{uuid.uuid4().hex}{cls.OUTPUT_SUFFIX}"
 
         last_exc: Exception | None = None
         for attempt in range(cls.max_resubmits + 1):
@@ -318,7 +331,11 @@ class BaseAIGenerator:
                     "ai generate shot_id=%s model=%s seed=%d attempt=%d/%d url=%s",
                     shot_id, cls.NAME, seed, attempt + 1, cls.max_resubmits + 1, comfy.url,
                 )
-                result = comfy.run(workflow, download_to=staging)
+                result = comfy.run(
+                    workflow,
+                    download_to=staging,
+                    prefer_image=cls.OUTPUT_SUFFIX != ".mp4",
+                )
                 log.info("ai generate OK shot_id=%s prompt_id=%s", shot_id, result.prompt_id)
                 break
             except comfyui_client.ComfyJobError as exc:
@@ -375,7 +392,7 @@ class BaseAIGenerator:
             local_path,
             target_path,
             shot_id=shot_id,
-            kind="ai_video",
+            kind=cls.FINALIZE_KIND,
             source={
                 "name": cls.NAME,
                 "version": cls.MODEL_VERSION,

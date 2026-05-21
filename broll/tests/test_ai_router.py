@@ -41,3 +41,9 @@ def test_explicit_override_wins() -> None:
 def test_unknown_override_raises() -> None:
     with pytest.raises(BrollError):
         ai_router.pick_model(_spec("anything", _ai_model="sora-99"))
+
+
+def test_flux_ltx_pipeline_routes_to_flux_ltx_model() -> None:
+    assert ai_router.pick_ai_model(
+        _spec("chapter card mood", _pipeline="flux_ltx_i2v")
+    ) == ai_router.MODEL_FLUX_LTX

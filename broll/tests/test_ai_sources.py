@@ -119,6 +119,45 @@ def test_unknown_slot_raises() -> None:
         _substitute_slots({"1": {"inputs": {"x": "<<MISSING>>"}}}, {})
 
 
+WORKFLOW_FILES = (
+    "ltx_2_3_t2v.json",
+    "ltx_2_3_i2v.json",
+    "wan_2_2_t2v.json",
+    "wan_2_2_i2v.json",
+    "flux_2_t2i.json",
+    "flux_ltx_i2v.json",
+)
+
+
+@pytest.mark.parametrize("filename", WORKFLOW_FILES)
+def test_api_workflow_loads_and_substitutes(filename: str) -> None:
+    from broll.sources._ai_base import _WORKFLOWS_DIR, _substitute_slots
+
+    path = _WORKFLOWS_DIR / filename
+    assert path.exists(), path
+    with path.open(encoding="utf-8") as fp:
+        doc = json.load(fp)
+    doc.pop("_doc", None)
+    slots = {
+        "PROMPT": "test prompt",
+        "NEGATIVE_PROMPT": "blur",
+        "SEED": 42,
+        "STEPS": 20,
+        "CFG": 3.5,
+        "SAMPLER": "euler",
+        "WIDTH": 1280,
+        "HEIGHT": 720,
+        "NUM_FRAMES": 121,
+        "FPS": 24,
+        "LORA_0_NAME": "",
+        "LORA_0_STRENGTH": 0.0,
+        "FILENAME_PREFIX": "broll/test",
+        "INPUT_IMAGE": "broll/keyframe.png",
+    }
+    out = _substitute_slots(doc, slots)
+    assert "<<PROMPT>>" not in json.dumps(out)
+
+
 def test_empty_lora_slot_disables_safely() -> None:
     from broll.sources._ai_base import _substitute_slots
     template = {

@@ -14,7 +14,18 @@ Each source module exposes:
     def fetch(result, target_path, *, shot_id, verification=None) -> dict
 """
 
-from . import archive_org, loc, ltx_video, nara, pexels, pixabay, wan_video, wikimedia
+from . import (
+    archive_org,
+    flux_image,
+    flux_ltx_video,
+    loc,
+    ltx_video,
+    nara,
+    pexels,
+    pixabay,
+    wan_video,
+    wikimedia,
+)
 from ._base import SearchResult
 
 # Stock sources — used by the cascade walker.
@@ -32,6 +43,8 @@ SOURCES = {
 AI_SOURCES = {
     "ltx-2.3":  ltx_video,
     "wan-2.2":  wan_video,
+    "flux-ltx": flux_ltx_video,
+    "flux-2.2": flux_image,
 }
 
 CASCADE_ORDER = ("wikimedia", "loc", "nara", "archive_org", "pexels", "pixabay")

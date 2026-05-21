@@ -89,6 +89,24 @@ Operator-oriented steps (apply, destroy, credentials) live in **`README.md`**. N
 
 ## Shell helper (root of `infra/`)
 
+### `download_models.sh`
+
+**Alone:** Idempotent Hugging Face download script for `/mnt/models` (LTX, Wan, FLUX, LoRAs); verifies file sizes; writes `.geopoai_download_complete`.
+
+**Together:** Called from `comfyui_bootstrap.tftpl` on first launch.
+
+**Does not:** Run without `HF_TOKEN`; does not install ComfyUI.
+
+---
+
+### `scripts/fetch_reference_workflows.sh`
+
+**Alone:** Maintainer script to refresh `broll/comfyui_workflows/reference/*.json` from upstream GitHub.
+
+**Together:** Optional; not run on the instance automatically.
+
+---
+
 ### `verda_ssh.sh`
 
 **Alone:** Bash script: `cd` to the directory containing the script (must be **`infra/`** where `.tf` and state live), runs **`terraform output -raw instance_ip`**, then **`exec ssh … ubuntu@$IP`**, with optional remote command arguments and `accept-new` / keepalive SSH options.
@@ -224,7 +242,7 @@ These files are **read by Terraform** (`file()` / `templatefile()`) and **never 
 | Billing caps & budget alerts | Verda account / billing UI + your discipline |
 | Auto-destroy when ComfyUI queue empty | You add a driver script or CI (not in repo) |
 | Loading `.env` for Terraform | Your shell, `direnv`, or manual `export` |
-| Downloading 10–100GB model weights | You (first time on `/mnt/models`; then volume persists) |
+| Downloading model weights | [`download_models.sh`](download_models.sh) on first comfyui boot (`huggingface_token` + `geopoai_git_repo` required) |
 | High availability / multi-node | Out of scope (single `verda_instance`) |
 | Verda API schema correctness over time | Pin provider version + run `terraform validate` / `plan` after upgrades |
 

@@ -133,20 +133,40 @@ terraform destroy \
 
 ---
 
-## First boot: populating `/mnt/models`
+## First launch (fully automated model download)
 
-The automation **creates directories** on the volume but does **not** download tens of GB of weights by default (slow, billable egress, and model choices change).
+**Volume size:** default **280 GB** (`models_volume_size_gb`) — LTX dev fp8 + Wan 14B T2V/I2V + FLUX.2 Comfy repack + LoRAs + headroom.
 
-After the first `apply`, SSH in and follow the Hugging Face / ComfyUI model steps from `verda_workflow(2).md` — typical pattern:
+Before the first `terraform apply` for ComfyUI:
+
+1. Accept Hugging Face licenses for [Lightricks/LTX-2.3](https://huggingface.co/Lightricks/LTX-2.3) (and any other gated repos you enable).
+2. Create a HF **read** token.
+3. In [`workloads/comfyui.tfvars`](workloads/comfyui.tfvars) set:
+   - `geopoai_git_repo` — SSH or HTTPS URL to this repo (bootstrap clones it for workflows + `download_models.sh`).
+   - `huggingface_token` — or pass `-var="huggingface_token=hf_..."` at apply time.
+4. For the **first** bootstrap only, prefer **`use_spot = false`** in `comfyui.tfvars` (long download; spot can interrupt).
 
 ```bash
-sudo apt-get update && sudo apt-get install -y python3-pip git-lfs
-pip install --user huggingface_hub
-mkdir -p /mnt/models/checkpoints/ltx /mnt/models/checkpoints/wan /mnt/models/checkpoints/flux
-# huggingface-cli download …  (see workflow doc for concrete repos)
+cd infra
+export VERDA_CLIENT_ID="…"
+export VERDA_CLIENT_SECRET="…"
+terraform apply \
+  -var="run_id=setup-001" \
+  -var-file="workloads/comfyui.tfvars" \
+  -var="huggingface_token=hf_…"
 ```
 
-Every future instance reuses the same volume → **no re-download**.
+Bootstrap will: install ComfyUI + custom nodes (LTXVideo, VHS, GGUF, KJNodes), symlink `/mnt/models`, run [`download_models.sh`](download_models.sh) once (writes `.geopoai_download_complete`), copy `broll/comfyui_workflows/` to the volume, start ComfyUI in tmux.
+
+Monitor: `./verda_ssh.sh -- tail -f /var/log/geopoai-bootstrap.log` (1–3 hours typical).
+
+Re-run downloads manually if needed:
+
+```bash
+sudo -u ubuntu HF_TOKEN=hf_… bash /home/ubuntu/GeoPoAI/infra/download_models.sh
+```
+
+Subsequent applies skip download when the marker file exists.
 
 ---
 

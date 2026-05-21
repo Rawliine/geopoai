@@ -74,8 +74,8 @@ variable "ssh_key_name_suffix" {
 
 variable "models_volume_size_gb" {
   type        = number
-  description = "Persistent block volume size for /mnt/models (model weights, LoRAs, datasets). Billed monthly even without a running instance."
-  default     = 200
+  description = "Persistent block volume size for /mnt/models (model weights, LoRAs, datasets). Billed monthly even without a running instance. Default 280 GB fits LTX + Wan T2V/I2V + FLUX.2 + headroom."
+  default     = 280
 }
 
 variable "models_volume_type" {
@@ -118,4 +118,11 @@ variable "comfyui_listen_port" {
   type        = number
   description = "ComfyUI --listen port (exposed on the instance LAN; secure with SSH tunnel or Verda firewall rules as appropriate)."
   default     = 8188
+}
+
+variable "huggingface_token" {
+  type        = string
+  description = "Hugging Face read token for gated model downloads on first boot (export as HF_TOKEN in bootstrap). Accept FLUX/LTX licenses on huggingface.co first. Leave empty only if models are already on the volume."
+  default     = ""
+  sensitive   = true
 }
