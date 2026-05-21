@@ -171,7 +171,7 @@ terraform destroy \
 
 Before the first `terraform apply` for ComfyUI:
 
-1. Accept Hugging Face licenses for [Lightricks/LTX-2.3](https://huggingface.co/Lightricks/LTX-2.3) (and any other gated repos you enable).
+1. Accept Hugging Face licenses for [Lightricks/LTX-2.3](https://huggingface.co/Lightricks/LTX-2.3) and [Lightricks/LTX-2.3-fp8](https://huggingface.co/Lightricks/LTX-2.3-fp8) (and any other gated repos you enable).
 2. Create a HF **read** token.
 3. In [`workloads/comfyui.tfvars`](workloads/comfyui.tfvars) set:
    - `geopoai_git_repo` — SSH or HTTPS URL to this repo (bootstrap clones it for workflows + `download_models.sh`).

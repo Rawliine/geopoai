@@ -34,7 +34,7 @@ fi
 HF_TOKEN="${HF_TOKEN:-${HUGGING_FACE_HUB_TOKEN:-}}"
 if [[ -z "${HF_TOKEN}" ]]; then
   echo "[geopoai:download] ERROR: set HF_TOKEN or HUGGING_FACE_HUB_TOKEN" >&2
-  echo "  Accept licenses: Lightricks/LTX-2.3, black-forest-labs/FLUX.2-dev (if using upstream)" >&2
+  echo "  Accept licenses: Lightricks/LTX-2.3, Lightricks/LTX-2.3-fp8, Comfy-Org/* (see HF)" >&2
   exit 1
 fi
 export HF_TOKEN HUGGING_FACE_HUB_TOKEN="${HF_TOKEN}"
@@ -77,19 +77,26 @@ dl_min() {
   echo "  [ok  ] $(basename "${path}") ($(geopoai_human_bytes "${sz}"))"
 }
 
-# ── LTX 2.3 (dev fp8 + VAE + Gemma + upscaler + refine LoRA) ─────────────────
+# ── LTX 2.3 (fp8 checkpoint + Kijai VAE/text + Comfy-Org Gemma + upscaler + LoRA) ─
+# HF layout (2026): fp8 weights live in Lightricks/LTX-2.3-fp8; VAE/text are not under
+# Lightricks/LTX-2.3 root anymore — use Kijai/LTX2.3_comfy + Comfy-Org/ltx-2 repack.
 echo ""
 echo ">>> LTX-2.3"
-dl "Lightricks/LTX-2.3" "ltx-2.3-22b-dev-fp8.safetensors" "${MODELS}/checkpoints/ltx"
-dl "Lightricks/LTX-2.3" "vae/ltx-2.3-22b-dev_video_vae.safetensors" "${MODELS}/vae"
-dl "Lightricks/LTX-2.3" "vae/ltx-2.3-22b-dev_audio_vae.safetensors" "${MODELS}/vae"
-dl "Kijai/LTX2.3_comfy" "taeltx2_3.safetensors" "${MODELS}/vae"
-dl "Lightricks/LTX-2.3" "text_encoders/ltx-2.3-22b-dev_embeddings_connectors.safetensors" "${MODELS}/text_encoders"
-dl "unsloth/gemma-3-12b-it-qat-GGUF" "gemma-3-12b-it-qat-UD-Q4_K_XL.gguf" "${MODELS}/text_encoders"
-dl "Lightricks/LTX-2.3" "ltx-2.3-spatial-upscaler-x2-1.0.safetensors" "${MODELS}/latent_upscale_models"
-dl "Lightricks/LTX-2.3" "ltx-2.3-22b-distilled-lora-384.safetensors" "${MODELS}/loras"
+LTX_MAIN="Lightricks/LTX-2.3"
+LTX_FP8="Lightricks/LTX-2.3-fp8"
+KIJAI_LTX="Kijai/LTX2.3_comfy"
+LTX_COMFY_ORG="Comfy-Org/ltx-2"
 
-# ── Wan 2.2 14B T2V + I2V (Comfy-Org repack) ─────────────────────────────────
+dl "${LTX_FP8}" "ltx-2.3-22b-dev-fp8.safetensors" "${MODELS}/checkpoints/ltx"
+dl "${KIJAI_LTX}" "vae/LTX23_video_vae_bf16.safetensors" "${MODELS}/vae"
+dl "${KIJAI_LTX}" "vae/LTX23_audio_vae_bf16.safetensors" "${MODELS}/vae"
+dl "${KIJAI_LTX}" "vae/taeltx2_3.safetensors" "${MODELS}/vae"
+dl "${KIJAI_LTX}" "text_encoders/ltx-2.3_text_projection_bf16.safetensors" "${MODELS}/text_encoders"
+dl "${LTX_COMFY_ORG}" "split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors" "${MODELS}/text_encoders"
+dl "${LTX_MAIN}" "ltx-2.3-spatial-upscaler-x2-1.1.safetensors" "${MODELS}/latent_upscale_models"
+dl "${LTX_MAIN}" "ltx-2.3-22b-distilled-lora-384-1.1.safetensors" "${MODELS}/loras"
+
+# ── Wan 2.2 14B T2V + I2V (Comfy-Org repack; paths verified on HF) ───────────
 echo ""
 echo ">>> Wan 2.2 (14B T2V + I2V)"
 WAN_REPO="Comfy-Org/Wan_2.2_ComfyUI_Repackaged"
@@ -109,14 +116,11 @@ dl "${FLUX_REPO}" "split_files/diffusion_models/flux2_dev_fp8mixed.safetensors" 
 dl "${FLUX_REPO}" "split_files/vae/flux2-vae.safetensors" "${MODELS}/vae"
 dl "${FLUX_REPO}" "split_files/text_encoders/mistral_3_small_flux2_bf16.safetensors" "${MODELS}/text_encoders"
 
-# ── Style LoRA ────────────────────────────────────────────────────────────────
+# ── Style LoRA (in addition to LTX distilled LoRA above) ─────────────────────
 echo ""
-echo ">>> LoRAs"
-# Repo may ship one or more .safetensors; download all into loras/
-hf download "vrgamedevgirl84/LTX_2.3_Soft_Enhance_Style_LoRa" \
-  --include "*.safetensors" \
-  --local-dir "${MODELS}/loras" \
-  --token "${HF_TOKEN}"
+echo ">>> LoRAs (Soft Enhance)"
+SOFT_LORA_REPO="vrgamedevgirl84/LTX_2.3_Soft_Enhance_Style_LoRa"
+dl "${SOFT_LORA_REPO}" "LTX2.3_Soft_Enhance.safetensors" "${MODELS}/loras"
 
 echo ""
 echo "=============================================="
@@ -124,8 +128,8 @@ echo " Verifying downloads"
 echo "=============================================="
 FAIL=0
 dl_min "${MODELS}/checkpoints/ltx/ltx-2.3-22b-dev-fp8.safetensors" 15000000000 || FAIL=1
-dl_min "${MODELS}/vae/ltx-2.3-22b-dev_video_vae.safetensors" 100000000 || FAIL=1
-dl_min "${MODELS}/text_encoders/gemma-3-12b-it-qat-UD-Q4_K_XL.gguf" 5000000000 || FAIL=1
+dl_min "${MODELS}/vae/LTX23_video_vae_bf16.safetensors" 100000000 || FAIL=1
+dl_min "${MODELS}/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors" 5000000000 || FAIL=1
 dl_min "${MODELS}/diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors" 5000000000 || FAIL=1
 dl_min "${MODELS}/diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors" 5000000000 || FAIL=1
 dl_min "${MODELS}/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors" 5000000000 || FAIL=1
