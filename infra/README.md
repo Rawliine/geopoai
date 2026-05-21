@@ -78,13 +78,29 @@ terraform validate        # requires successful init
 
 Always pass a fresh **`run_id`** per job so hostnames and OS volume names stay unique.
 
-### ComfyUI box (batch or interactive)
+### ComfyUI — setup (first boot: download models)
+
+Cheaper GPU + on-demand (`comfyui.tfvars` defaults). Load secrets from repo `.env`:
 
 ```bash
 cd infra
+set -a && source ../.env && set +a
+terraform apply \
+  -var="run_id=setup-001" \
+  -var-file="workloads/comfyui.tfvars"
+```
+
+Monitor: `./verda_ssh.sh -- tail -f /var/log/geopoai-bootstrap.log` (often 1–3 hours).
+
+When downloads finish, `terraform destroy` with the **same** `run_id` and var-file. The **models volume stays**.
+
+### ComfyUI — production batch (after setup)
+
+```bash
 terraform apply \
   -var="run_id=broll-ep017" \
-  -var-file="workloads/comfyui.tfvars"
+  -var-file="workloads/comfyui.tfvars" \
+  -var-file="workloads/comfyui_production.tfvars"
 ```
 
 ### LoRA training box
@@ -144,16 +160,14 @@ Before the first `terraform apply` for ComfyUI:
 3. In [`workloads/comfyui.tfvars`](workloads/comfyui.tfvars) set:
    - `geopoai_git_repo` — SSH or HTTPS URL to this repo (bootstrap clones it for workflows + `download_models.sh`).
    - `huggingface_token` — or pass `-var="huggingface_token=hf_..."` at apply time.
-4. For the **first** bootstrap only, prefer **`use_spot = false`** in `comfyui.tfvars` (long download; spot can interrupt).
+4. **`comfyui.tfvars`** is already tuned for setup (`1L40S.20V`, `use_spot = false`). Put `TF_VAR_huggingface_token=hf_…` in `.env` and `source` it before apply.
 
 ```bash
 cd infra
-export VERDA_CLIENT_ID="…"
-export VERDA_CLIENT_SECRET="…"
+set -a && source ../.env && set +a
 terraform apply \
   -var="run_id=setup-001" \
-  -var-file="workloads/comfyui.tfvars" \
-  -var="huggingface_token=hf_…"
+  -var-file="workloads/comfyui.tfvars"
 ```
 
 Bootstrap will: install ComfyUI + custom nodes (LTXVideo, VHS, GGUF, KJNodes), symlink `/mnt/models`, run [`download_models.sh`](download_models.sh) once (writes `.geopoai_download_complete`), copy `broll/comfyui_workflows/` to the volume, start ComfyUI in tmux.
@@ -216,6 +230,17 @@ This repo’s `infra/.gitignore` ignores **`.terraform/`** and crash logs. **`te
 - **Spot discipline:** checkpoint to `/mnt/models` every few minutes for training; batch renders frame-by-frame.
 - **Daily habit:** glance at the Verda dashboard for stray instances.
 - **Cost:** the **persistent volume is billed monthly** even when no VM runs — that is intentional (cheap vs re-download time).
+
+### Storage you are provisioning (monthly vs hourly)
+
+| Disk | Terraform | Size default | Type | Billed | Typical use |
+|------|-----------|--------------|------|--------|-------------|
+| **Models volume** | `verda_volume.models` | **280 GB** | **NVMe** block | **~$0.10/GB/month** (~**$28/mo** for 280 GB) while it exists | LTX + Wan + FLUX weights, LoRAs, workflow copies — **survives `destroy`** |
+| **OS / boot disk** | `verda_instance` → `os_volume` | **100 GB** | **NVMe** | With the **running instance** (ephemeral) | ComfyUI install, venv, `~/GeoPoAI` clone — **gone on destroy** |
+
+Setup on **L40S on-demand** is mostly **GPU hourly** (~$1.36/h in FIN — check dashboard) for a few hours, plus the **ongoing models volume** once Terraform creates it. After setup, destroy the VM; you still pay for the **280 GB** block volume until you delete it in Verda/Terraform.
+
+GPU **spot** savings apply only when you apply with `comfyui_production.tfvars` (H100 + spot).
 
 ---
 
