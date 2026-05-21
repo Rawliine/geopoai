@@ -13,13 +13,22 @@ output "hostname" {
 }
 
 output "instance_ip" {
-  description = "Primary IP address returned by the Verda provider for SSH."
+  description = "Primary IP address returned by the Verda provider for SSH. May be null immediately after create — run terraform refresh with the same -var/-var-file, then re-output."
   value       = verda_instance.this.ip
 }
 
 output "ssh_command" {
   description = "Copy-paste SSH command (StrictHostKeyChecking not set here — use infra/verda_ssh.sh for accept-new)."
-  value       = "ssh ubuntu@${verda_instance.this.ip}"
+  value = (
+    verda_instance.this.ip != null
+    ? "ssh ubuntu@${verda_instance.this.ip}"
+    : "ssh ubuntu@<pending>  # IP not ready yet: terraform refresh -var=run_id=... -var-file=workloads/comfyui.tfvars"
+  )
+}
+
+output "instance_id" {
+  description = "Verda instance id (useful when IP is still null right after apply)."
+  value       = verda_instance.this.id
 }
 
 output "models_volume_id" {

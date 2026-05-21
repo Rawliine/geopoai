@@ -80,17 +80,29 @@ Always pass a fresh **`run_id`** per job so hostnames and OS volume names stay u
 
 ### ComfyUI — setup (first boot: download models)
 
-Cheaper GPU + on-demand (`comfyui.tfvars` defaults). Load secrets from repo `.env`:
+**Why you see no output in the local terminal:** `terraform apply` only creates the VM. Install + model downloads run **on the server** via Verda’s startup script (`/var/log/geopoai-bootstrap.log`). Stream that log over SSH (below).
+
+**Recommended (handles delayed IP + optional live log):**
+
+```bash
+cd infra
+chmod +x apply_comfyui_setup.sh wait_for_instance_ip.sh verda_ssh.sh
+./apply_comfyui_setup.sh setup-001 --watch
+```
+
+This runs `terraform apply`, then polls until `instance_ip` exists (avoids the `ssh_command` null-IP apply error), then `tail -f` the bootstrap log.
+
+Manual equivalent:
 
 ```bash
 cd infra
 set -a && source ../.env && set +a
-terraform apply \
-  -var="run_id=setup-001" \
-  -var-file="workloads/comfyui.tfvars"
+terraform apply -var="run_id=setup-001" -var-file="workloads/comfyui.tfvars" || true
+./wait_for_instance_ip.sh -var="run_id=setup-001" -var-file="workloads/comfyui.tfvars"
+./verda_ssh.sh -- tail -f /var/log/geopoai-bootstrap.log
 ```
 
-Monitor: `./verda_ssh.sh -- tail -f /var/log/geopoai-bootstrap.log` (often 1–3 hours).
+Bootstrap often takes **1–3 hours**.
 
 When downloads finish, `terraform destroy` with the **same** `run_id` and var-file. The **models volume stays**.
 
@@ -253,7 +265,9 @@ GPU **spot** savings apply only when you apply with `comfyui_production.tfvars` 
 | ComfyUI not listening | Bootstrap failed mid-way | `/var/log/geopoai-bootstrap.log` on the VM |
 | `/mnt/models` empty after boot | Volume not attached / wrong device | `lsblk`, Verda volume attachment UI |
 | `503: Not enough resources` on apply | No free GPUs of that type in `location` | Set `location` in `comfyui.tfvars` to the region where the dashboard shows capacity (e.g. **FIN-01** vs FIN-03). Instance and `verda_volume.models` **must** use the same `location`. Change `gpu_type` to a SKU that is actually free there. |
-| `400: Operating system is not valid for this instance type` | `verda_image` incompatible with GPU (e.g. cuda-13 on V100) | Set `verda_image` in tfvars — setup uses **cuda-12.8** for V100; production H100 uses **cuda-13.0** in `comfyui_production.tfvars`. Match the image list in Verda UI for that instance type. |
+| `400: Operating system is not valid for this instance type` | `verda_image` not in that GPU’s `supported_os` list | Query: `GET https://api.verda.com/v1/instance-types` (auth via OAuth) and find `supported_os` for your `gpu_type`. Example: **V100** → `ubuntu-22.04-cuda-12.4-docker`; **H100 / RTX PRO** → `ubuntu-24.04-cuda-13.0-open-docker`. |
+| Apply “failed” but instance exists; no IP in outputs | Verda sets `ip` after create; old `ssh_command` output crashed apply | Use `./apply_comfyui_setup.sh` or `./wait_for_instance_ip.sh` then `./verda_ssh.sh`. Outputs are null-safe in `outputs.tf`. |
+| `Permission denied (publickey)` on SSH | Laptop using wrong key (e.g. `id_rsa` while Verda has `id_ed25519`) | `verda_ssh.sh` uses `-i` for the key paired with `ssh_public_key_path`. Or: `GEOPOAI_SSH_IDENTITY=~/.ssh/id_ed25519 ./verda_ssh.sh` |
 | `destroy` wants to recreate unrelated things | Different `-var-file` / `run_id` than `apply` | Re-run with identical vars |
 
 ---

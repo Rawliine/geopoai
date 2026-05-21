@@ -1,4 +1,9 @@
 .env
+
+# Terraform local state (may contain secrets from startup script interpolation)
+infra/terraform.tfstate
+infra/terraform.tfstate.backup
+infra/.terraform/
 output/
 tmp/
 data/

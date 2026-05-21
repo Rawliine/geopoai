@@ -22,8 +22,8 @@ location = "FIN-01"
 # V100 is enough for bootstrap; LTX/Wan/FLUX inference usually needs H100/RTX PRO (production tfvars).
 gpu_type = "1V100.6V"
 
-# V100 cannot use cuda-13 images — pick from Verda dashboard for this instance type if apply fails.
-verda_image = "ubuntu-24.04-cuda-12.8-open-docker"
+# V100 supported_os (Verda API): ubuntu-22.04-cuda-12.4-docker, ubuntu-24.04-cuda-12.6-docker — NOT cuda-12.8/13.
+verda_image = "ubuntu-22.04-cuda-12.4-docker"
 
 # Setup: on-demand so long bootstrap/download is not interrupted by spot eviction.
 use_spot = false
