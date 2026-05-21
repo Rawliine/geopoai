@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # download_models.sh — populate the persistent /mnt/models volume (idempotent).
-# Invoked automatically from comfyui_bootstrap.tftpl on first boot, or manually:
+# Invoked automatically from startup_scripts/comfyui_bootstrap.sh on first boot, or manually:
 #   sudo -u ubuntu HF_TOKEN=hf_... bash /home/ubuntu/GeoPoAI/infra/download_models.sh
 #
 # Prereqs:
@@ -14,6 +14,15 @@ set -euo pipefail
 MODELS="${GEOPOAI_MODELS_ROOT:-/mnt/models}"
 MARKER="${MODELS}/.geopoai_download_complete"
 MIN_BYTES_DEFAULT=50000000  # 50 MiB — catches truncated downloads
+
+geopoai_human_bytes() {
+  local sz="$1"
+  if command -v numfmt >/dev/null 2>&1; then
+    numfmt --to=iec-i --suffix=B "${sz}" 2>/dev/null || echo "${sz} B"
+  else
+    echo "${sz} B"
+  fi
+}
 
 mkdir -p "${MODELS}"/{checkpoints/ltx,checkpoints/wan,checkpoints/flux,diffusion_models,vae,text_encoders,latent_upscale_models,loras,workflows,input,output}
 
@@ -65,7 +74,7 @@ dl_min() {
     echo "[geopoai:download] TOO SMALL ${path} (${sz} bytes < ${min_bytes})" >&2
     return 1
   fi
-  echo "  [ok  ] $(basename "${path}") ($(numfmt --to=iec-i --suffix=B "${sz}" 2>/dev/null || echo "${sz} B"))"
+  echo "  [ok  ] $(basename "${path}") ($(geopoai_human_bytes "${sz}"))"
 }
 
 # ── LTX 2.3 (dev fp8 + VAE + Gemma + upscaler + refine LoRA) ─────────────────

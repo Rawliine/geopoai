@@ -57,7 +57,7 @@ Operator-oriented steps (apply, destroy, credentials) live in **`README.md`**. N
 
 **Alone:** **Derived values:** default hostname prefix per `workload`, final `hostname`, the **Verda startup script name** (includes `run_id`), the **`mount_library`** file contents, the **workload body** (either `templatefile` for ComfyUI or `file()` for LoRA/Blender), and the final **`startup_script`** string by concatenating bash preamble + mount lib + `geopoai_mount_models_volume` call + body.
 
-**Together:** This is where **“which bash runs on the VM”** is assembled. Changing workload behavior for ComfyUI usually means editing **`startup_scripts/comfyui_bootstrap.tftpl`** and/or **`locals.tf`** wiring.
+**Together:** This is where **“which bash runs on the VM”** is assembled. Changing workload behavior for ComfyUI usually means editing **`startup_scripts/comfyui_bootstrap.sh`** and/or **`locals.tf`** wiring.
 
 **Does not:** Run at apply time on your laptop (only **renders** a string for the Verda API). Does not execute shell on your machine.
 
@@ -93,7 +93,7 @@ Operator-oriented steps (apply, destroy, credentials) live in **`README.md`**. N
 
 **Alone:** Idempotent Hugging Face download script for `/mnt/models` (LTX, Wan, FLUX, LoRAs); verifies file sizes; writes `.geopoai_download_complete`.
 
-**Together:** Called from `comfyui_bootstrap.tftpl` on first launch.
+**Together:** Called from `startup_scripts/comfyui_bootstrap.sh` on first launch (and via `repair_comfyui_setup.sh`).
 
 **Does not:** Run without `HF_TOKEN`; does not install ComfyUI.
 
@@ -163,7 +163,7 @@ These files are **read by Terraform** (`file()` / `templatefile()`) and **never 
 
 ---
 
-### `startup_scripts/comfyui_bootstrap.tftpl`
+### `startup_scripts/comfyui_bootstrap.sh`
 
 **Alone:** Terraform **template** (ComfyUI workload only): apt packages, clone ComfyUI, Python venv, `pip install -r requirements.txt`, symlinks under `ComfyUI/models` → `/mnt/models/...`, optional GeoPoAI clone from `geopoai_git_repo`, starts **`tmux`** session **`comfyui`** listening on **`0.0.0.0:${comfyui_listen_port}`**.
 
@@ -270,7 +270,9 @@ If a single file should be updated for a behavior change:
 | New Terraform input | `variables.tf`, maybe `locals.tf` / `compute.tf` |
 | Different Verda resource fields | `compute.tf` |
 | Mount path / disk detection | `startup_scripts/lib_mount.sh` |
-| ComfyUI install / tmux / symlinks | `startup_scripts/comfyui_bootstrap.tftpl` |
+| ComfyUI install / tmux / symlinks | `startup_scripts/comfyui_bootstrap.sh` |
+| Repair failed bootstrap on live VM | `repair_comfyui_setup.sh` → `scripts/resume_bootstrap_on_vm.sh` |
+| Shared apply/SSH helpers | `lib/geopoai_common.sh` |
 | Default GPU/spot per workload | `workloads/*.tfvars` |
 | Post-apply IP / new output | `outputs.tf` |
 | Terraform / provider version | `versions.tf` |

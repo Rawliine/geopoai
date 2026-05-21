@@ -7,9 +7,10 @@
 #     -var-file="workloads/comfyui.tfvars" \
 #     -var-file="workloads/comfyui_production.tfvars"
 #
-# Apply setup (first time):
-#   cd infra && set -a && source ../.env && set +a
-#   terraform apply -var="run_id=setup-001" -var-file="workloads/comfyui.tfvars"
+# Apply setup (first time — waits for IP, tails bootstrap log):
+#   cd infra && ./apply_comfyui_setup.sh setup-001
+# Repair a VM after a failed bootstrap (no instance replace):
+#   ./repair_comfyui_setup.sh setup-001 --watch
 # -----------------------------------------------------------------------------
 
 workload = "comfyui"

@@ -3,12 +3,12 @@
 # -----------------------------------------------------------------------------
 # The startup script is assembled in this order:
 #   1) Bash strict mode + logging
-#   2) lib_mount.sh — defines geopoai_mount_models_volume()
-#   3) geopoai_mount_models_volume — formats & mounts /mnt/models from the first non-root disk
-#   4) Workload body:
-#        - comfyui:        template comfyui_bootstrap.tftpl (ComfyUI install + tmux)
-#        - lora_train:     lora_bootstrap.sh (packages + hints)
-#        - blender_render: render_blender.sh (blender + output dirs)
+#   2) lib_user.sh — defines geopoai_ensure_login_user()
+#   3) geopoai_ensure_login_user
+#   4) lib_mount.sh — geopoai_mount_models_volume()
+#   5) lib_ssh_access.sh — geopoai_install_ssh_authorized_key()
+#   6) ComfyUI env exports + lib_apt_comfyui.sh + comfyui_bootstrap.sh
+#   7) Other workloads: lora_bootstrap.sh / render_blender.sh
 # -----------------------------------------------------------------------------
 
 locals {
@@ -26,28 +26,34 @@ locals {
 
   user_library  = file("${path.module}/startup_scripts/lib_user.sh")
   mount_library = file("${path.module}/startup_scripts/lib_mount.sh")
+  apt_comfyui_library = file("${path.module}/startup_scripts/lib_apt_comfyui.sh")
 
-  # Injected into lib_ssh_access.sh — same key as verda_ssh_key.this / verda_ssh.sh -i
   ssh_public_key_line = chomp(file(pathexpand(var.ssh_public_key_path)))
 
-  ssh_access_library = replace(
-    file("${path.module}/startup_scripts/lib_ssh_access.sh"),
-    "KEY_LINE",
-    local.ssh_public_key_line,
-  )
+  ssh_access_library = file("${path.module}/startup_scripts/lib_ssh_access.sh")
+
+  ssh_env_export = "export GEOPOAI_SSH_PUBLIC_KEY_LINE=${jsonencode(local.ssh_public_key_line)}"
+
+  comfyui_env_exports = var.workload == "comfyui" ? join("\n", compact([
+    "export GEOPOAI_GIT_REPO=${jsonencode(var.geopoai_git_repo)}",
+    "export COMFYUI_LISTEN_PORT=${jsonencode(tostring(var.comfyui_listen_port))}",
+    var.huggingface_token != "" ? "export HF_TOKEN=${jsonencode(var.huggingface_token)}" : "",
+    var.huggingface_token != "" ? "export HUGGING_FACE_HUB_TOKEN=\"$${HF_TOKEN}\"" : "",
+  ])) : ""
+
+  comfyui_body = join("\n", [
+    local.apt_comfyui_library,
+    file("${path.module}/startup_scripts/comfyui_bootstrap.sh"),
+  ])
 
   workload_body = (
-    var.workload == "comfyui" ? templatefile("${path.module}/startup_scripts/comfyui_bootstrap.tftpl", {
-      geopoai_git_repo    = var.geopoai_git_repo
-      comfyui_listen_port = var.comfyui_listen_port
-      huggingface_token   = var.huggingface_token
-    }) :
+    var.workload == "comfyui" ? local.comfyui_body :
     var.workload == "lora_train" ? file("${path.module}/startup_scripts/lora_bootstrap.sh") :
     file("${path.module}/startup_scripts/render_blender.sh")
   )
 
   # Verda startup scripts are immutable — change this suffix to force a new script object.
-  startup_script_verda_name = "${var.project_slug}-${var.workload}-${var.run_id}-bootstrap-v3-user"
+  startup_script_verda_name = "${var.project_slug}-${var.workload}-${var.run_id}-bootstrap-v5"
 
   startup_script = join("\n", [
     "#!/usr/bin/env bash",
@@ -60,6 +66,8 @@ locals {
     "geopoai_ensure_login_user",
     local.mount_library,
     "geopoai_mount_models_volume",
+    local.ssh_env_export,
+    local.comfyui_env_exports,
     local.ssh_access_library,
     "geopoai_install_ssh_authorized_key",
     local.workload_body,

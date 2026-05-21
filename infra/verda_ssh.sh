@@ -13,6 +13,8 @@ set -euo pipefail
 
 INFRA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "${INFRA_DIR}"
+# shellcheck source=lib/geopoai_common.sh
+source "${INFRA_DIR}/lib/geopoai_common.sh"
 
 if ! command -v terraform >/dev/null 2>&1; then
   echo "error: terraform not found in PATH" >&2
@@ -59,17 +61,17 @@ SSH_OPTS=(
   -o ServerAliveCountMax=4
 )
 
-IP="$(terraform output -raw instance_ip 2>/dev/null || true)"
-if [[ -z "${IP}" || "${IP}" == "null" ]]; then
-  if [[ -x "${INFRA_DIR}/wait_for_instance_ip.sh" ]]; then
-    echo "[geopoai] instance_ip not ready — waiting up to ${MAX_WAIT_SEC:-300}s..." >&2
-    IP="$("${INFRA_DIR}/wait_for_instance_ip.sh")" || IP=""
-  fi
+mapfile -t _tf_refresh_args < <(geopoai_tf_refresh_args 2>/dev/null || true)
+
+if [[ -x "${INFRA_DIR}/wait_for_instance_ip.sh" ]]; then
+  echo "[geopoai] waiting for instance_ip (up to ${MAX_WAIT_SEC:-300}s)..." >&2
+  IP="$("${INFRA_DIR}/wait_for_instance_ip.sh" "${_tf_refresh_args[@]}")" || IP=""
+else
+  IP="$(terraform output -raw instance_ip 2>/dev/null || true)"
 fi
 if [[ -z "${IP}" || "${IP}" == "null" ]]; then
   echo "error: instance_ip not set yet (Verda assigns IP after boot)." >&2
-  echo "  Use: ./apply_comfyui_setup.sh <run_id> --watch" >&2
-  echo "  Or:  ./wait_for_instance_ip.sh -var=run_id=... -var-file=workloads/comfyui.tfvars" >&2
+  echo "  Use: ./apply_comfyui_setup.sh <run_id>" >&2
   echo "  instance_id: $(terraform output -raw instance_id 2>/dev/null || echo '?')" >&2
   exit 1
 fi

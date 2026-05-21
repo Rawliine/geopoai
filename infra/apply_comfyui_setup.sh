@@ -3,29 +3,33 @@
 # apply_comfyui_setup.sh — apply setup infra, tolerate delayed IP, optional log tail
 #
 # Bootstrap runs ON THE VERDA VM (startup script), not in this terminal.
-# After apply, use --watch to stream /var/log/geopoai-bootstrap.log over SSH.
+# After apply, tails /var/log/geopoai-bootstrap.log over SSH by default.
 #
 # Usage:
 #   cd infra
-#   ./apply_comfyui_setup.sh setup-001
-#   ./apply_comfyui_setup.sh setup-001 --watch
-#   ./apply_comfyui_setup.sh setup-001 --apply-only   # skip wait/watch
+#   ./apply_comfyui_setup.sh setup-001              # apply → wait IP → tail bootstrap log
+#   ./apply_comfyui_setup.sh setup-001 --no-watch   # apply → wait IP only
+#   ./apply_comfyui_setup.sh setup-001 --apply-only # terraform apply only
+#   ./repair_comfyui_setup.sh setup-001 --watch     # re-run bootstrap on existing VM
 # -----------------------------------------------------------------------------
 set -euo pipefail
 
 INFRA_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${INFRA_DIR}/.." && pwd)"
 cd "${INFRA_DIR}"
+# shellcheck source=lib/geopoai_common.sh
+source "${INFRA_DIR}/lib/geopoai_common.sh"
 
 RUN_ID="${1:-}"
 shift || true
 
-WATCH=false
+WATCH=true
 APPLY_ONLY=false
 for arg in "$@"; do
   case "${arg}" in
     --watch) WATCH=true ;;
-    --apply-only) APPLY_ONLY=true ;;
+    --no-watch) WATCH=false ;;
+    --apply-only) APPLY_ONLY=true; WATCH=false ;;
     *) echo "unknown arg: ${arg}" >&2; exit 1 ;;
   esac
 done
@@ -36,19 +40,19 @@ if [[ -z "${RUN_ID}" ]]; then
   exit 1
 fi
 
-if [[ -f "${REPO_ROOT}/.env" ]]; then
-  set -a
-  # shellcheck source=/dev/null
-  source "${REPO_ROOT}/.env"
-  set +a
-fi
+geopoai_load_dotenv
 
 TF_ARGS=(
   -var="run_id=${RUN_ID}"
   -var-file="workloads/comfyui.tfvars"
 )
 
-chmod +x "${INFRA_DIR}/wait_for_instance_ip.sh" "${INFRA_DIR}/verda_ssh.sh" 2>/dev/null || true
+chmod +x \
+  "${INFRA_DIR}/wait_for_instance_ip.sh" \
+  "${INFRA_DIR}/verda_ssh.sh" \
+  "${INFRA_DIR}/repair_comfyui_setup.sh" \
+  "${INFRA_DIR}/scripts/resume_bootstrap_on_vm.sh" \
+  2>/dev/null || true
 
 echo "=============================================="
 echo " GeoPoAI ComfyUI setup apply (run_id=${RUN_ID})"
@@ -70,6 +74,10 @@ echo "[geopoai] refreshing state until instance_ip is assigned..." >&2
 IP="$("${INFRA_DIR}/wait_for_instance_ip.sh" "${TF_ARGS[@]}")"
 echo "[geopoai] instance_ip=${IP}" >&2
 terraform output instance_id ssh_command 2>/dev/null || true
+
+export GEOPOAI_TF_REFRESH_ARGS="-var=run_id=${RUN_ID} -var-file=workloads/comfyui.tfvars"
+# After apply, repair a VM that still has an old failed bootstrap (no replace needed):
+#   ./repair_comfyui_setup.sh "${RUN_ID}" --watch
 
 if [[ "${WATCH}" == true ]]; then
   echo "[geopoai] streaming bootstrap log (Ctrl-C to detach; VM keeps running)..." >&2

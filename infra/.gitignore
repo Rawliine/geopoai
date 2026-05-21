@@ -5,9 +5,11 @@
 crash.log
 crash.*.log
 
-# State sidecars (keep terraform.tfstate itself unless you adopt a remote backend;
-# see README.md for guidance.)
-*.tfstate.backup
+# Local state (may contain secrets — never commit; use remote backend for teams)
+terraform.tfstate
+terraform.tfstate.*
+*.tfstate
+*.tfstate.*
 .terraform.tfstate.lock.info
 
 # Local overrides experiments

@@ -12,6 +12,11 @@ output "hostname" {
   value       = local.hostname
 }
 
+output "run_id" {
+  description = "Run id passed to terraform apply (-var=run_id=...)."
+  value       = var.run_id
+}
+
 output "instance_ip" {
   description = "Primary IP address returned by the Verda provider for SSH. May be null immediately after create — run terraform refresh with the same -var/-var-file, then re-output."
   value       = verda_instance.this.ip

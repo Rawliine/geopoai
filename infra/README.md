@@ -86,21 +86,19 @@ Always pass a fresh **`run_id`** per job so hostnames and OS volume names stay u
 
 ```bash
 cd infra
-chmod +x apply_comfyui_setup.sh wait_for_instance_ip.sh verda_ssh.sh
-./apply_comfyui_setup.sh setup-001 --watch
+chmod +x apply_comfyui_setup.sh repair_comfyui_setup.sh wait_for_instance_ip.sh verda_ssh.sh
+./apply_comfyui_setup.sh setup-001
 ```
 
-This runs `terraform apply`, then polls until `instance_ip` exists (avoids the `ssh_command` null-IP apply error), then `tail -f` the bootstrap log.
+This runs `terraform apply`, polls until `instance_ip` exists, then tails the bootstrap log. Use `--no-watch` to stop after the IP is ready; use `--apply-only` for apply alone.
 
-Manual equivalent:
+**Bootstrap failed on an existing VM** (e.g. old startup script): re-run the same install logic over SSH — no manual VM steps:
 
 ```bash
-cd infra
-set -a && source ../.env && set +a
-terraform apply -var="run_id=setup-001" -var-file="workloads/comfyui.tfvars" || true
-./wait_for_instance_ip.sh -var="run_id=setup-001" -var-file="workloads/comfyui.tfvars"
-./verda_ssh.sh -- tail -f /var/log/geopoai-bootstrap.log
+./repair_comfyui_setup.sh setup-001 --watch
 ```
+
+`./verda_ssh.sh` waits for an IP automatically (reads `run_id` / `workload` from Terraform outputs).
 
 Bootstrap often takes **1–3 hours**.
 
@@ -214,12 +212,13 @@ Subsequent applies skip download when the marker file exists.
 `locals.tf` concatenates, in order:
 
 1. Bash **strict mode** (`set -euo pipefail`) + logging to `/var/log/geopoai-bootstrap.log`.
-2. `startup_scripts/lib_mount.sh` — defines `geopoai_mount_models_volume`.
-3. A call to **`geopoai_mount_models_volume`** — discovers the first non-root block disk, `mkfs.ext4` + label **`geopoai-models`** on first use, mounts **`/mnt/models`**, writes **`fstab`** (`nofail`).
-4. Workload body:
-   - `comfyui` → `startup_scripts/comfyui_bootstrap.tftpl` (Terraform `templatefile` injects `geopoai_git_repo` + `comfyui_listen_port`).
-   - `lora_train` → `startup_scripts/lora_bootstrap.sh`
-   - `blender_render` → `startup_scripts/render_blender.sh`
+2. `lib_user.sh` → `geopoai_ensure_login_user` (creates `ubuntu` on images that only have `root`).
+3. `lib_mount.sh` → **`geopoai_mount_models_volume`** — secondary disk → **`/mnt/models`**.
+4. Env exports (`GEOPOAI_GIT_REPO`, `HF_TOKEN`, SSH public key line) + `lib_ssh_access.sh`.
+5. Workload body:
+   - `comfyui` → `lib_apt_comfyui.sh` + `comfyui_bootstrap.sh` (plain bash; same script used by `repair_comfyui_setup.sh`).
+   - `lora_train` → `lora_bootstrap.sh`
+   - `blender_render` → `render_blender.sh`
 
 If mounting fails (no secondary disk), the script logs a warning and continues so you can debug over SSH.
 
@@ -268,7 +267,9 @@ GPU **spot** savings apply only when you apply with `comfyui_production.tfvars` 
 | `400: Operating system is not valid for this instance type` | `verda_image` not in that GPU’s `supported_os` list | Query: `GET https://api.verda.com/v1/instance-types` (auth via OAuth) and find `supported_os` for your `gpu_type`. Example: **V100** → `ubuntu-22.04-cuda-12.4-docker`; **H100 / RTX PRO** → `ubuntu-24.04-cuda-13.0-open-docker`. |
 | Apply “failed” but instance exists; no IP in outputs | Verda sets `ip` after create; old `ssh_command` output crashed apply | Use `./apply_comfyui_setup.sh` or `./wait_for_instance_ip.sh` then `./verda_ssh.sh`. Outputs are null-safe in `outputs.tf`. |
 | `Permission denied (publickey)` on SSH | Wrong key, or logging in as `ubuntu` when only `root` has keys | `verda_ssh.sh` tries `ubuntu` then **`root`**. Or `GEOPOAI_SSH_USER=root ./verda_ssh.sh`. Use `-i ~/.ssh/id_ed25519`. |
-| Bootstrap: `invalid user ubuntu` | Image has no `ubuntu` account (e.g. `ubuntu-22.04-cuda-12.4-docker`) | Fixed in bootstrap v3: creates `ubuntu` at boot. On a stuck VM as **root**: create user + re-run downloads (see `scripts/resume_bootstrap_on_vm.sh`). |
+| Bootstrap: `invalid user ubuntu` | Image has no `ubuntu` account (e.g. `ubuntu-22.04-cuda-12.4-docker`) | `lib_user.sh` creates `ubuntu` at boot. Stuck VM: `./repair_comfyui_setup.sh <run_id>`. |
+| Bootstrap: `Unable to locate package numfmt` | `numfmt` is not an apt package (it is in `coreutils`) | Fixed in bootstrap v5. Stuck VM: `./repair_comfyui_setup.sh <run_id> --watch`. |
+| Ran `terraform apply` then SSH immediately | Verda IP and SSH lag behind apply | Use `./apply_comfyui_setup.sh` (waits + tails log). `./verda_ssh.sh` polls for IP from Terraform outputs. |
 | `destroy` wants to recreate unrelated things | Different `-var-file` / `run_id` than `apply` | Re-run with identical vars |
 
 ---
