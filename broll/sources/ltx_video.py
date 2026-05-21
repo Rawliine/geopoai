@@ -38,8 +38,8 @@ class LTXVideoGenerator(BaseAIGenerator):
     DEFAULTS = SamplingParams(
         width=1280, height=720, fps=24,
         duration_seconds=5.0,
-        steps=30, cfg=3.0,
-        sampler="euler",
+        steps=8, cfg=3.0,  # steps → CFGGuider; sigmas are fixed in workflow (ManualSigmas)
+        sampler="euler_ancestral_cfg_pp",
     )
 
 

@@ -104,7 +104,7 @@ def _good_ai_meta() -> dict:
         "model": "ltx-2.3",
         "prompt": "aerial shot of canal at dawn, golden lighting",
         "seed": 12345,
-        "lora_stack": [{"name": "Soft_Enhance_Style_LoRa", "strength": 0.4}],
+        "lora_stack": [{"name": "LTX2.3_Soft_Enhance", "strength": 0.4}],
         "sampler": "euler",
         "steps": 30,
         "resolution": [1280, 720],

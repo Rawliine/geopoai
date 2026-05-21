@@ -11,7 +11,7 @@
 
 | File | Generator | Model weights (on `/mnt/models`) |
 |------|-----------|----------------------------------|
-| `ltx_2_3_t2v.json` | `ltx_video.LTXVideoGenerator` | `checkpoints/ltx/ltx-2.3-22b-dev-fp8.safetensors` |
+| `ltx_2_3_t2v.json` | `ltx_video.LTXVideoGenerator` | `checkpoints/ltx/ltx-2.3-22b-dev-fp8.safetensors`, `text_encoders/gemma_3_12B_it_fp8_scaled.safetensors`, distilled + style LoRAs |
 | `ltx_2_3_i2v.json` | manual / `flux_ltx` step 2 | same + `INPUT_IMAGE` in ComfyUI `input/` |
 | `wan_2_2_t2v.json` | `wan_video.WanVideoGenerator` | `diffusion_models/wan2.2_t2v_{high,low}_noise_14B_fp8_scaled.safetensors` |
 | `wan_2_2_i2v.json` | optional face-heavy I2V | `wan2.2_i2v_{high,low}_noise_14B_fp8_scaled.safetensors` |
@@ -46,3 +46,11 @@ python -m broll.tools.workflow_ui_to_api broll/comfyui_workflows/reference/wan_2
 ```
 
 Prefer editing API templates directly after validating on a live ComfyUI box.
+
+### Rebuild LTX T2V from reference
+
+The LTX template is generated from `reference/ltx_2_3_t2v_i2v_single_stage_distilled.json` (CFGGuider + ManualSigmas path; no ClownSampler):
+
+```bash
+python -m broll.tools.build_ltx_t2v_workflow
+```

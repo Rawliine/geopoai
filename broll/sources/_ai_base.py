@@ -108,12 +108,22 @@ def _substitute_slots(template: dict[str, Any], slots: dict[str, Any]) -> dict[s
 
     # If LoRA 0 is empty, disable it so the node doesn't error on a missing file.
     for node_id, node in list(populated.items()):
-        if not isinstance(node, dict) or node.get("class_type") != "LoraLoader":
+        if not isinstance(node, dict):
             continue
-        if not node.get("inputs", {}).get("lora_name"):
+        ct = node.get("class_type")
+        if ct not in ("LoraLoader", "LoraLoaderModelOnly"):
+            continue
+        lora_name = node.get("inputs", {}).get("lora_name")
+        if lora_name:
+            continue
+        if ct == "LoraLoader":
             node["inputs"]["lora_name"] = "none"
             node["inputs"]["strength_model"] = 0.0
             node["inputs"]["strength_clip"] = 0.0
+        else:
+            # Model-only LoRA: keep a valid filename, zero strength.
+            node["inputs"]["lora_name"] = "ltx-2.3-22b-distilled-lora-384-1.1.safetensors"
+            node["inputs"]["strength_model"] = 0.0
     return populated
 
 

@@ -57,7 +57,7 @@ def test_lora_stack_explicit_override() -> None:
 
 def test_lora_stack_default_for_model() -> None:
     p = prompt_assembly.build_prompt({"intent": "x"}, model="ltx-2.3")
-    assert any(l.get("name") == "Soft_Enhance_Style_LoRa" for l in p.lora_stack)
+    assert any(l.get("name") == "LTX2.3_Soft_Enhance" for l in p.lora_stack)
 
 
 def test_to_metadata_shape() -> None:

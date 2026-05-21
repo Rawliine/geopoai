@@ -268,6 +268,20 @@ class ComfyUIClient:
                 continue
 
             status = (entry.get("status") or {})
+            # ComfyUI may leave completed=false while recording execution_error.
+            for msg in status.get("messages", []) or []:
+                if isinstance(msg, list) and msg and msg[0] == "execution_error":
+                    detail = msg[1] if len(msg) > 1 else msg
+                    if isinstance(detail, dict):
+                        detail = detail.get("exception_message") or detail
+                    raise ComfyJobError(
+                        f"comfyui execution_error on job {prompt_id}: {detail}"
+                    )
+            if status.get("status_str") == "error" and not status.get("completed"):
+                raise ComfyJobError(
+                    f"comfyui job {prompt_id} failed (status_str=error, completed=false)"
+                )
+
             if status.get("completed"):
                 if status.get("status_str") and status["status_str"] not in (None, "success"):
                     raise ComfyJobError(
