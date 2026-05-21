@@ -56,6 +56,16 @@ geopoai_apt_install_mount_tools() {
     mount
 }
 
+geopoai_mount_device_at() {
+  local dev="$1"
+  local mp="$2"
+  if findmnt -n -o TARGET,SOURCE "${mp}" 2>/dev/null | grep -qF "${dev}"; then
+    echo "[geopoai:mount] ${mp} already mounted from ${dev}" >&2
+    return 0
+  fi
+  mount -t ext4 "${dev}" "${mp}"
+}
+
 geopoai_mount_models_volume() {
   geopoai_apt_install_mount_tools
 
@@ -71,11 +81,11 @@ geopoai_mount_models_volume() {
 
   if blkid "${dev}" | grep -qi ext4; then
     echo "[geopoai:mount] ext4 already present on ${dev}" >&2
-    mount -t ext4 "${dev}" "${mp}"
+    geopoai_mount_device_at "${dev}" "${mp}"
   else
     echo "[geopoai:mount] creating ext4 on ${dev} (first boot only)" >&2
     mkfs.ext4 -F -L geopoai-models "${dev}"
-    mount -t ext4 "${dev}" "${mp}"
+    geopoai_mount_device_at "${dev}" "${mp}"
   fi
 
   if ! grep -q '/mnt/models' /etc/fstab; then
