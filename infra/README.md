@@ -98,6 +98,12 @@ This runs `terraform apply`, polls until `instance_ip` exists, then tails the bo
 ./repair_comfyui_setup.sh setup-001 --watch
 ```
 
+If repair finished but logs show `skip model download`, run downloads only:
+
+```bash
+./download_models_on_vm.sh setup-001
+```
+
 `./verda_ssh.sh` waits for an IP automatically (reads `run_id` / `workload` from Terraform outputs).
 
 Bootstrap often takes **1–3 hours**.

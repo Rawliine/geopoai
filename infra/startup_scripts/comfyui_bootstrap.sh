@@ -65,16 +65,18 @@ geopoai_install_custom_node "https://github.com/city96/ComfyUI-GGUF.git" "ComfyU
 geopoai_install_custom_node "https://github.com/kijai/ComfyUI-KJNodes.git" "ComfyUI-KJNodes"
 
 GEOPOAI_DIR="/home/ubuntu/GeoPoAI"
-if [[ -n "${GEOPOAI_GIT_REPO:-}" ]]; then
-  if [[ ! -d "${GEOPOAI_DIR}" ]]; then
-    echo "[geopoai:comfyui] cloning GeoPoAI"
+if [[ -x "${GEOPOAI_DIR}/infra/download_models.sh" ]]; then
+  echo "[geopoai:comfyui] using GeoPoAI at ${GEOPOAI_DIR} (local/rsync/pre-cloned)" >&2
+elif [[ -n "${GEOPOAI_GIT_REPO:-}" ]]; then
+  if [[ ! -d "${GEOPOAI_DIR}/.git" ]]; then
+    echo "[geopoai:comfyui] cloning GeoPoAI from ${GEOPOAI_GIT_REPO}" >&2
     sudo -u ubuntu git clone --depth 1 "${GEOPOAI_GIT_REPO}" "${GEOPOAI_DIR}"
   else
     sudo -u ubuntu git -C "${GEOPOAI_DIR}" pull --ff-only || true
   fi
   chmod +x "${GEOPOAI_DIR}/infra/download_models.sh" 2>/dev/null || true
 else
-  echo "[geopoai:comfyui] WARNING: GEOPOAI_GIT_REPO empty — workflows must be copied manually" >&2
+  echo "[geopoai:comfyui] WARNING: no GeoPoAI repo at ${GEOPOAI_DIR} and GEOPOAI_GIT_REPO unset — skipping downloads/workflows" >&2
   GEOPOAI_DIR=""
 fi
 

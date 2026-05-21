@@ -57,8 +57,11 @@ echo "[geopoai] syncing local repo to VM (run_id=${RUN_ID})..." >&2
 geopoai_rsync_repo_to_vm "${IP}" "${SSH_IDENTITY}" root
 
 echo "[geopoai] running bootstrap repair on VM..." >&2
+GEOPOAI_GIT_REPO="${GEOPOAI_GIT_REPO:-$(terraform console -json <<< 'var.geopoai_git_repo' 2>/dev/null | tr -d '"' || true)}"
+
 {
   printf 'export GEOPOAI_REPO_PRELOADED=%q\n' "1"
+  printf 'export GEOPOAI_GIT_REPO=%q\n' "${GEOPOAI_GIT_REPO}"
   printf 'export GEOPOAI_SSH_PUBLIC_KEY_LINE=%q\n' "${GEOPOAI_SSH_PUBLIC_KEY_LINE}"
   printf 'export COMFYUI_LISTEN_PORT=%q\n' "${COMFYUI_LISTEN_PORT}"
   printf 'export HF_TOKEN=%q\n' "${HF_TOKEN}"
