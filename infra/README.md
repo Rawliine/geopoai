@@ -267,7 +267,8 @@ GPU **spot** savings apply only when you apply with `comfyui_production.tfvars` 
 | `503: Not enough resources` on apply | No free GPUs of that type in `location` | Set `location` in `comfyui.tfvars` to the region where the dashboard shows capacity (e.g. **FIN-01** vs FIN-03). Instance and `verda_volume.models` **must** use the same `location`. Change `gpu_type` to a SKU that is actually free there. |
 | `400: Operating system is not valid for this instance type` | `verda_image` not in that GPU’s `supported_os` list | Query: `GET https://api.verda.com/v1/instance-types` (auth via OAuth) and find `supported_os` for your `gpu_type`. Example: **V100** → `ubuntu-22.04-cuda-12.4-docker`; **H100 / RTX PRO** → `ubuntu-24.04-cuda-13.0-open-docker`. |
 | Apply “failed” but instance exists; no IP in outputs | Verda sets `ip` after create; old `ssh_command` output crashed apply | Use `./apply_comfyui_setup.sh` or `./wait_for_instance_ip.sh` then `./verda_ssh.sh`. Outputs are null-safe in `outputs.tf`. |
-| `Permission denied (publickey)` on SSH | Laptop using wrong key (e.g. `id_rsa` while Verda has `id_ed25519`) | `verda_ssh.sh` uses `-i` for the key paired with `ssh_public_key_path`. Or: `GEOPOAI_SSH_IDENTITY=~/.ssh/id_ed25519 ./verda_ssh.sh` |
+| `Permission denied (publickey)` on SSH | Wrong key, or logging in as `ubuntu` when only `root` has keys | `verda_ssh.sh` tries `ubuntu` then **`root`**. Or `GEOPOAI_SSH_USER=root ./verda_ssh.sh`. Use `-i ~/.ssh/id_ed25519`. |
+| Bootstrap: `invalid user ubuntu` | Image has no `ubuntu` account (e.g. `ubuntu-22.04-cuda-12.4-docker`) | Fixed in bootstrap v3: creates `ubuntu` at boot. On a stuck VM as **root**: create user + re-run downloads (see `scripts/resume_bootstrap_on_vm.sh`). |
 | `destroy` wants to recreate unrelated things | Different `-var-file` / `run_id` than `apply` | Re-run with identical vars |
 
 ---

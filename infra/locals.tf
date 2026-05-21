@@ -24,7 +24,17 @@ locals {
   # verda_instance requires description (Verda API / provider ~> 1.0).
   instance_description = "GeoPoAI ${var.workload} — ${local.hostname}"
 
+  user_library  = file("${path.module}/startup_scripts/lib_user.sh")
   mount_library = file("${path.module}/startup_scripts/lib_mount.sh")
+
+  # Injected into lib_ssh_access.sh — same key as verda_ssh_key.this / verda_ssh.sh -i
+  ssh_public_key_line = chomp(file(pathexpand(var.ssh_public_key_path)))
+
+  ssh_access_library = replace(
+    file("${path.module}/startup_scripts/lib_ssh_access.sh"),
+    "KEY_LINE",
+    local.ssh_public_key_line,
+  )
 
   workload_body = (
     var.workload == "comfyui" ? templatefile("${path.module}/startup_scripts/comfyui_bootstrap.tftpl", {
@@ -36,7 +46,8 @@ locals {
     file("${path.module}/startup_scripts/render_blender.sh")
   )
 
-  startup_script_verda_name = "${var.project_slug}-${var.workload}-${var.run_id}-bootstrap"
+  # Verda startup scripts are immutable — change this suffix to force a new script object.
+  startup_script_verda_name = "${var.project_slug}-${var.workload}-${var.run_id}-bootstrap-v3-user"
 
   startup_script = join("\n", [
     "#!/usr/bin/env bash",
@@ -45,8 +56,12 @@ locals {
     "export DEBIAN_FRONTEND=noninteractive",
     "exec > >(tee -a /var/log/geopoai-bootstrap.log) 2>&1",
     "echo \"[geopoai] bootstrap start $(date -Is) workload=${var.workload} host=$(hostname)\"",
+    local.user_library,
+    "geopoai_ensure_login_user",
     local.mount_library,
     "geopoai_mount_models_volume",
+    local.ssh_access_library,
+    "geopoai_install_ssh_authorized_key",
     local.workload_body,
     "echo \"[geopoai] bootstrap finished OK $(date -Is)\"",
   ])

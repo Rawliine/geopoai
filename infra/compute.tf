@@ -29,6 +29,10 @@ resource "verda_volume" "models" {
 resource "verda_startup_script" "this" {
   name   = local.startup_script_verda_name
   script = local.startup_script
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "verda_instance" "this" {

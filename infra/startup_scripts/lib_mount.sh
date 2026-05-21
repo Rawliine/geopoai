@@ -99,6 +99,8 @@ geopoai_mount_models_volume() {
     "${mp}/workflows" \
     "${mp}/training_sets"
 
-  chown -R ubuntu:ubuntu "${mp}" || true
+  if id -u "${GEOPOAI_USER:-ubuntu}" &>/dev/null 2>&1; then
+    chown -R "${GEOPOAI_USER}:${GEOPOAI_USER}" "${mp}" || true
+  fi
   echo "[geopoai:mount] ${mp} ready" >&2
 }

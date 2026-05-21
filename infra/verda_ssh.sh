@@ -82,10 +82,23 @@ elif [[ $# -gt 0 ]]; then
   REMOTE_CMD=("$@")
 fi
 
-echo "[geopoai] ssh -i ${SSH_IDENTITY} ubuntu@${IP}" >&2
+SSH_USER="${GEOPOAI_SSH_USER:-ubuntu}"
 
-if [[ ${#REMOTE_CMD[@]} -gt 0 ]]; then
-  exec ssh "${SSH_OPTS[@]}" ubuntu@"${IP}" "${REMOTE_CMD[@]}"
-else
-  exec ssh "${SSH_OPTS[@]}" ubuntu@"${IP}"
+geopoai_try_ssh() {
+  local user="$1"
+  if [[ ${#REMOTE_CMD[@]} -gt 0 ]]; then
+    ssh "${SSH_OPTS[@]}" "${user}@${IP}" "${REMOTE_CMD[@]}"
+  else
+    ssh "${SSH_OPTS[@]}" "${user}@${IP}"
+  fi
+}
+
+echo "[geopoai] trying ssh -i ${SSH_IDENTITY} ${SSH_USER}@${IP} (fallback: root)" >&2
+if geopoai_try_ssh "${SSH_USER}"; then
+  exit 0
 fi
+if [[ "${SSH_USER}" != root ]]; then
+  echo "[geopoai] ${SSH_USER}@ failed; trying root@ (common on ubuntu-22.04-cuda Verda images)" >&2
+  geopoai_try_ssh root
+fi
+exit 255
