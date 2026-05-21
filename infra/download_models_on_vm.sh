@@ -36,15 +36,11 @@ geopoai_rsync_repo_to_vm "${IP}" "${SSH_IDENTITY}" root
 
 echo "[geopoai] starting download_models.sh on VM (hours)..." >&2
 # ubuntu may not be in sudoers on Verda images — run as root; use ComfyUI venv for `hf` CLI.
-GEOPOAI_SSH_USER=root "${INFRA_DIR}/verda_ssh.sh" -- bash -c "
-  set -euo pipefail
-  export HF_TOKEN='${HF_TOKEN}'
-  export HUGGING_FACE_HUB_TOKEN='${HF_TOKEN}'
-  export PATH=/home/ubuntu/ComfyUI/.venv/bin:\${HOME}/.local/bin:\${PATH}
-  if [[ -x /home/ubuntu/ComfyUI/.venv/bin/python ]]; then
-    source /home/ubuntu/ComfyUI/.venv/bin/activate
-  fi
+# Pass token via env on remote shell (avoids quoting issues in bash -c).
+GEOPOAI_SSH_USER=root "${INFRA_DIR}/verda_ssh.sh" -- env \
+  HF_TOKEN="${HF_TOKEN}" \
+  HUGGING_FACE_HUB_TOKEN="${HF_TOKEN}" \
+  PATH="/home/ubuntu/ComfyUI/.venv/bin:/root/.local/bin:/usr/local/bin:/usr/bin:/bin" \
   bash /home/ubuntu/GeoPoAI/infra/download_models.sh
-"
 
 echo "[geopoai] done — check: ./verda_ssh.sh -- test -f /mnt/models/.geopoai_download_complete && echo ok"

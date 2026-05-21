@@ -49,17 +49,73 @@ echo " Downloading models to ${MODELS}"
 echo " Expect 1–3 hours depending on bandwidth (~200+ GiB)."
 echo "=============================================="
 
+# hf download --local-dir DEST preserves repo paths (e.g. DEST/vae/foo.safetensors).
+# ComfyUI expects flat names: DEST/foo.safetensors
+geopoai_place_model_file() {
+  local dest="$1" file="$2" base="$3"
+  local dest_file="${dest}/${base}"
+  local nested="${dest}/${file}"
+
+  if [[ -f "${dest_file}" ]]; then
+    return 0
+  fi
+  if [[ -f "${nested}" && "${nested}" != "${dest_file}" ]]; then
+    echo "  [place] ${base}"
+    mv -f "${nested}" "${dest_file}"
+    return 0
+  fi
+  local found
+  found="$(find "${dest}" -name "${base}" -type f ! -path "${dest_file}" -print -quit 2>/dev/null || true)"
+  if [[ -n "${found}" ]]; then
+    echo "  [place] ${base} (flatten nested layout)"
+    mv -f "${found}" "${dest_file}"
+    return 0
+  fi
+  return 1
+}
+
 dl() {
   local repo="$1" file="$2" dest="$3"
   local base dest_file
   base="$(basename "${file}")"
   dest_file="${dest}/${base}"
+
   if [[ -f "${dest_file}" ]]; then
     echo "  [skip] ${base}"
     return 0
   fi
+  if geopoai_place_model_file "${dest}" "${file}" "${base}"; then
+    return 0
+  fi
+
   echo "  [get ] ${repo} :: ${file}"
   hf download "${repo}" "${file}" --local-dir "${dest}" --token "${HF_TOKEN}"
+  geopoai_place_model_file "${dest}" "${file}" "${base}" || {
+    echo "[geopoai:download] ERROR: ${base} not found under ${dest} after download" >&2
+    return 1
+  }
+}
+
+geopoai_flatten_all_known() {
+  echo ""
+  echo ">>> Flattening model paths for ComfyUI"
+  geopoai_place_model_file "${MODELS}/checkpoints/ltx" "ltx-2.3-22b-dev-fp8.safetensors" "ltx-2.3-22b-dev-fp8.safetensors" || true
+  geopoai_place_model_file "${MODELS}/vae" "vae/LTX23_video_vae_bf16.safetensors" "LTX23_video_vae_bf16.safetensors" || true
+  geopoai_place_model_file "${MODELS}/vae" "vae/LTX23_audio_vae_bf16.safetensors" "LTX23_audio_vae_bf16.safetensors" || true
+  geopoai_place_model_file "${MODELS}/vae" "vae/taeltx2_3.safetensors" "taeltx2_3.safetensors" || true
+  geopoai_place_model_file "${MODELS}/text_encoders" "text_encoders/ltx-2.3_text_projection_bf16.safetensors" "ltx-2.3_text_projection_bf16.safetensors" || true
+  geopoai_place_model_file "${MODELS}/text_encoders" "split_files/text_encoders/gemma_3_12B_it_fp8_scaled.safetensors" "gemma_3_12B_it_fp8_scaled.safetensors" || true
+  geopoai_place_model_file "${MODELS}/latent_upscale_models" "ltx-2.3-spatial-upscaler-x2-1.1.safetensors" "ltx-2.3-spatial-upscaler-x2-1.1.safetensors" || true
+  geopoai_place_model_file "${MODELS}/loras" "ltx-2.3-22b-distilled-lora-384-1.1.safetensors" "ltx-2.3-22b-distilled-lora-384-1.1.safetensors" || true
+  geopoai_place_model_file "${MODELS}/loras" "LTX2.3_Soft_Enhance.safetensors" "LTX2.3_Soft_Enhance.safetensors" || true
+  geopoai_place_model_file "${MODELS}/diffusion_models" "split_files/diffusion_models/wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors" "wan2.2_t2v_high_noise_14B_fp8_scaled.safetensors" || true
+  geopoai_place_model_file "${MODELS}/diffusion_models" "split_files/diffusion_models/wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors" "wan2.2_t2v_low_noise_14B_fp8_scaled.safetensors" || true
+  geopoai_place_model_file "${MODELS}/diffusion_models" "split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors" "wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors" || true
+  geopoai_place_model_file "${MODELS}/diffusion_models" "split_files/diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors" "wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors" || true
+  geopoai_place_model_file "${MODELS}/diffusion_models" "split_files/diffusion_models/flux2_dev_fp8mixed.safetensors" "flux2_dev_fp8mixed.safetensors" || true
+  geopoai_place_model_file "${MODELS}/text_encoders" "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors" "umt5_xxl_fp8_e4m3fn_scaled.safetensors" || true
+  geopoai_place_model_file "${MODELS}/vae" "split_files/vae/wan_2.1_vae.safetensors" "wan_2.1_vae.safetensors" || true
+  geopoai_place_model_file "${MODELS}/vae" "split_files/vae/flux2-vae.safetensors" "flux2-vae.safetensors" || true
 }
 
 dl_min() {
@@ -121,6 +177,8 @@ echo ""
 echo ">>> LoRAs (Soft Enhance)"
 SOFT_LORA_REPO="vrgamedevgirl84/LTX_2.3_Soft_Enhance_Style_LoRa"
 dl "${SOFT_LORA_REPO}" "LTX2.3_Soft_Enhance.safetensors" "${MODELS}/loras"
+
+geopoai_flatten_all_known
 
 echo ""
 echo "=============================================="
