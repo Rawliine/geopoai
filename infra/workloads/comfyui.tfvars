@@ -19,8 +19,13 @@ workload = "comfyui"
 location = "FIN-01"
 
 # Setup instance (on-demand). Downloads are network-bound — any free GPU in `location` is fine.
-# Flow: setup VM → fills /mnt/models → terraform destroy → production GPU later.
-# V100 is enough for bootstrap; LTX/Wan/FLUX inference usually needs H100/RTX PRO (production tfvars).
+#
+# GPU phases (all manual — no auto-switch):
+#   1) SETUP     — this file only (cheap GPU, on-demand) → download_models → marker on volume
+#   2) ITERATION — optional: same or production GPU; tune broll workflows; ./destroy_comfyui_instance.sh when done
+#   3) PRODUCTION — add comfyui_production.tfvars (H100 spot) for batch inference
+# Between phases: ./destroy_comfyui_instance.sh <run_id>  (NOT terraform destroy)
+# V100 is enough for bootstrap; LTX/Wan/FLUX inference usually needs H100 (production tfvars).
 gpu_type = "1V100.6V"
 verda_image = "ubuntu-22.04-cuda-12.4-docker"
 

@@ -268,10 +268,10 @@ ssh ubuntu@$(terraform output -raw instance_ip)
 # ... do your work in tmux ...
 
 # tear down
-terraform destroy -var="run_id=broll-ep017" -var-file="workloads/comfyui.tfvars"
+./destroy_comfyui_instance.sh broll-ep017 --production
 ```
 
-Note: `terraform destroy` removes the *instance* (and OS volume if `on_spot_discontinue` is set), but **leaves the persistent `verda_volume.models` intact**. That's the whole point — models persist, compute is ephemeral.
+Note: use **`./destroy_comfyui_instance.sh <run_id>`** — not bare `terraform destroy`. The helper runs `terraform destroy -target=verda_instance.this` only. The models volume has `prevent_destroy` in `compute.tf` so full destroy cannot wipe weights by mistake.
 
 ### Why Terraform over the Python SDK or web UI
 
@@ -742,7 +742,7 @@ For these: rsync the .blend to the instance, run a remote Blender batch render, 
        its API from a local script that drives it remotely.
 10:55  Detach. Job runs unattended.
 12:30  Job finishes. Local script auto-rsyncs outputs.
-12:31  terraform destroy. Instance gone. Persistent volume stays.
+12:31  ./destroy_comfyui_instance.sh. Instance gone. Persistent volume stays.
        Total Verda spend for batch: ~$1.50 (1.8hr H100 spot at $0.80/h).
 12:35  Review outputs locally, mark good/bad.
 14:00  Decide 5 shots need re-prompting. Repeat the cycle for a small batch.
@@ -775,7 +775,7 @@ cd infra && terraform apply -var="run_id=$(date +%s)" \
   -var-file="workloads/comfyui.tfvars"
 
 # tear it down
-cd infra && terraform destroy -var="run_id=..." \
+cd infra && ./destroy_comfyui_instance.sh <run_id> \
   -var-file="workloads/comfyui.tfvars"
 
 # what's running
@@ -785,7 +785,7 @@ cd infra && terraform show | grep -A 3 "verda_instance"
 ./infra/verda_ssh.sh
 
 # panic button (kill everything in Terraform state)
-cd infra && terraform destroy -auto-approve
+cd infra && ./destroy_comfyui_instance.sh <run_id>   # never bare terraform destroy
 
 # check current Verda balance via API
 curl -H "Authorization: Bearer $TOKEN" https://api.verda.com/v1/balance
@@ -802,7 +802,7 @@ curl -H "Authorization: Bearer $TOKEN" https://api.verda.com/v1/balance
 2. **Spot for batch, on-demand for interactive.** Spot is 25-65% cheaper depending on GPU; only available on Instances and Serverless Containers.
 3. **Instance is always either actively running a job or destroyed.** No idle time.
 4. **One ComfyUI instance hosts everything** — LTX, Wan, FLUX, your LoRAs. Don't separate them.
-5. **Terraform for provisioning.** `terraform apply` brings the instance up; `terraform destroy` tears it down. Both in seconds.
+5. **Terraform for provisioning.** `terraform apply` brings the instance up; `./destroy_comfyui_instance.sh` tears down **only** the instance. Both in seconds.
 6. **Skip managed endpoints.** Self-hosted gives you LoRAs and free image gen when an instance is already running.
 7. **Your laptop handles all authoring; Verda handles batch heavy compute.**
 8. **For 3D iteration with Claude Code:** fast preview render + multi-angle composite + stdout stats. The image and stats together tell Claude Code everything.

@@ -71,7 +71,7 @@ Operator-oriented steps (apply, destroy, credentials) live in **`README.md`**. N
 - **`verda_startup_script.this`** — uploads `local.startup_script` text to Verda.
 - **`verda_instance.this`** — VM with `instance_type`, `image`, `hostname`, `location`, `is_spot`, keys, startup script id, `existing_volumes`, `os_volume` map (size, type, spot discontinue behavior).
 
-**Together:** This is the **entire Verda footprint** for this module: one key, one data volume, one script object, one instance. `terraform destroy` with the same variables removes the **instance** (and OS disk per policy) but **keeps** the volume unless you remove it from config/state.
+**Together:** This is the **entire Verda footprint** for this module: one key, one data volume, one script object, one instance. Use **`./destroy_comfyui_instance.sh`** to remove only the instance; the volume has `prevent_destroy` and must not be deleted with a full `terraform destroy`.
 
 **Does not:** Guarantee field names match the current provider (validate against registry docs if `plan`/`apply` errors). Does not create multiple instances or autoscaling groups.
 

@@ -13,7 +13,7 @@ If you only read one section: **Credentials → First apply → SSH → Destroy*
 | Piece | Purpose |
 |-------|---------|
 | `verda_ssh_key` | Registers your laptop’s **public** SSH key with Verda once. |
-| `verda_volume` | **Persistent** NVMe volume mounted at **`/mnt/models`** on the instance (survives `terraform destroy` of the VM). |
+| `verda_volume` | **Persistent** NVMe volume at **`/mnt/models`** (survives **instance** destroy via `destroy_comfyui_instance.sh`; `prevent_destroy` blocks accidental full destroy). |
 | `verda_startup_script` | First-boot shell script: mount volume + workload-specific setup. |
 | `verda_instance` | The actual GPU VM (spot or on-demand). OS disk is separate from `/mnt/models`. |
 
@@ -76,7 +76,17 @@ terraform validate        # requires successful init
 
 ## Day-to-day commands
 
-Always pass a fresh **`run_id`** per job so hostnames and OS volume names stay unique.
+Always pass a fresh **`run_id`** per **VM session** so hostnames and OS volume names stay unique. The **models volume name is fixed** (`geopoai-models-persistent`) — only the ephemeral instance/OS disk changes with `run_id`.
+
+### `run_id` naming — what each means
+
+| `run_id` example | When to use | Var-files | Notes |
+|------------------|-------------|-----------|--------|
+| `setup-001`, `setup-002`, … | **First-time (or re-) download** of weights to `/mnt/models` | `comfyui.tfvars` only | Use `./apply_comfyui_setup.sh`. Increment suffix if you destroyed state/volume and start over (`setup-002` ≠ “phase 2” — it’s just the **second setup attempt**). |
+| `broll-test-001`, `dev-comfy-0423`, … | **Iteration** — workflow tuning, a few smoke shots | `comfyui.tfvars` ± production | Any label you like; new `run_id` per VM. Same persistent volume if Terraform state still has it. |
+| `broll-ep017`, `broll-ep018`, … | **Production batch** for episode 17, 18, … | `comfyui.tfvars` + `comfyui_production.tfvars` | One `run_id` per episode session (or per overnight batch). H100 spot. Destroy with `./destroy_comfyui_instance.sh broll-ep017 --production`. |
+
+**Not special to Terraform:** `setup-001` and `setup-002` are arbitrary strings — the repo uses `setup-*` by convention for download runs, `broll-ep*` for episode inference. What matters is **which var-files you pass**, not the prefix alone.
 
 ### ComfyUI — setup (first boot: download models)
 
@@ -86,7 +96,7 @@ Always pass a fresh **`run_id`** per job so hostnames and OS volume names stay u
 
 ```bash
 cd infra
-chmod +x apply_comfyui_setup.sh repair_comfyui_setup.sh wait_for_instance_ip.sh verda_ssh.sh
+chmod +x apply_comfyui_setup.sh destroy_comfyui_instance.sh repair_comfyui_setup.sh wait_for_instance_ip.sh verda_ssh.sh
 ./apply_comfyui_setup.sh setup-001
 ```
 
@@ -108,7 +118,25 @@ If repair finished but logs show `skip model download`, run downloads only:
 
 Bootstrap often takes **1–3 hours**.
 
-When downloads finish, `terraform destroy` with the **same** `run_id` and var-file. The **models volume stays**.
+When downloads finish, tear down the **instance only** (models volume stays):
+
+```bash
+./destroy_comfyui_instance.sh setup-001
+```
+
+**Do not run bare `terraform destroy`** — it attempts to delete the persistent volume too (see [Tear down](#tear-down-save-money)).
+
+### ComfyUI — GPU phases (setup → iteration → production)
+
+There is **no automatic GPU switch**. You change phase by which var-files you pass to `terraform apply` and by using a new `run_id` per VM session.
+
+| Phase | Command | GPU (typical) | When |
+|-------|---------|---------------|------|
+| **Setup** | `./apply_comfyui_setup.sh setup-001` | V100 on-demand (`comfyui.tfvars` only) | Once: download ~200 GiB to `/mnt/models` |
+| **Iteration** | `terraform apply -var=run_id=... -var-file=comfyui.tfvars` [± production] | Your choice | Tune `broll/comfyui_workflows/`, smoke shots |
+| **Production** | `terraform apply` with **both** `comfyui.tfvars` + `comfyui_production.tfvars` | H100 spot | Batch AI generation |
+
+Between any phase: **`./destroy_comfyui_instance.sh <run_id>`** (add `--production` if that apply used production tfvars). The block volume `geopoai-models-persistent` stays attached in Terraform state.
 
 ### ComfyUI — production batch (after setup)
 
@@ -153,15 +181,23 @@ From **`infra/`**:
 
 ### Tear down (save money)
 
-Use the **same** `-var` / `-var-file` pair you used for `apply` (Terraform needs identical inputs to locate the same resources):
+**Use the helper — not bare `terraform destroy`:**
 
 ```bash
-terraform destroy \
-  -var="run_id=broll-ep017" \
-  -var-file="workloads/comfyui.tfvars"
+chmod +x destroy_comfyui_instance.sh   # once
+./destroy_comfyui_instance.sh setup-001
+./destroy_comfyui_instance.sh broll-ep017 --production
 ```
 
-**What survives `destroy`:** the **`verda_volume`** for `/mnt/models` stays in your Verda account unless you remove it from Terraform state/config. The **instance** and its **OS volume** go away (spot OS disks use `delete_permanently` per variable default).
+This runs `terraform destroy -target=verda_instance.this` only. The **models volume** has `lifecycle { prevent_destroy = true }` in `compute.tf` so a mistaken full destroy fails instead of deleting ~200 GiB.
+
+| Command | Instance + OS disk | Models volume (`geopoai-models-persistent`) |
+|---------|-------------------|---------------------------------------------|
+| `./destroy_comfyui_instance.sh <run_id>` | **Removed** | **Kept** (still billed monthly) |
+| `terraform destroy` (full) | Removed | **Blocked** by `prevent_destroy` (do not remove that guard casually) |
+| Delete volume on purpose | — | Remove `prevent_destroy`, then `terraform destroy -target=verda_volume.models` |
+
+**If you already ran full `terraform destroy`:** Terraform state may be empty and the volume may be gone in Verda. Re-run setup (`./apply_comfyui_setup.sh`) to create a **new** volume and re-download. Historical volume from setup-001 (May 2026): id `a4e5300f-32c3-41f4-9a74-d057fb7d628f`, name `geopoai-models-persistent` — search the Verda dashboard Volumes UI in case it still appears detached.
 
 ---
 
@@ -252,7 +288,7 @@ This repo’s `infra/.gitignore` ignores **`.terraform/`** and crash logs. **`te
 
 | Disk | Terraform | Size default | Type | Billed | Typical use |
 |------|-----------|--------------|------|--------|-------------|
-| **Models volume** | `verda_volume.models` | **280 GB** | **NVMe** block | **~$0.10/GB/month** (~**$28/mo** for 280 GB) while it exists | LTX + Wan + FLUX weights, LoRAs, workflow copies — **survives `destroy`** |
+| **Models volume** | `verda_volume.models` | **280 GB** | **NVMe** block | **~$0.10/GB/month** (~**$28/mo** for 280 GB) while it exists | LTX + Wan + FLUX weights — **survives instance destroy** (`destroy_comfyui_instance.sh`) |
 | **OS / boot disk** | `verda_instance` → `os_volume` | **100 GB** | **NVMe** | With the **running instance** (ephemeral) | ComfyUI install, venv, `~/GeoPoAI` clone — **gone on destroy** |
 
 Setup on **L40S on-demand** is mostly **GPU hourly** (~$1.36/h in FIN — check dashboard) for a few hours, plus the **ongoing models volume** once Terraform creates it. After setup, destroy the VM; you still pay for the **280 GB** block volume until you delete it in Verda/Terraform.
@@ -277,6 +313,8 @@ GPU **spot** savings apply only when you apply with `comfyui_production.tfvars` 
 | Bootstrap: `Unable to locate package numfmt` | `numfmt` is not an apt package (it is in `coreutils`) | Fixed in bootstrap v5. Stuck VM: `./repair_comfyui_setup.sh <run_id> --watch`. |
 | Ran `terraform apply` then SSH immediately | Verda IP and SSH lag behind apply | Use `./apply_comfyui_setup.sh` (waits + tails log). `./verda_ssh.sh` polls for IP from Terraform outputs. |
 | `destroy` wants to recreate unrelated things | Different `-var-file` / `run_id` than `apply` | Re-run with identical vars |
+| Accidentally deleted models volume | Ran bare `terraform destroy` before `prevent_destroy` | Dashboard: search volume id/name above; else re-setup + download |
+| `prevent_destroy` blocks full destroy | Intentional guard on `verda_volume.models` | Use `./destroy_comfyui_instance.sh` only |
 
 ---
 

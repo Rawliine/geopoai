@@ -12,6 +12,9 @@ terraform.tfstate.*
 *.tfstate.*
 .terraform.tfstate.lock.info
 
+# Personal operator notes (not shared via git)
+OPERATOR_RUNBOOK.md
+
 # Local overrides experiments
 override.tf
 *_override.tf

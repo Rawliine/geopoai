@@ -24,6 +24,12 @@ resource "verda_volume" "models" {
   size     = var.models_volume_size_gb
   type     = var.models_volume_type
   location = var.location
+
+  # Full `terraform destroy` must NOT delete ~200 GiB of weights. Use
+  # ./destroy_comfyui_instance.sh (targets only verda_instance.this).
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "verda_startup_script" "this" {

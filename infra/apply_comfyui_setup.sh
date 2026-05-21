@@ -87,5 +87,6 @@ fi
 echo ""
 echo "Next: ./verda_ssh.sh -- tail -f /var/log/geopoai-bootstrap.log"
 echo "      ./verda_ssh.sh -- test -f /mnt/models/.geopoai_download_complete && echo done"
+echo "When idle: ./destroy_comfyui_instance.sh ${RUN_ID}   # NOT terraform destroy"
 
 exit 0

@@ -43,5 +43,10 @@ output "models_volume_id" {
 
 output "reminder" {
   description = "Operational reminder printed after apply."
-  value       = "Destroy the instance when idle: terraform destroy -var=\"run_id=${var.run_id}\" -var-file=workloads/<same>.tfvars. The models volume is kept unless you remove it from Terraform."
+  value       = "Destroy VM only (keeps models volume): ./destroy_comfyui_instance.sh ${var.run_id}. Do NOT run bare terraform destroy."
+}
+
+output "models_volume_name" {
+  description = "Verda dashboard name for the persistent block volume."
+  value       = "${var.project_slug}-${var.models_volume_name_suffix}"
 }
