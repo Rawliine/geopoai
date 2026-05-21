@@ -21,6 +21,9 @@ locals {
   hostname_prefix = var.hostname_prefix != "" ? var.hostname_prefix : local.default_hostname_prefix
   hostname        = "${local.hostname_prefix}-${var.run_id}"
 
+  # verda_instance requires description (Verda API / provider ~> 1.0).
+  instance_description = "GeoPoAI ${var.workload} — ${local.hostname}"
+
   mount_library = file("${path.module}/startup_scripts/lib_mount.sh")
 
   workload_body = (

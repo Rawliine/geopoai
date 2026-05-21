@@ -14,9 +14,16 @@
 
 workload = "comfyui"
 
-# Setup: L40S on-demand (~$1.36/h FIN region — confirm in Verda dashboard for FIN-03).
-# Downloads are network-bound; you do not need H100 until inference.
-gpu_type = "1L40S.20V"
+# Must match where GPUs are free in the Verda dashboard (volume + instance same region).
+location = "FIN-01"
+
+# Setup instance (on-demand). Downloads are network-bound — any free GPU in `location` is fine.
+# Flow: setup VM → fills /mnt/models → terraform destroy → production GPU later.
+# V100 is enough for bootstrap; LTX/Wan/FLUX inference usually needs H100/RTX PRO (production tfvars).
+gpu_type = "1V100.6V"
+
+# V100 cannot use cuda-13 images — pick from Verda dashboard for this instance type if apply fails.
+verda_image = "ubuntu-24.04-cuda-12.8-open-docker"
 
 # Setup: on-demand so long bootstrap/download is not interrupted by spot eviction.
 use_spot = false

@@ -32,7 +32,7 @@ Three **workloads** share the same Terraform code; you pick one via `-var-file`:
 1. **Verda account** with billing + **budget alerts** configured (see workflow doc).
 2. **API credentials**: Dashboard → *Keys* → *Cloud API Credentials* → create → save `client_id` + `client_secret` (secret shown once).
 3. **Terraform** ≥ 1.5 (`terraform version`) or OpenTofu (`tofu`).
-4. **SSH key pair** on your laptop; by default Terraform reads **`~/.ssh/id_rsa.pub`** (override with `ssh_public_key_path`).
+4. **SSH key pair** on your laptop; by default Terraform reads **`~/.ssh/id_ed25519.pub`** (override with `ssh_public_key_path`, e.g. `~/.ssh/id_rsa.pub`).
 
 ---
 
@@ -252,6 +252,8 @@ GPU **spot** savings apply only when you apply with `comfyui_production.tfvars` 
 | SSH hangs / refused | Instance still booting / wrong key | Verda console + local `ssh -v` |
 | ComfyUI not listening | Bootstrap failed mid-way | `/var/log/geopoai-bootstrap.log` on the VM |
 | `/mnt/models` empty after boot | Volume not attached / wrong device | `lsblk`, Verda volume attachment UI |
+| `503: Not enough resources` on apply | No free GPUs of that type in `location` | Set `location` in `comfyui.tfvars` to the region where the dashboard shows capacity (e.g. **FIN-01** vs FIN-03). Instance and `verda_volume.models` **must** use the same `location`. Change `gpu_type` to a SKU that is actually free there. |
+| `400: Operating system is not valid for this instance type` | `verda_image` incompatible with GPU (e.g. cuda-13 on V100) | Set `verda_image` in tfvars — setup uses **cuda-12.8** for V100; production H100 uses **cuda-13.0** in `comfyui_production.tfvars`. Match the image list in Verda UI for that instance type. |
 | `destroy` wants to recreate unrelated things | Different `-var-file` / `run_id` than `apply` | Re-run with identical vars |
 
 ---

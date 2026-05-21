@@ -35,6 +35,7 @@ resource "verda_instance" "this" {
   instance_type       = var.gpu_type
   image               = var.verda_image
   hostname            = local.hostname
+  description         = local.instance_description
   location            = var.location
   is_spot             = var.use_spot
   ssh_key_ids         = [verda_ssh_key.this.id]

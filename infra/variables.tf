@@ -56,14 +56,14 @@ variable "hostname_prefix" {
 
 variable "verda_image" {
   type        = string
-  description = "Verda image slug. Default matches the personal workflow doc (CUDA + Docker baseline)."
+  description = "Verda image slug. Must be valid for instance_type (e.g. V100 → cuda-12.x; H100 → cuda-13.x). See dashboard or GET /images."
   default     = "ubuntu-24.04-cuda-13.0-open-docker"
 }
 
 variable "ssh_public_key_path" {
   type        = string
-  description = "Local path to the SSH *public* key to register with Verda (~ expanded automatically)."
-  default     = "~/.ssh/id_rsa.pub"
+  description = "Local path to the SSH *public* key to register with Verda (~ expanded automatically). Override if you use a non-default key name."
+  default     = "~/.ssh/id_ed25519.pub"
 }
 
 variable "ssh_key_name_suffix" {

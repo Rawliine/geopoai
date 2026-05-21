@@ -1,6 +1,7 @@
 # -----------------------------------------------------------------------------
 # ComfyUI workload — full stack install (ComfyUI + custom nodes + model download)
 # Template vars: geopoai_git_repo, comfyui_listen_port, huggingface_token
+# Bash variables use doubled dollar signs ($${name}) so templatefile() leaves them for the VM.
 # -----------------------------------------------------------------------------
 
 echo "[geopoai:comfyui] installing OS packages" >&2
@@ -18,27 +19,27 @@ apt-get install -y --no-install-recommends \
   numfmt
 
 geopoai_clone_repo() {
-  local url="$1" dest="$2" branch="${3:-}"
-  if [[ -d "${dest}/.git" ]]; then
-    echo "[geopoai:comfyui] ${dest} exists; git pull" >&2
-    sudo -u ubuntu git -C "${dest}" pull --ff-only || true
+  local url="$1" dest="$2" branch="$${3:-}"
+  if [[ -d "$${dest}/.git" ]]; then
+    echo "[geopoai:comfyui] $${dest} exists; git pull" >&2
+    sudo -u ubuntu git -C "$${dest}" pull --ff-only || true
     return 0
   fi
-  if [[ -n "${branch}" ]]; then
-    sudo -u ubuntu git clone --depth 1 --branch "${branch}" "${url}" "${dest}"
+  if [[ -n "$${branch}" ]]; then
+    sudo -u ubuntu git clone --depth 1 --branch "$${branch}" "$${url}" "$${dest}"
   else
-    sudo -u ubuntu git clone --depth 1 "${url}" "${dest}"
+    sudo -u ubuntu git clone --depth 1 "$${url}" "$${dest}"
   fi
 }
 
 geopoai_install_custom_node() {
   local url="$1" dest_name="$2"
-  local dest="/home/ubuntu/ComfyUI/custom_nodes/${dest_name}"
-  geopoai_clone_repo "${url}" "${dest}"
-  if [[ -f "${dest}/requirements.txt" ]]; then
+  local dest="/home/ubuntu/ComfyUI/custom_nodes/$${dest_name}"
+  geopoai_clone_repo "$${url}" "$${dest}"
+  if [[ -f "$${dest}/requirements.txt" ]]; then
     sudo -u ubuntu bash -c "
       set -euo pipefail
-      cd '${dest}'
+      cd '$${dest}'
       source /home/ubuntu/ComfyUI/.venv/bin/activate
       python -m pip install --no-cache-dir -r requirements.txt
     "
@@ -71,13 +72,13 @@ geopoai_install_custom_node "https://github.com/kijai/ComfyUI-KJNodes.git" "Comf
 
 GEOPOAI_DIR="/home/ubuntu/GeoPoAI"
 %{ if geopoai_git_repo != "" ~}
-if [[ ! -d "${GEOPOAI_DIR}" ]]; then
+if [[ ! -d "$${GEOPOAI_DIR}" ]]; then
   echo "[geopoai:comfyui] cloning GeoPoAI"
-  sudo -u ubuntu git clone ${jsonencode(geopoai_git_repo)} "${GEOPOAI_DIR}"
+  sudo -u ubuntu git clone ${jsonencode(geopoai_git_repo)} "$${GEOPOAI_DIR}"
 else
-  sudo -u ubuntu git -C "${GEOPOAI_DIR}" pull --ff-only || true
+  sudo -u ubuntu git -C "$${GEOPOAI_DIR}" pull --ff-only || true
 fi
-chmod +x "${GEOPOAI_DIR}/infra/download_models.sh" 2>/dev/null || true
+chmod +x "$${GEOPOAI_DIR}/infra/download_models.sh" 2>/dev/null || true
 %{ else ~}
 echo "[geopoai:comfyui] WARNING: geopoai_git_repo empty — workflows must be copied manually" >&2
 GEOPOAI_DIR=""
@@ -88,26 +89,26 @@ sudo -u ubuntu bash <<'EOSU_LINK'
 set -euo pipefail
 cd /home/ubuntu/ComfyUI/models
 for d in checkpoints diffusion_models vae text_encoders latent_upscale_models loras input output user; do
-  rm -rf "${d}" || true
-  ln -sfn "/mnt/models/${d}" "${d}"
+  rm -rf "$${d}" || true
+  ln -sfn "/mnt/models/$${d}" "$${d}"
 done
 mkdir -p /home/ubuntu/ComfyUI/user/default
 EOSU_LINK
 
 %{ if huggingface_token != "" ~}
 export HF_TOKEN=${jsonencode(huggingface_token)}
-export HUGGING_FACE_HUB_TOKEN="${HF_TOKEN}"
+export HUGGING_FACE_HUB_TOKEN="$${HF_TOKEN}"
 %{ endif ~}
 
-if [[ -n "${GEOPOAI_DIR}" && -x "${GEOPOAI_DIR}/infra/download_models.sh" ]]; then
+if [[ -n "$${GEOPOAI_DIR}" && -x "$${GEOPOAI_DIR}/infra/download_models.sh" ]]; then
   if [[ ! -f /mnt/models/.geopoai_download_complete ]]; then
     echo "[geopoai:comfyui] running download_models.sh (long — see /var/log/geopoai-bootstrap.log)" >&2
-    if [[ -z "${HF_TOKEN:-}" ]]; then
+    if [[ -z "$${HF_TOKEN:-}" ]]; then
       echo "[geopoai:comfyui] ERROR: huggingface_token not set in Terraform — cannot download models" >&2
       exit 1
     fi
-    sudo -u ubuntu env HF_TOKEN="${HF_TOKEN}" HUGGING_FACE_HUB_TOKEN="${HF_TOKEN}" \
-      bash "${GEOPOAI_DIR}/infra/download_models.sh"
+    sudo -u ubuntu env HF_TOKEN="$${HF_TOKEN}" HUGGING_FACE_HUB_TOKEN="$${HF_TOKEN}" \
+      bash "$${GEOPOAI_DIR}/infra/download_models.sh"
   else
     echo "[geopoai:comfyui] models already on volume (marker present)" >&2
   fi
@@ -115,8 +116,8 @@ else
   echo "[geopoai:comfyui] skip model download (no GeoPoAI repo or script)" >&2
 fi
 
-if [[ -n "${GEOPOAI_DIR}" && -d "${GEOPOAI_DIR}/broll/comfyui_workflows" ]]; then
-  rsync -a "${GEOPOAI_DIR}/broll/comfyui_workflows/" /mnt/models/workflows/
+if [[ -n "$${GEOPOAI_DIR}" && -d "$${GEOPOAI_DIR}/broll/comfyui_workflows" ]]; then
+  rsync -a "$${GEOPOAI_DIR}/broll/comfyui_workflows/" /mnt/models/workflows/
   ln -sfn /mnt/models/workflows /home/ubuntu/ComfyUI/user/default/workflows
 fi
 
