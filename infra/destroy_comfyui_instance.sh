@@ -18,9 +18,11 @@ RUN_ID="${1:-}"
 shift || true
 
 if [[ -z "${RUN_ID}" ]]; then
-  echo "usage: $0 <run_id> [--production]" >&2
+  echo "usage: $0 <run_id> [--production | --a6000 | --fin03]" >&2
   echo "  example: $0 setup-001" >&2
-  echo "  example: $0 broll-ep017 --production   # same var-files as production apply" >&2
+  echo "  example: $0 broll-ep017 --production" >&2
+  echo "  example: $0 broll-test-001 --a6000" >&2
+  echo "  example: $0 broll-fin03-001 --fin03" >&2
   exit 1
 fi
 
@@ -34,6 +36,12 @@ for arg in "$@"; do
   case "${arg}" in
     --production)
       TF_ARGS+=(-var-file=workloads/comfyui_production.tfvars)
+      ;;
+    --a6000)
+      TF_ARGS+=(-var-file=workloads/comfyui_a6000_spot.tfvars)
+      ;;
+    --fin03)
+      TF_ARGS+=(-var-file=workloads/comfyui_fin03_a100.tfvars)
       ;;
     *)
       echo "unknown arg: ${arg}" >&2

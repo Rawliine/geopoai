@@ -33,7 +33,8 @@ fi
 cd "${INFRA_DIR}"
 geopoai_load_dotenv
 
-export GEOPOAI_TF_REFRESH_ARGS="-var=run_id=${RUN_ID} -var-file=workloads/comfyui.tfvars"
+# Pass through extra -var-file flags (e.g. fin03/a6000) via GEOPOAI_TF_REFRESH_ARGS if set.
+export GEOPOAI_TF_REFRESH_ARGS="${GEOPOAI_TF_REFRESH_ARGS:--var=run_id=${RUN_ID} -var-file=workloads/comfyui.tfvars}"
 
 COMFYUI_LISTEN_PORT="${COMFYUI_LISTEN_PORT:-$(terraform console -json <<< 'var.comfyui_listen_port' 2>/dev/null | tr -d '"' || echo "8188")}"
 export GEOPOAI_SSH_PUBLIC_KEY_LINE="$(geopoai_ssh_public_key_line)"
@@ -67,7 +68,7 @@ GEOPOAI_GIT_REPO="${GEOPOAI_GIT_REPO:-$(terraform console -json <<< 'var.geopoai
   printf 'export HF_TOKEN=%q\n' "${HF_TOKEN}"
   printf 'export HUGGING_FACE_HUB_TOKEN=%q\n' "${HF_TOKEN}"
   cat "${INFRA_DIR}/scripts/resume_bootstrap_on_vm.sh"
-} | "${INFRA_DIR}/verda_ssh.sh" -- bash -s
+} | GEOPOAI_SSH_USER=root "${INFRA_DIR}/verda_ssh.sh" -- bash -s
 
 if [[ "${WATCH}" == true ]]; then
   exec "${INFRA_DIR}/verda_ssh.sh" -- tail -f /var/log/geopoai-bootstrap.log

@@ -29,6 +29,9 @@ resource "verda_volume" "models" {
   # ./destroy_comfyui_instance.sh (targets only verda_instance.this).
   lifecycle {
     prevent_destroy = true
+    # After `terraform import`, location may be empty in state; setting FIN-01
+    # must not force replace (would try to destroy weights).
+    ignore_changes = [location]
   }
 }
 

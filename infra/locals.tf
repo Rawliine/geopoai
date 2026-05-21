@@ -53,7 +53,8 @@ locals {
   )
 
   # Verda startup scripts are immutable — change this suffix to force a new script object.
-  startup_script_verda_name = "${var.project_slug}-${var.workload}-${var.run_id}-bootstrap-v5"
+  # Verda does not allow in-place startup script updates — keep name stable across run_id.
+  startup_script_verda_name = "${var.project_slug}-${var.workload}-bootstrap-v5"
 
   startup_script = join("\n", [
     "#!/usr/bin/env bash",

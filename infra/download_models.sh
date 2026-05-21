@@ -197,7 +197,12 @@ dl_min "${MODELS}/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors" 30000000
 dl_min "${MODELS}/vae/wan_2.1_vae.safetensors" 50000000 || FAIL=1
 dl_min "${MODELS}/vae/flux2-vae.safetensors" 50000000 || FAIL=1
 
-LORA_FILE="$(find "${MODELS}/loras" -maxdepth 1 -name '*.safetensors' -print -quit)"
+# find from /root cwd can exit non-zero ("Failed to restore initial working directory")
+LORA_FILE=""
+if [[ -d "${MODELS}/loras" ]]; then
+  LORA_FILE="$(cd "${MODELS}/loras" && find . -maxdepth 1 -name '*.safetensors' -print -quit | sed 's|^\./||')"
+  [[ -n "${LORA_FILE}" ]] && LORA_FILE="${MODELS}/loras/${LORA_FILE}"
+fi
 if [[ -z "${LORA_FILE}" ]]; then
   echo "[geopoai:download] MISSING LoRA in ${MODELS}/loras" >&2
   FAIL=1
@@ -212,5 +217,5 @@ fi
 
 date -Is >"${MARKER}"
 echo ""
-du -sh "${MODELS}"/checkpoints/* "${MODELS}"/diffusion_models "${MODELS}"/vae "${MODELS}"/text_encoders "${MODELS}"/loras 2>/dev/null || true
+( cd "${MODELS}" && du -sh checkpoints/* diffusion_models vae text_encoders loras 2>/dev/null ) || true
 echo "[geopoai:download] complete — marker written: ${MARKER}"

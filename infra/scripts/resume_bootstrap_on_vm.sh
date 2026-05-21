@@ -10,7 +10,11 @@
 set -euo pipefail
 
 export DEBIAN_FRONTEND=noninteractive
-exec > >(tee -a /var/log/geopoai-bootstrap-resume.log) 2>&1
+if [[ "$(id -u)" -eq 0 ]]; then
+  exec > >(tee -a /var/log/geopoai-bootstrap-resume.log) 2>&1
+else
+  exec > >(sudo tee -a /var/log/geopoai-bootstrap-resume.log) 2>&1
+fi
 
 echo "[geopoai:resume] start $(date -Is)"
 

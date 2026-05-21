@@ -197,7 +197,16 @@ This runs `terraform destroy -target=verda_instance.this` only. The **models vol
 | `terraform destroy` (full) | Removed | **Blocked** by `prevent_destroy` (do not remove that guard casually) |
 | Delete volume on purpose | — | Remove `prevent_destroy`, then `terraform destroy -target=verda_volume.models` |
 
-**If you already ran full `terraform destroy`:** Terraform state may be empty and the volume may be gone in Verda. Re-run setup (`./apply_comfyui_setup.sh`) to create a **new** volume and re-download. Historical volume from setup-001 (May 2026): id `a4e5300f-32c3-41f4-9a74-d057fb7d628f`, name `geopoai-models-persistent` — search the Verda dashboard Volumes UI in case it still appears detached.
+**If you already ran full `terraform destroy`:** Import the restored volume before apply:
+
+```bash
+terraform import -var="run_id=broll-test-001" -var-file=workloads/comfyui.tfvars \
+  verda_volume.models <volume-id-from-dashboard>
+```
+
+Then `terraform apply` with the same vars (+ production tfvars if needed). If plan wanted to **replace** the volume because of `location`, `compute.tf` uses `ignore_changes = [location]` on the volume so import + apply attaches without wiping weights.
+
+Historical setup-001 volume: id `a4e5300f-32c3-41f4-9a74-d057fb7d628f`, name `geopoai-models-persistent`.
 
 ---
 
