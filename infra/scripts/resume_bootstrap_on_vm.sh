@@ -32,7 +32,12 @@ geopoai_source_libs_from_repo() {
   source "${STARTUP}/lib_apt_comfyui.sh"
 }
 
-if [[ ! -d "${GEOPOAI_REPO}/.git" ]]; then
+if [[ -d "${GEOPOAI_REPO}/infra/startup_scripts" ]]; then
+  echo "[geopoai:resume] using repo at ${GEOPOAI_REPO} (pre-synced or existing)" >&2
+elif [[ "${GEOPOAI_REPO_PRELOADED:-}" == "1" ]]; then
+  echo "[geopoai:resume] ERROR: GEOPOAI_REPO_PRELOADED=1 but ${GEOPOAI_REPO} is missing — re-run repair from your laptop" >&2
+  exit 1
+elif [[ ! -d "${GEOPOAI_REPO}/.git" ]]; then
   if [[ -z "${GEOPOAI_GIT_REPO:-}" ]]; then
     GEOPOAI_GIT_REPO="${GEOPOAI_GIT_REPO_DEFAULT:-https://github.com/Rawliine/geopoai.git}"
   fi
@@ -41,7 +46,11 @@ if [[ ! -d "${GEOPOAI_REPO}/.git" ]]; then
   if ! id -u ubuntu &>/dev/null 2>&1; then
     useradd -m -s /bin/bash -U ubuntu
   fi
-  sudo -u ubuntu git clone --depth 1 "${GEOPOAI_GIT_REPO}" "${GEOPOAI_REPO}"
+  if ! sudo -u ubuntu env GIT_TERMINAL_PROMPT=0 git clone --depth 1 "${GEOPOAI_GIT_REPO}" "${GEOPOAI_REPO}"; then
+    echo "[geopoai:resume] git clone failed (private repo or bad URL). From your laptop run:" >&2
+    echo "  cd infra && ./repair_comfyui_setup.sh <run_id>" >&2
+    exit 1
+  fi
 fi
 
 geopoai_source_libs_from_repo

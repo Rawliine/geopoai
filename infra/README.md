@@ -92,7 +92,7 @@ chmod +x apply_comfyui_setup.sh repair_comfyui_setup.sh wait_for_instance_ip.sh 
 
 This runs `terraform apply`, polls until `instance_ip` exists, then tails the bootstrap log. Use `--no-watch` to stop after the IP is ready; use `--apply-only` for apply alone.
 
-**Bootstrap failed on an existing VM** (e.g. old startup script): re-run the same install logic over SSH — no manual VM steps:
+**Bootstrap failed on an existing VM** (e.g. old startup script): re-run install over SSH; **`repair_comfyui_setup.sh` rsyncs your local checkout** (no GitHub login on the VM):
 
 ```bash
 ./repair_comfyui_setup.sh setup-001 --watch

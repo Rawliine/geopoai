@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # -----------------------------------------------------------------------------
 # repair_comfyui_setup.sh — re-run ComfyUI bootstrap on the live setup VM over SSH.
-# Use when first-boot died (e.g. old startup script with bad apt packages).
+# Syncs your local GeoPoAI checkout to the VM (no GitHub HTTPS auth on the server).
 #
 # Usage:
 #   cd infra
 #   ./repair_comfyui_setup.sh setup-001
-#   ./repair_comfyui_setup.sh setup-001 --watch   # repair then tail bootstrap log
+#   ./repair_comfyui_setup.sh setup-001 --watch
 # -----------------------------------------------------------------------------
 set -euo pipefail
 
@@ -35,20 +35,30 @@ geopoai_load_dotenv
 
 export GEOPOAI_TF_REFRESH_ARGS="-var=run_id=${RUN_ID} -var-file=workloads/comfyui.tfvars"
 
-GEOPOAI_GIT_REPO="${GEOPOAI_GIT_REPO:-$(terraform console -json <<< 'var.geopoai_git_repo' 2>/dev/null | tr -d '"' || echo "https://github.com/Rawliine/geopoai.git")}"
 COMFYUI_LISTEN_PORT="${COMFYUI_LISTEN_PORT:-$(terraform console -json <<< 'var.comfyui_listen_port' 2>/dev/null | tr -d '"' || echo "8188")}"
 export GEOPOAI_SSH_PUBLIC_KEY_LINE="$(geopoai_ssh_public_key_line)"
-export GEOPOAI_GIT_REPO
 export COMFYUI_LISTEN_PORT
 export HF_TOKEN="${TF_VAR_huggingface_token:-${HF_TOKEN:-}}"
 export HUGGING_FACE_HUB_TOKEN="${HF_TOKEN}"
+export GEOPOAI_REPO_PRELOADED=1
 
 chmod +x "${INFRA_DIR}/verda_ssh.sh" "${INFRA_DIR}/wait_for_instance_ip.sh" 2>/dev/null || true
 
-echo "[geopoai] repairing bootstrap on setup VM (run_id=${RUN_ID})..." >&2
-# Do not use `env KEY=ssh-ed25519 AAAA...` — spaces in the public key break remote parsing.
+SSH_IDENTITY="$(geopoai_resolve_ssh_private_key)" || {
+  echo "error: no SSH private key found" >&2
+  exit 1
+}
+
+echo "[geopoai] waiting for instance_ip..." >&2
+IP="$(geopoai_wait_for_instance_ip)"
+
+echo "[geopoai] syncing local repo to VM (run_id=${RUN_ID})..." >&2
+# root@ — ubuntu@ may not have authorized_keys until after resume installs SSH key
+geopoai_rsync_repo_to_vm "${IP}" "${SSH_IDENTITY}" root
+
+echo "[geopoai] running bootstrap repair on VM..." >&2
 {
-  printf 'export GEOPOAI_GIT_REPO=%q\n' "${GEOPOAI_GIT_REPO}"
+  printf 'export GEOPOAI_REPO_PRELOADED=%q\n' "1"
   printf 'export GEOPOAI_SSH_PUBLIC_KEY_LINE=%q\n' "${GEOPOAI_SSH_PUBLIC_KEY_LINE}"
   printf 'export COMFYUI_LISTEN_PORT=%q\n' "${COMFYUI_LISTEN_PORT}"
   printf 'export HF_TOKEN=%q\n' "${HF_TOKEN}"
