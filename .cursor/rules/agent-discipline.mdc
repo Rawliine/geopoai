@@ -1,0 +1,27 @@
+---
+description: Standing discipline for all GeoPoAI agent lanes
+alwaysApply: true
+---
+
+# Agent discipline (applies to every session)
+
+You are executing ONE lane file from `plans/`. Rules:
+
+1. **Read your assigned `plans/W*.md` file first, fully.** It is the contract.
+2. **Touch only files in your lane's allowlist.** If a fix seems to require
+   editing a file outside it, STOP and report — do not improvise.
+3. **One commit per checklist item**, message: `W<lane>.T<item>: <summary>`.
+4. **Run the acceptance command(s) before declaring an item done.** Paste the
+   output (or describe the rendered artifact) in your report.
+5. **Never refactor opportunistically.** Out-of-scope cleanups are forbidden
+   even if they look easy.
+6. **Schemas in `docs/contracts/` and `config/design_tokens.json` are frozen.**
+   If your task seems to need a schema change, STOP and report.
+7. All visual constants (colors, fonts, glow, timing, safe areas) come from
+   `config/design_tokens.json` — never hardcode hex values or font names.
+8. New assets (icons, fonts, SFX, models) enter only via `tools/prepare_assets.py`
+   and `assets/manifest.json` — never download ad hoc. Every asset entry needs
+   a license field.
+9. If a checklist item is ambiguous, implement the narrowest reading and flag
+   the ambiguity in your report rather than expanding scope.
+10. Final report format: per item — what changed, how verified, open concerns.
