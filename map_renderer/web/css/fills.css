@@ -1,0 +1,154 @@
+/* Split from renderer/effects.css (W00) — keep rules verbatim per family. */
+
+  /* ============================================================
+     FILL EFFECTS
+     Applied to: SVG <path> or <polygon> elements (Mapbox layer
+     overlays), or HTML <div> overlays positioned over a country.
+     ============================================================ */
+  
+  /* ── .fill-fade ─────────────────────────────────────────────
+     Opacity fade from 0→1. Simplest, most universal effect.
+     Use for: neutral reveals, data choropleth updates.          */
+  .fill-fade {
+    opacity: 0;
+    animation:
+      fill-fade-in
+      var(--effect-duration, 1.2s)
+      var(--effect-easing, cubic-bezier(0.4,0,0.2,1))
+      var(--effect-delay, 0s)
+      forwards;
+  }
+  
+  @keyframes fill-fade-in {
+    0%   { opacity: 0; }
+    100% { opacity: var(--fill-opacity, 0.65); }
+  }
+  
+  
+  /* ── .fill-wipe ─────────────────────────────────────────────
+     Clip-path sweeps left → right, revealing fill like a curtain.
+     Use for: territorial advance, "spreading" events.
+     Note: element must have position relative/absolute.         */
+  .fill-wipe {
+    clip-path: inset(0 100% 0 0);
+    animation:
+      fill-wipe-reveal
+      var(--effect-duration, 1.4s)
+      cubic-bezier(0.25, 0.46, 0.45, 0.94)
+      var(--effect-delay, 0s)
+      forwards;
+  }
+  
+  @keyframes fill-wipe-reveal {
+    0%   { clip-path: inset(0 100% 0 0 round 0px); }
+    100% { clip-path: inset(0 0%   0 0 round 0px); }
+  }
+  
+  /* Directional variants */
+  .fill-wipe-rtl {
+    clip-path: inset(0 0 0 100%);
+    animation: fill-wipe-rtl-reveal var(--effect-duration, 1.4s) cubic-bezier(0.25,0.46,0.45,0.94) var(--effect-delay, 0s) forwards;
+  }
+  @keyframes fill-wipe-rtl-reveal {
+    0%   { clip-path: inset(0 0 0 100%); }
+    100% { clip-path: inset(0 0 0 0%  ); }
+  }
+  
+  .fill-wipe-ttb {
+    clip-path: inset(0 0 100% 0);
+    animation: fill-wipe-ttb-reveal var(--effect-duration, 1.4s) cubic-bezier(0.25,0.46,0.45,0.94) var(--effect-delay, 0s) forwards;
+  }
+  @keyframes fill-wipe-ttb-reveal {
+    0%   { clip-path: inset(0 0 100% 0); }
+    100% { clip-path: inset(0 0 0%   0); }
+  }
+  
+  .fill-wipe-btt {
+    clip-path: inset(100% 0 0 0);
+    animation: fill-wipe-btt-reveal var(--effect-duration, 1.4s) cubic-bezier(0.25,0.46,0.45,0.94) var(--effect-delay, 0s) forwards;
+  }
+  @keyframes fill-wipe-btt-reveal {
+    0%   { clip-path: inset(100% 0 0 0); }
+    100% { clip-path: inset(0%   0 0 0); }
+  }
+  
+  
+  /* ── .fill-ripple ───────────────────────────────────────────
+     Scale 0→1 from center point with elastic overshoot.
+     Use for: nuclear detonation, capital city events, epicenters.
+     Requires transform-origin to be set to the epicenter point. */
+  .fill-ripple {
+    transform: scale(0);
+    transform-origin: var(--ripple-origin-x, 50%) var(--ripple-origin-y, 50%);
+    opacity: 0;
+    animation:
+      fill-ripple-expand
+      var(--effect-duration, 1.0s)
+      cubic-bezier(0.175, 0.885, 0.32, 1.275)   /* elastic overshoot */
+      var(--effect-delay, 0s)
+      forwards;
+  }
+  
+  @keyframes fill-ripple-expand {
+    0%   { transform: scale(0);    opacity: 0; }
+    60%  { transform: scale(1.08); opacity: var(--fill-opacity, 0.65); }
+    100% { transform: scale(1.0);  opacity: var(--fill-opacity, 0.65); }
+  }
+  
+  /* Pulse ring — applied to SVG <circle> elements by pulseRing action.
+     Circle r is set to the final radius; animation scales 0→1 and fades.
+     transform-box+origin center the scale on the circle itself.        */
+  .fill-ripple-ring {
+    transform-box: fill-box;
+    transform-origin: center;
+    transform: scale(0);
+    opacity: 0;
+    animation:
+      fill-ripple-ring-expand
+      var(--ring-duration, 1.4s)
+      ease-out
+      var(--ring-delay, 0s)
+      forwards;
+  }
+
+  @keyframes fill-ripple-ring-expand {
+    0%   { transform: scale(0);   opacity: 0;   }
+    12%  { opacity: 0.9; }
+    100% { transform: scale(1);   opacity: 0;   }
+  }
+  
+  
+  /* ── .fill-contested ────────────────────────────────────────
+     Alternates between two colors at a set cadence.
+     Use for: disputed territory, active conflict zones,
+              contested elections.
+     Set --color-a and --color-b on the element.                */
+  .fill-contested {
+    animation:
+      fill-contested-flash
+      var(--effect-duration, 1.6s)
+      ease-in-out
+      var(--effect-delay, 0s)
+      infinite;
+  }
+  
+  @keyframes fill-contested-flash {
+    0%,  49%  { fill: var(--effect-color-a, #e74c3c); fill-opacity: var(--fill-opacity, 0.65); }
+    50%, 100% { fill: var(--effect-color-b, #3498db); fill-opacity: var(--fill-opacity, 0.55); }
+  }
+
+  /* Smoother crossfade variant */
+  .fill-contested-smooth {
+    animation:
+      fill-contested-crossfade
+      var(--effect-duration, 2.4s)
+      ease-in-out
+      var(--effect-delay, 0s)
+      infinite alternate;
+  }
+
+  @keyframes fill-contested-crossfade {
+    0%   { fill: var(--effect-color-a, #e74c3c); fill-opacity: var(--fill-opacity, 0.65); }
+    100% { fill: var(--effect-color-b, #3498db); fill-opacity: var(--fill-opacity, 0.55); }
+  }
+  

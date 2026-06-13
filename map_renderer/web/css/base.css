@@ -1,0 +1,80 @@
+/* Split from renderer/effects.css (W00) — keep rules verbatim per family. */
+
+/* ============================================================
+   EFFECTS.CSS — Map Animation Effect Library
+   All effects are CSS-only, composable, and GPU-accelerated.
+   Apply classes to SVG elements or HTML overlays.
+   JS controls timing via --delay and --duration CSS vars.
+   ============================================================ */
+
+/* ── GLOBAL DEFAULTS ───────────────────────────────────────── */
+:root {
+    --effect-duration: 1.2s;
+    --effect-delay: 0s;
+    --effect-easing: cubic-bezier(0.4, 0, 0.2, 1);
+    --effect-color-a: #e74c3c;
+    --effect-color-b: #3498db;
+    --path-length: 1000;           /* overridden per-element by JS */
+  }
+  
+  /* Force GPU compositing on animated elements */
+  .fill-fade,
+  .fill-wipe,
+  .fill-ripple,
+  .fill-ripple-ring,
+  .fill-contested,
+  .border-trim,
+  .border-glow,
+  .border-marching,
+  .border-breathe,
+  .arrow-draw,
+  .arrow-travel,
+  .arrow-glow,
+  .label-slam,
+  .label-typewriter,
+  .label-fade {
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+  }
+  
+  /* Respect reduced motion — all animations collapse to instant */
+  @media (prefers-reduced-motion: reduce) {
+    * { animation-duration: 0.01ms !important; animation-delay: 0.01ms !important; }
+  }
+
+  /* Base label styles — shared by all label classes */
+  .map-label {
+    position: absolute;
+    pointer-events: none;
+    user-select: none;
+    white-space: normal;
+    max-width: 860px;
+    text-align: center;
+    transform-origin: center center;
+
+    /* Typography */
+    font-family: 'Barlow Condensed', 'Arial Narrow', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+
+    /* Legibility on any map background */
+    text-shadow:
+      0 0 8px  rgba(0, 0, 0, 0.9),
+      0 0 16px rgba(0, 0, 0, 0.7),
+      1px 1px 0 rgba(0, 0, 0, 1);
+  }
+  
+
+  /* ============================================================
+     UTILITY CLASSES
+     ============================================================ */
+  
+  /* Pause all animations on an element (used by JS timeline) */
+  .anim-paused { animation-play-state: paused !important; }
+  
+  /* Instant-hide without removing from DOM */
+  .anim-hidden { opacity: 0 !important; pointer-events: none; }
+  
+  /* Force animation restart (JS toggles this class) */
+  .anim-reset  { animation: none !important; }

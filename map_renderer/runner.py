@@ -24,7 +24,7 @@ from map_renderer.resolver import _resolve_scene_countries
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parent.parent
-RENDERER_PATH = ROOT / "renderer" / "map.html"
+RENDERER_PATH = ROOT / "map_renderer" / "web" / "map.html"
 TMP_DIR = ROOT / "tmp"
 OUTPUT_DIR = ROOT / "output"
 
@@ -295,7 +295,7 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
                 raise RuntimeError(
                     f"Scene playback timed out after {scene_timeout:.1f}s while waiting "
                     "for window.playScene() to finish. Check map style/camera event "
-                    "listeners in renderer/map.html."
+                    "listeners in map_renderer/web/map.html."
                 )
 
             # playScene() already waits for camera + timeline completion.

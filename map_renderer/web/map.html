@@ -9,9 +9,26 @@
   <link href="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css" rel="stylesheet">
   <script src="https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.js"></script>
 
-  <!-- Effects library -->
-  <link rel="stylesheet" href="effects.css">
-  <script src="effects.js"></script>
+  <!-- Effects library (split modules — load order is contract; do not reorder) -->
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/fills.css">
+  <link rel="stylesheet" href="css/borders.css">
+  <link rel="stylesheet" href="css/arrows.css">
+  <link rel="stylesheet" href="css/labels.css">
+  <link rel="stylesheet" href="css/atmosphere.css">
+  <script src="vendor/turf.min.js"></script>
+  <script src="vendor/flubber.min.js"></script>
+  <script src="js/core/registry.js"></script>
+  <script src="js/core/utils.js"></script>
+  <script src="js/core/reproject.js"></script>
+  <script src="js/effects/borders.js"></script>
+  <script src="js/effects/fills.js"></script>
+  <script src="js/effects/arrows.js"></script>
+  <script src="js/effects/labels.js"></script>
+  <script src="js/effects/camera.js"></script>
+  <script src="js/effects/atmosphere.js"></script>
+  <script src="js/effects/models3d.js"></script>
+  <script src="js/core/runtime.js"></script>
 
   <style>
     /* ── Reset: full 1920×1080 frame, no scrollbars ── */

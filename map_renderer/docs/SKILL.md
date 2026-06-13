@@ -13,7 +13,7 @@ fills, borders, arrows, labels, and pulse effects to a map.
 
 The Python entry point is `pipeline/render_scene.py`. It resolves `country:` shorthands
 to GeoJSON, then passes the full scene to the browser. All visual logic lives in
-`renderer/effects.js` / `renderer/effects.css`.
+`map_renderer/web/js/` modules and `map_renderer/web/css/*.css`.
 
 ---
 

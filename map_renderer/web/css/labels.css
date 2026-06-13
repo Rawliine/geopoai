@@ -1,0 +1,137 @@
+/* Split from renderer/effects.css (W00) — keep rules verbatim per family. */
+
+  /* ============================================================
+     LABEL EFFECTS
+     Applied to: HTML <div> elements in #overlay.
+     All labels use absolute positioning set by JS via
+     map.project([lng, lat]) → {x, y}.
+     ============================================================ */
+  
+  /* ── .label-slam ────────────────────────────────────────────
+     Scale from 1.3→1 with opacity snap. Impactful title entrance.
+     Use for: event titles, "WAR DECLARED", chapter headers.    */
+  .label-slam {
+    opacity: 0;
+    transform: scale(1.3);
+    animation:
+      label-slam-in
+      var(--effect-duration, 0.4s)
+      cubic-bezier(0.175, 0.885, 0.32, 1.0)
+      var(--effect-delay, 0s)
+      forwards;
+  }
+  
+  @keyframes label-slam-in {
+    0%   { opacity: 0;   transform: scale(1.3) translateY(-4px); }
+    15%  { opacity: 1;   transform: scale(1.0) translateY(0);    }
+    100% { opacity: 1;   transform: scale(1.0) translateY(0);    }
+  }
+  
+  /* Exit variant */
+  .label-slam-out {
+    animation:
+      label-slam-exit
+      var(--effect-duration, 0.3s)
+      cubic-bezier(0.4, 0, 1, 1)
+      var(--effect-delay, 0s)
+      forwards;
+  }
+  
+  @keyframes label-slam-exit {
+    0%   { opacity: 1; transform: scale(1.0); }
+    100% { opacity: 0; transform: scale(0.85) translateY(4px); }
+  }
+  
+  
+  /* ── .label-typewriter ──────────────────────────────────────
+     JS-driven character-by-character reveal using clip-path.
+     This class sets up the initial hidden state.
+     JS iterates characters and toggles visibility per-char.
+     See effects.js typewriterLabel() for implementation.       */
+  .label-typewriter {
+    opacity: 1;
+    overflow: hidden;
+    /* JS splits text into spans and reveals them sequentially */
+  }
+  
+  .label-typewriter .char {
+    display: inline-block;
+    opacity: 0;
+    transform: translateY(6px);
+    transition:
+      opacity  0.06s ease-out,
+      transform 0.08s ease-out;
+  }
+  
+  .label-typewriter .char.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  
+  /* Cursor blink for typewriter */
+  .label-typewriter::after {
+    content: '|';
+    display: inline-block;
+    margin-left: 2px;
+    animation: typewriter-cursor 0.8s step-end infinite;
+    opacity: 1;
+  }
+  
+  .label-typewriter.done::after {
+    animation: none;
+    opacity: 0;
+  }
+  
+  @keyframes typewriter-cursor {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0; }
+  }
+  
+  
+  /* ── .label-fade ────────────────────────────────────────────
+     Clean opacity fade in. For geo-labels, callouts, footnotes. */
+  .label-fade {
+    opacity: 0;
+    animation:
+      label-fade-in
+      var(--effect-duration, 0.8s)
+      ease-out
+      var(--effect-delay, 0s)
+      forwards;
+  }
+  
+  @keyframes label-fade-in {
+    0%   { opacity: 0; transform: translateY(5px); }
+    100% { opacity: 1; transform: translateY(0);   }
+  }
+  
+  /* Exit */
+  .label-fade-out {
+    animation:
+      label-fade-exit
+      var(--effect-duration, 0.5s)
+      ease-in
+      var(--effect-delay, 0s)
+      forwards;
+  }
+  
+  @keyframes label-fade-exit {
+    0%   { opacity: 1; transform: translateY(0);   }
+    100% { opacity: 0; transform: translateY(-4px); }
+  }
+  
+  
+  /* ── .label-counter ─────────────────────────────────────────
+     Bonus: animated number counter.
+     JS drives the number via textContent updates.
+     This class handles the "pop" on each digit change.         */
+  .label-counter {
+    display: inline-block;
+    transition: transform 0.12s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+  
+  .label-counter.tick {
+    transform: scale(1.25);
+  }
+  
+  

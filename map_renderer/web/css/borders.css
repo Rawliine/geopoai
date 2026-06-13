@@ -1,0 +1,155 @@
+/* Split from renderer/effects.css (W00) — keep rules verbatim per family. */
+
+  /* ============================================================
+     BORDER EFFECTS
+     Applied to: SVG <path> elements (stroked, no fill).
+     Critical: JS must set --path-length to the element's
+     getTotalLength() value before adding these classes.
+     ============================================================ */
+  
+  /* ── .border-trim ───────────────────────────────────────────
+     Stroke draws itself from 0 to full length.
+     Use for: border reveals, territory demarcation,
+              route drawing.                                     */
+  .border-trim {
+    fill: none;
+    stroke-dasharray: var(--path-length, 1000);
+    stroke-dashoffset: var(--path-length, 1000);
+    animation:
+      border-trim-draw
+      var(--effect-duration, 2.0s)
+      cubic-bezier(0.4, 0, 0.2, 1)
+      var(--effect-delay, 0s)
+      forwards;
+  }
+  
+  @keyframes border-trim-draw {
+    0%   { stroke-dashoffset: var(--path-length, 1000); opacity: 1; }
+    100% { stroke-dashoffset: 0;                         opacity: 1; }
+  }
+  
+  /* Erase variant — reverse draw */
+  .border-trim-erase {
+    fill: none;
+    stroke-dasharray: var(--path-length, 1000);
+    stroke-dashoffset: 0;
+    animation:
+      border-trim-erase-anim
+      var(--effect-duration, 1.5s)
+      cubic-bezier(0.4, 0, 0.2, 1)
+      var(--effect-delay, 0s)
+      forwards;
+  }
+  
+  @keyframes border-trim-erase-anim {
+    0%   { stroke-dashoffset: 0;                        }
+    100% { stroke-dashoffset: var(--path-length, 1000); }
+  }
+  
+  
+  /* ── .border-glow ───────────────────────────────────────────
+     Pulsing neon drop-shadow on the stroke.
+     Use for: active front lines, highlighted alliances,
+              "live" borders.
+     Set --glow-color on element (default: #ff4444).            */
+  .border-glow {
+    fill: none;
+    filter: drop-shadow(0 0 3px var(--glow-color, #ff4444))
+            drop-shadow(0 0 6px var(--glow-color, #ff4444));
+    animation:
+      border-glow-pulse
+      var(--effect-duration, 1.8s)
+      ease-in-out
+      var(--effect-delay, 0s)
+      infinite alternate;
+  }
+  
+  @keyframes border-glow-pulse {
+    0% {
+      filter: drop-shadow(0 0 2px  var(--glow-color, #ff4444))
+              drop-shadow(0 0 4px  var(--glow-color, #ff4444));
+      opacity: 0.7;
+    }
+    100% {
+      filter: drop-shadow(0 0 6px  var(--glow-color, #ff4444))
+              drop-shadow(0 0 14px var(--glow-color, #ff4444))
+              drop-shadow(0 0 24px var(--glow-color, #ff4444));
+      opacity: 1.0;
+    }
+  }
+  
+  
+  /* ── .border-marching ───────────────────────────────────────
+     Animated dashed stroke — "marching ants" pattern.
+     Use for: ceasefire lines, UN demarcation, disputed borders. */
+  .border-marching {
+    fill: none;
+    stroke-dasharray: 14 7;
+    stroke-linecap: round;
+    animation:
+      border-marching-scroll
+      var(--effect-duration, 0.9s)
+      linear
+      var(--effect-delay, 0s)
+      infinite;
+  }
+  
+  @keyframes border-marching-scroll {
+    0%   { stroke-dashoffset: 0;   }
+    100% { stroke-dashoffset: -21; }   /* -(dash + gap) = one cycle */
+  }
+  
+  /* Reverse direction variant */
+  .border-marching-reverse {
+    fill: none;
+    stroke-dasharray: 14 7;
+    stroke-linecap: round;
+    animation: border-marching-reverse-scroll var(--effect-duration, 0.9s) linear var(--effect-delay, 0s) infinite;
+  }
+  @keyframes border-marching-reverse-scroll {
+    0%   { stroke-dashoffset: 0;  }
+    100% { stroke-dashoffset: 21; }
+  }
+  
+  
+  /* ── .border-breathe ────────────────────────────────────────
+     Opacity + stroke-width pulse — subtler than glow.
+     Use for: occupied territories, "soft" zone indicators.     */
+  .border-breathe {
+    fill: none;
+    animation:
+      border-breathe-pulse
+      var(--effect-duration, 2.2s)
+      ease-in-out
+      var(--effect-delay, 0s)
+      infinite alternate;
+  }
+
+  @keyframes border-breathe-pulse {
+    0% {
+      opacity: 0.35;
+      stroke-width: var(--stroke-width-min, 1.5px);
+    }
+    100% {
+      opacity: 1.0;
+      stroke-width: var(--stroke-width-max, 3.5px);
+    }
+  }
+
+  /* ── .border-exit ───────────────────────────────────────────
+     Fade out on removal. Works for all border effect types.
+     JS sets --exit-duration before adding this class.          */
+  .border-exit {
+    animation:
+      border-fade-out
+      var(--exit-duration, 0.6s)
+      ease-out
+      0s
+      forwards !important;
+  }
+
+  @keyframes border-fade-out {
+    0%   { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
