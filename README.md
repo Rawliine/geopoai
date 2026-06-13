@@ -2,7 +2,7 @@
 
 Two-engine pipeline for short-form geopolitical / game-theory video clips. Both engines consume scene JSON and produce MP4.
 
-- **Mapbox engine** (`pipeline/render_scene.py`) — Mapbox GL JS in headless Chromium, driven by Playwright. Renders maps, country fills, borders, arrows, ripples.
+- **Mapbox engine** (`pipeline/render_scene.py` → `map_renderer/runner.py`) — Mapbox GL JS in headless Chromium (Playwright). HTML/CSS/JS live under `map_renderer/web/`. Renders maps, country fills, borders, arrows, ripples.
 - **Manim engine** (`pipeline/render_manim.py`) — Manim Community Edition. Renders payoff matrices, game trees, charts, system diagrams. Phases 0–1.5 live: dispatcher, 10 components, 8 layouts, 4 mutations with auto-cleanup overlays, 4 callout styles (neon default), validator overflow detection.
 
 A unified dispatcher (`pipeline/render.py`) routes by the `"renderer"` field on each scene JSON.
@@ -55,7 +55,7 @@ python config/prepare_maps.py --from-manifest --version 1991_ceasefire
 
 Downloaded data goes to `data/maps/<version>/` (gitignored). Downloads are cached to `data/.cache/`.
 
-**Available versions** (defined in `config/map_versions.json`):
+**Available versions** (defined in `map_renderer/data_prep/map_versions.json`):
 
 | Version | Resolution | Description |
 |---|---|---|
@@ -65,7 +65,7 @@ Downloaded data goes to `data/maps/<version>/` (gitignored). Downloads are cache
 | `ne_50m_countries` / `fast` | 50m | Lower resolution — faster for wide-angle scenes |
 | `ne_110m_countries` / `global` | 110m | Minimal geometry — planetary overview shots |
 
-To add a new dataset: add one entry to `config/map_versions.json`. No code changes needed.
+To add a new dataset: add one entry to `map_renderer/data_prep/map_versions.json`. No code changes needed.
 
 ### Scene JSON shape
 
@@ -90,7 +90,7 @@ To add a new dataset: add one entry to `config/map_versions.json`. No code chang
 
 **Timeline actions:** `showLabel`, `removeLabel`, `applyFill`, `removeLayer`, `applyBorder`, `removeBorder`, `drawArrow`, `removeArrow`, `pulseRing`, `flyTo`, `cameraShake`, `clearOverlay`.
 
-**Effects:** `fill-fade`, `fill-wipe`, `fill-ripple`, `fill-contested` · `border-trim`, `border-glow`, `border-marching`, `border-breathe` · `arrow-draw`, `arrow-travel`, `arrow-glow` · `label-slam`, `label-typewriter`, `label-fade`. See `map_animation_skill.md` for the full authoring guide.
+**Effects:** `fill-fade`, `fill-wipe`, `fill-ripple`, `fill-contested` · `border-trim`, `border-glow`, `border-marching`, `border-breathe` · `arrow-draw`, `arrow-travel`, `arrow-glow` · `label-slam`, `label-typewriter`, `label-fade`. See `map_renderer/docs/SKILL.md` for the full authoring guide (content originated as `map_animation_skill.md`).
 
 ### Render modes
 
@@ -172,8 +172,8 @@ pytest manim_renderer/tests/components/ -v            # Manim components
 
 | Path | Purpose |
 |---|---|
-| `config/map_versions.json` | Mapbox dataset registry |
-| `config/map_aliases.json` | Short aliases (`ceasefire`, `fast`, …) |
-| `config/prepare_maps.py` | Download + process Natural Earth |
-| `manim_renderer/theme/palette.py` | Colors — must mirror `renderer/effects.css` |
+| `map_renderer/data_prep/map_versions.json` | Mapbox dataset registry |
+| `map_renderer/data_prep/map_aliases.json` | Short aliases (`ceasefire`, `fast`, …) |
+| `config/prepare_maps.py` | Shim CLI → `map_renderer.data_prep.prepare_maps` |
+| `manim_renderer/theme/palette.py` | Colors — must stay consistent with `map_renderer/web/css/*.css` (tokenized further in W02) |
 | `manim_renderer/schema/scene_schema.json` | Top-level Manim scene contract |
