@@ -62,6 +62,11 @@ verify, else add). Purpose: re-run on every prompt-template or model change.
 Mocked-HTTP tests for dvids/nasa/reference (no live network), contact-sheet
 generation, routing precedence.
 
+### T7 — Docs fragment
+`broll/docs/fragments/W18.md`: reference_urls usage (--ask/--pick flow,
+contact sheet), the new sources and their cascade positions, eval harness
+usage, the full env-var table.
+
 ## Out of scope
 ComfyUI workflows · infra · orchestration (only the exit-code contract).
 

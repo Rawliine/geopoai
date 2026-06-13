@@ -79,6 +79,11 @@ deferred to map side — here rectangular/rounded only. Register + demo scene
 `qa_images.json` (use any local test image; document the path convention
 `assets/images/` for episode-supplied images).
 
+### T9 — Docs fragment
+`manim_renderer/docs/fragments/W10.md`: document showIcon + ImageCard params,
+the safe-area behavior, the new validator warnings, and the events/layout
+sidecar files — SKILL.md style. (Lead merges at integration.)
+
 ## Out of scope
 escape_hatch/ · captions · sound · map anything.
 

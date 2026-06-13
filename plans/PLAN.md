@@ -47,6 +47,8 @@ INTEGRATION (lead-driven, no lane file)
   wav, driven through orchestrate.py with Claude Code as brain. Verifies:
   hash-based selective re-render, caption occupancy, sound pass, QC gates,
   both export formats.
+  Also lead-driven here: docs sync — merge every <layer>/docs/fragments/*.md
+  into that layer's SKILL.md, then delete the fragments.
 ```
 
 ## Lane table
@@ -84,6 +86,10 @@ tag so Wave-1 map lanes never edit shared files.
 - Assets only via `tools/prepare_assets.py` + `assets/manifest.json` (license
   field mandatory).
 - Out-of-scope refactors forbidden.
+- Any lane adding user-facing surface (actions, effects, params, CLI flags)
+  documents it in `<layer>/docs/fragments/<lane>.md` inside its allowlist.
+  SKILL.md files are merged from fragments by the lead at integration —
+  feature lanes never edit SKILL.md directly.
 
 ## Dispatch protocol (operator)
 

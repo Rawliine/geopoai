@@ -4,7 +4,8 @@ Branch: `agents/w11-territory` · Depends on: W00 + W02.
 
 ## Allowlist
 map_renderer/web/js/effects/fills.js · effects/borders.js ·
-web/css/fills.css · web/css/borders.css · scripts/map/qa_territory.json (new)
+web/css/fills.css · web/css/borders.css · scripts/map/qa_territory.json (new) ·
+map_renderer/docs/fragments/W11.md (new)
 
 (Vendored turf + flubber are already loaded by map.html — W00. Read core/
 and registry.js but do not edit them.)
@@ -79,6 +80,11 @@ territory); W13's generic emitter reads `eventMeta` off the registry entries.
 3 keyframes; morphTerritory latest↔ceasefire on Morocco; hatch fill on
 W. Sahara; maskImage flag inside Algeria; one flyTo mid-scene to prove
 reprojection. Deterministic, 25s.
+
+### T8 — Docs fragment
+`map_renderer/docs/fragments/W11.md`: border-neon, advanceFront,
+updateFront/removeFront, morphTerritory, pattern fills, maskImage — full
+params + one JSON example each, SKILL.md style.
 
 ## Out of scope
 Arrows/labels/icons (W12) · camera/atmosphere/vertical/emission (W13) ·

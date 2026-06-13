@@ -10,7 +10,8 @@ or fails with the nearest available alternatives.
 
 ## Allowlist
 map_renderer/data_prep/ · map_renderer/resolver.py ·
-map_renderer/tests/test_catalog.py (new)
+map_renderer/tests/test_catalog.py (new) ·
+map_renderer/docs/fragments/W14.md (new)
 
 ## Read first
 data_prep/prepare_maps.py · data_prep/map_versions.json + map_aliases.json ·
@@ -68,6 +69,11 @@ exception carrying `suggestions: list[str]`.
 test_catalog.py: catalog listing (network-marked, skippable), manifest
 entry shape, year resolution, miss-with-suggestions. Mock network where
 practical.
+
+### T7 — Docs fragment
+`map_renderer/docs/fragments/W14.md`: --discover/--add/--add-all/--audit
+usage, the catalog list, year-resolution behavior, commercial_ok semantics,
+miss-with-suggestions behavior.
 
 ## Out of scope
 Rendering changes · web/ anything · scene schema.

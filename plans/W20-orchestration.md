@@ -27,6 +27,9 @@ hash recording. `orchestration/runner.py`: stage registry, sequential
 `next`, idempotent re-runs. CLI `pipeline/orchestrate.py`:
 `new <show> <episode_id>` · `status` · `next` · `validate <stage>` ·
 `run <stage>` · `qc` · `invalidate <stage|clip_id>`.
+Also `orchestration/README.md`: stage map, the brain protocol (next →
+author artifact → validate), manifest lifecycle — this layer's SKILL.md
+equivalent.
 
 ### T2 — Show bible
 `config/show_bible.geopoai.json`: show_id; positioning statement ("show the

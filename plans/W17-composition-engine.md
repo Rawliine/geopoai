@@ -11,7 +11,8 @@ spec (docs/contracts/compose.schema.json).
 
 ## Allowlist
 composition/engine.py · composition/transitions.py · composition/export.py ·
-pipeline/compose.py (new CLI) · tests/test_compose.py (new)
+composition/README.md (new) · pipeline/compose.py (new CLI) ·
+tests/test_compose.py (new)
 
 ## Checklist
 
@@ -54,6 +55,11 @@ clips), pass skipping. Demo: 3 small clips (generate solid-color +
 moving-box test clips with ffmpeg in a fixture script, with hand-written
 events.json) through cut/crossfade/whoosh + captions fixture + sound
 fixture → playable final mp4, screenshots of each boundary in report.
+
+### T6 — Docs
+`composition/README.md`: the pass pipeline order, compose-spec fields,
+transition semantics (esp. whoosh), export profiles, CLI usage. This is a
+new layer — the README is its SKILL.md equivalent.
 
 ## Out of scope
 captions.py / sound.py internals · renderer changes · orchestration ·

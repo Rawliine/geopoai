@@ -25,3 +25,6 @@ You are executing ONE lane file from `plans/`. Rules:
 9. If a checklist item is ambiguous, implement the narrowest reading and flag
    the ambiguity in your report rather than expanding scope.
 10. Final report format: per item — what changed, how verified, open concerns.
+11. New user-facing surface (actions, effects, params, CLI flags) gets
+    documented in your layer's `docs/fragments/<lane>.md` — never edit
+    SKILL.md directly; the lead merges fragments at integration.

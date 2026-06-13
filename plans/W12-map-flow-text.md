@@ -4,7 +4,8 @@ Branch: `agents/w12-flowtext` · Depends on: W00 + W02.
 
 ## Allowlist
 map_renderer/web/js/effects/arrows.js · effects/labels.js ·
-web/css/arrows.css · web/css/labels.css · scripts/map/qa_flowtext.json (new)
+web/css/arrows.css · web/css/labels.css · scripts/map/qa_flowtext.json (new) ·
+map_renderer/docs/fragments/W12.md (new)
 
 ## Read first
 web/js/core/{registry,utils,reproject}.js (read-only) · effects/arrows.js ·
@@ -66,6 +67,11 @@ counter 0.6, titleCard/chapter 1.0, statBox 0.6, icon 0.4).
 Paris→Washington, supplyLine 4 waypoints, leader label, counter label
 (0→2,300,000 short format), titleCard letterbox, statBox with flags+icons,
 one flyTo to prove reprojection. Deterministic, 25s.
+
+### T8 — Docs fragment
+`map_renderer/docs/fragments/W12.md`: taper/arc arrow styles, supplyLine,
+leader labels, counter labels, titleCard, statBox, showIcon — full params +
+one JSON example each, SKILL.md style.
 
 ## Out of scope
 fills/borders (W11) · camera/atmosphere/vertical (W13) · core/*.js · map.html ·

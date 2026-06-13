@@ -6,7 +6,8 @@ Branch: `agents/w13-camera` · Depends on: W00 + W02.
 ## Allowlist
 map_renderer/runner.py · web/map.html · web/js/core/*.js ·
 web/js/effects/camera.js · effects/atmosphere.js · web/css/base.css ·
-web/css/atmosphere.css · scripts/map/qa_camera.json + qa_vertical.json (new)
+web/css/atmosphere.css · scripts/map/qa_camera.json + qa_vertical.json (new) ·
+map_renderer/docs/fragments/W13.md (new)
 
 ## Read first
 runner.py (Playwright drive, viewport at ~1920x1080, realtime vs
@@ -89,6 +90,12 @@ idle drift visible during a 5s hold, terrain+fog on, vignette+grain on,
 extrudeBars on 3 countries, base labels hidden, showPlaceLabels for cities
 mid-scene. `qa_vertical.json`: same scene grammar framed for 9:16; labels
 must respect caption band + platform margins (verify via layout.json).
+
+### T8 — Docs fragment
+`map_renderer/docs/fragments/W13.md`: easing presets, rotateAround,
+idle_drift, atmosphere/terrain/polish scene keys, extrudeBars, vertical
+format + frac positioning, showPlaceLabels, the events/layout sidecar files —
+full params + one JSON example each, SKILL.md style.
 
 ## Out of scope
 fills/borders/arrows/labels effect internals (only the shared hints/emitter

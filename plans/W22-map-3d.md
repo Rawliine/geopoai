@@ -7,7 +7,8 @@ Heaviest map lane — last of the genre-grammar items.
 map_renderer/web/js/effects/models3d.js (stub exists since W00) ·
 web/vendor/ (three.module.js pinned — ONLY addition) ·
 tools/prepare_assets.py catalog entry + assets/manifest.json (models pack
-entry only) · scripts/map/qa_models.json (new)
+entry only) · scripts/map/qa_models.json (new) ·
+map_renderer/docs/fragments/W22.md (new)
 
 ## Read first
 W00's models3d.js stub + registry pattern · effects/camera.js ·
@@ -49,6 +50,10 @@ qa_models.json: tank formation advancing along a path (with a W11
 advanceFront underneath if merged — else alone), ships arcing a strait,
 radar on a capital with pulseRing, camera swoop + rotateAround proving
 models stay geo-anchored. Both formats.
+
+### T6 — Docs fragment
+`map_renderer/docs/fragments/W22.md`: placeModel/moveModel/removeModel
+params + JSON examples, available model names, the instance budget.
 
 ## Out of scope
 Terrain (done, W13) · extruded bars (done, W13) · animated skeletal meshes ·
