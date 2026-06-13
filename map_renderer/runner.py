@@ -40,6 +40,11 @@ log = logging.getLogger("render_scene")
 load_dotenv(ROOT / ".env")
 MAPBOX_TOKEN = os.getenv("MAPBOX_TOKEN", "")
 
+# Ignore IDE sandbox PLAYWRIGHT_BROWSERS_PATH — often points at a partial Chromium tree.
+_browsers_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+if _browsers_path and "cursor-sandbox-cache" in _browsers_path.replace("\\", "/"):
+    del os.environ["PLAYWRIGHT_BROWSERS_PATH"]
+
 if not MAPBOX_TOKEN:
     log.warning(
         "MAPBOX_TOKEN not found in environment. "
