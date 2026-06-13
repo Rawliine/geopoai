@@ -20,6 +20,27 @@ list (expected: PIXABAY_API_KEY, ANTHROPIC_API_KEY; verify NARA/LoC needs).
 Make missing-key behavior uniform: source skipped with a logged reason
 (cascade.walk already converts auth errors — verify pixabay/pexels do this).
 
+### T1b — Vision verifier backends: subscription auth, no API key required
+Refactor `broll/lib/vision_verifier.py` into pluggable backends behind one
+interface `verify(images, intent) -> Verdict`:
+- `claude_cli` (DEFAULT): shell out to Claude Code headless —
+  `claude -p "<verification prompt with image paths + intent>"
+  --output-format json` — and parse the verdict from its JSON output. Uses
+  the operator's existing Claude Code subscription login; requires NO
+  ANTHROPIC_API_KEY. Preflight: check the `claude` binary exists and is
+  authenticated; fail with a clear message if not. Run verifications
+  serially (subscription rate limits are shared with interactive use).
+- `checkpoint`: write contact sheet + candidates.json and exit with the
+  awaiting-brain code (same pattern as T4's --ask) — the orchestrator
+  surfaces it and Claude Code verifies in-session.
+- `api`: the existing Anthropic SDK path — used ONLY if ANTHROPIC_API_KEY
+  is present; for future unattended batch scale, never required.
+- `clip_only`: skip vision-LLM, stricter CLIP threshold (degraded mode).
+Selection via `BROLL_VERIFIER` env (default `claude_cli`, automatic
+fallback claude_cli → checkpoint when CLI unavailable). Mark
+ANTHROPIC_API_KEY as OPTIONAL in .env.example with a comment saying the
+default path is Claude Code subscription auth.
+
 ### T2 — DVIDS source
 `sources/dvids.py`: DVIDS public API (US military footage, public domain) —
 search by keywords, video assets only, license/provenance into the wrapper
