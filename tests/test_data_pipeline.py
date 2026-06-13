@@ -9,13 +9,12 @@ from unittest.mock import patch
 
 import pytest
 
-ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT / "pipeline"))
-sys.path.insert(0, str(ROOT / "config"))
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
-# Import after path adjustment
-import render_scene  # noqa: E402
-from prepare_maps import find_feature_by_country, _country_slug  # noqa: E402
+from map_renderer.data_prep.prepare_maps import find_feature_by_country, _country_slug  # noqa: E402
+import map_renderer.resolver as resolver  # noqa: E402
 
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -117,33 +116,33 @@ def test_lookup_keeps_larger_area(tmp_path):
             val = props.get(key)
             if isinstance(val, str) and val.strip():
                 k = val.strip().lower()
-                from render_scene import _feature_area
+                from map_renderer.resolver import _feature_area
                 if k not in lookup or _feature_area(feat) > _feature_area(lookup[k]):
                     lookup[k] = feat
 
     morocco = lookup.get("morocco")
     assert morocco is not None
-    from render_scene import _feature_area
+    from map_renderer.resolver import _feature_area
     assert _feature_area(morocco) > 50   # should be the 100 deg² feature, not the tiny island
 
 
 # ── Version alias resolution ──────────────────────────────────────────────────
 
 def test_resolve_known_alias():
-    with patch.object(render_scene, "_load_aliases", return_value={"ceasefire": "1991_ceasefire", "cf": "1991_ceasefire"}):
-        result = render_scene._resolve_version_alias("ceasefire")
+    with patch.object(resolver, "_load_aliases", return_value={"ceasefire": "1991_ceasefire", "cf": "1991_ceasefire"}):
+        result = resolver._resolve_version_alias("ceasefire")
         assert result == "1991_ceasefire"
 
 
 def test_resolve_unknown_key_returns_itself():
-    with patch.object(render_scene, "_load_aliases", return_value={}):
-        result = render_scene._resolve_version_alias("my_custom_version")
+    with patch.object(resolver, "_load_aliases", return_value={}):
+        result = resolver._resolve_version_alias("my_custom_version")
         assert result == "my_custom_version"
 
 
 def test_resolve_empty_defaults_to_latest():
-    with patch.object(render_scene, "_load_aliases", return_value={}):
-        result = render_scene._resolve_version_alias("")
+    with patch.object(resolver, "_load_aliases", return_value={}):
+        result = resolver._resolve_version_alias("")
         assert result == "latest"
 
 
@@ -164,7 +163,7 @@ def test_resolve_empty_defaults_to_latest():
     ("maybe", False),
 ])
 def test_normalize_bool(value, expected):
-    assert render_scene._normalize_bool(value, default=False) == expected
+    assert resolver._normalize_bool(value, default=False) == expected
 
 
 # ── _resolve_scene_countries raises on missing country ────────────────────────
@@ -182,9 +181,9 @@ def test_resolve_raises_on_missing_country():
     }
     mock_lookup = ({"morocco": _make_feature("Morocco")}, "latest")
 
-    with patch.object(render_scene, "_load_country_lookup", return_value=mock_lookup):
+    with patch.object(resolver, "_load_country_lookup", return_value=mock_lookup):
         with pytest.raises(ValueError, match="Atlantis"):
-            render_scene._resolve_scene_countries(scene)
+            resolver._resolve_scene_countries(scene)
 
 
 def test_resolve_succeeds_for_known_country():
@@ -201,8 +200,8 @@ def test_resolve_succeeds_for_known_country():
     mock_feat = _make_feature("Morocco")
     mock_lookup = ({"morocco": mock_feat}, "latest")
 
-    with patch.object(render_scene, "_load_country_lookup", return_value=mock_lookup):
-        result = render_scene._resolve_scene_countries(scene)
+    with patch.object(resolver, "_load_country_lookup", return_value=mock_lookup):
+        result = resolver._resolve_scene_countries(scene)
 
     params = result["timeline"][0]["params"]
     assert "geojson" in params
