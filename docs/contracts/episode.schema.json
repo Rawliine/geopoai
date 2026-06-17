@@ -1,0 +1,184 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://geopoai.local/contracts/episode.schema.json",
+  "title": "Episode manifest",
+  "description": "Persistent episode state machine artifact (episodes/<id>/episode.json).",
+  "type": "object",
+  "required": [
+    "show_id",
+    "episode_id",
+    "format_targets",
+    "stages",
+    "evidence",
+    "script",
+    "storyboard",
+    "clips",
+    "compose",
+    "qc",
+    "publish"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "show_id": { "type": "string", "minLength": 1 },
+    "episode_id": { "type": "string", "minLength": 1 },
+    "format_targets": {
+      "type": "array",
+      "items": { "type": "string", "enum": ["horizontal", "vertical"] },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "stages": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/stage_status" }
+    },
+    "evidence": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/evidence_item" }
+    },
+    "script": { "$ref": "#/$defs/script" },
+    "storyboard": { "$ref": "#/$defs/storyboard" },
+    "clips": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/clip_record" }
+    },
+    "compose": { "$ref": "#/$defs/compose_ref" },
+    "qc": { "$ref": "#/$defs/qc_block" },
+    "publish": { "$ref": "#/$defs/publish_block" }
+  },
+  "$defs": {
+    "stage_status": {
+      "type": "object",
+      "required": ["status"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "awaiting_brain",
+            "running",
+            "done",
+            "failed"
+          ]
+        },
+        "artifact": { "type": "string" },
+        "hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "evidence_item": {
+      "type": "object",
+      "required": ["id", "source", "retrieved_at"],
+      "additionalProperties": true,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "source": { "type": "string", "minLength": 1 },
+        "retrieved_at": { "type": "string", "format": "date-time" },
+        "quote": { "type": "string" },
+        "claim": { "type": "string" },
+        "media_ref": { "type": "string" }
+      }
+    },
+    "script_beat": {
+      "type": "object",
+      "required": ["beat_id", "vo_text"],
+      "additionalProperties": false,
+      "properties": {
+        "beat_id": { "type": "string", "minLength": 1 },
+        "vo_text": { "type": "string" },
+        "intent": { "type": "string" },
+        "evidence_refs": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "script": {
+      "type": "object",
+      "required": ["beats"],
+      "additionalProperties": false,
+      "properties": {
+        "beats": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/script_beat" },
+          "minItems": 1
+        }
+      }
+    },
+    "storyboard_entry": {
+      "type": "object",
+      "required": ["beat_id", "clip_id", "renderer", "duration"],
+      "additionalProperties": false,
+      "properties": {
+        "beat_id": { "type": "string", "minLength": 1 },
+        "clip_id": { "type": "string", "minLength": 1 },
+        "renderer": {
+          "type": "string",
+          "enum": ["map", "manim", "broll", "escape_hatch"]
+        },
+        "scene_ref": { "type": "string" },
+        "duration": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "storyboard": {
+      "type": "object",
+      "required": ["entries"],
+      "additionalProperties": false,
+      "properties": {
+        "entries": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/storyboard_entry" }
+        }
+      }
+    },
+    "clip_record": {
+      "type": "object",
+      "required": ["id", "renderer"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "renderer": {
+          "type": "string",
+          "enum": ["map", "manim", "broll", "escape_hatch"]
+        },
+        "scene_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "outputs": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    },
+    "compose_ref": {
+      "type": "object",
+      "required": ["spec_path"],
+      "additionalProperties": false,
+      "properties": {
+        "spec_path": { "type": "string", "minLength": 1 }
+      }
+    },
+    "qc_block": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["pending", "passed", "failed"]
+        },
+        "report_path": { "type": "string" }
+      }
+    },
+    "publish_block": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "profiles": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "artifacts": {
+          "type": "object",
+          "additionalProperties": { "type": "string" }
+        }
+      }
+    }
+  }
+}

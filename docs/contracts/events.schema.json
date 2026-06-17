@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://geopoai.local/contracts/events.schema.json",
+  "title": "Clip events timeline",
+  "description": "Per-clip *.events.json — normalized animation/audio cue stream.",
+  "type": "object",
+  "required": ["clip_id", "fps", "events"],
+  "additionalProperties": false,
+  "properties": {
+    "clip_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fps": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/event" }
+    }
+  },
+  "$defs": {
+    "event_type": {
+      "type": "string",
+      "enum": [
+        "fill",
+        "border",
+        "arrow",
+        "label",
+        "callout",
+        "highlight",
+        "camera",
+        "chapter",
+        "counter",
+        "insight",
+        "image",
+        "model",
+        "remove"
+      ]
+    },
+    "event_phase": {
+      "type": "string",
+      "enum": ["start", "peak", "end"]
+    },
+    "role_name": {
+      "type": "string",
+      "enum": ["highlight", "threat", "ally", "contested", "neutral"]
+    },
+    "event": {
+      "type": "object",
+      "required": ["t", "type", "phase", "intensity", "id"],
+      "additionalProperties": false,
+      "properties": {
+        "t": {
+          "type": "number",
+          "minimum": 0
+        },
+        "type": { "$ref": "#/$defs/event_type" },
+        "phase": { "$ref": "#/$defs/event_phase" },
+        "intensity": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "role": { "$ref": "#/$defs/role_name" },
+        "id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

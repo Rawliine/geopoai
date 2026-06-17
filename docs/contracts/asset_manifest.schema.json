@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://geopoai.local/contracts/asset_manifest.schema.json",
+  "title": "Asset pack manifest",
+  "description": "Lockfile for provisioned asset packs (assets/manifest.json).",
+  "type": "object",
+  "required": ["version", "packs"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "packs": {
+      "type": "object",
+      "additionalProperties": { "$ref": "#/$defs/pack" }
+    }
+  },
+  "$defs": {
+    "pack_kind": {
+      "type": "string",
+      "enum": ["icons", "font", "sfx", "model"]
+    },
+    "pack_file": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
+      }
+    },
+    "pack": {
+      "type": "object",
+      "required": [
+        "name",
+        "kind",
+        "resolved_url",
+        "version",
+        "sha256",
+        "license",
+        "license_url",
+        "files"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "kind": { "$ref": "#/$defs/pack_kind" },
+        "resolved_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "version": { "type": "string", "minLength": 1 },
+        "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "license": { "type": "string", "minLength": 1 },
+        "license_url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "files": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/pack_file" },
+          "minItems": 1
+        }
+      }
+    }
+  }
+}
