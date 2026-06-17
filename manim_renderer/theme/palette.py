@@ -5,7 +5,12 @@ hex, returns the better-contrasting palette text hex (`text_primary` for
 dark backgrounds, `background` for light). Uses W3C relative luminance
 (not WCAG contrast ratio — we only need a binary light/dark decision)."""
 
-ACTORS = {
+from __future__ import annotations
+
+from typing import Any
+
+# Actor colors are scene-specific; not part of the frozen token roles.
+_ACTORS_FALLBACK = {
     "actor_a": "#3498db",
     "actor_b": "#e74c3c",
     "actor_c": "#2ecc71",
@@ -13,7 +18,7 @@ ACTORS = {
     "actor_e": "#9b59b6",
 }
 
-SEMANTIC = {
+_SEMANTIC_FALLBACK = {
     "positive": "#2ecc71",
     "negative": "#e74c3c",
     "neutral": "#95a5a6",
@@ -21,7 +26,7 @@ SEMANTIC = {
     "contested": "#e67e22",
 }
 
-UI = {
+_UI_FALLBACK = {
     "background": "#0e1116",
     "surface": "#1a1f2e",
     "border": "#2c3e50",
@@ -29,6 +34,47 @@ UI = {
     "text_secondary": "#95a5a6",
     "text_accent": "#f1c40f",
 }
+
+
+def _load_palette_from_tokens() -> tuple[dict[str, str], dict[str, str], dict[str, str]] | None:
+    try:
+        from tools.tokens import load_tokens
+    except ImportError:
+        return None
+    try:
+        tokens: dict[str, Any] = load_tokens()
+    except (FileNotFoundError, KeyError, TypeError):
+        return None
+
+    palette = tokens.get("palette", {})
+    roles = palette.get("roles", {})
+    text = palette.get("text", {})
+
+    ui = {
+        "background": palette.get("background", _UI_FALLBACK["background"]),
+        "surface": palette.get("surface", _UI_FALLBACK["surface"]),
+        "border": _UI_FALLBACK["border"],
+        "text_primary": text.get("primary", _UI_FALLBACK["text_primary"]),
+        "text_secondary": text.get("secondary", _UI_FALLBACK["text_secondary"]),
+        "text_accent": roles.get("highlight", {}).get("core", _UI_FALLBACK["text_accent"]),
+    }
+    semantic = {
+        "positive": roles.get("ally", {}).get("core", _SEMANTIC_FALLBACK["positive"]),
+        "negative": roles.get("threat", {}).get("core", _SEMANTIC_FALLBACK["negative"]),
+        "neutral": roles.get("neutral", {}).get("core", _SEMANTIC_FALLBACK["neutral"]),
+        "highlight": roles.get("highlight", {}).get("core", _SEMANTIC_FALLBACK["highlight"]),
+        "contested": roles.get("contested", {}).get("core", _SEMANTIC_FALLBACK["contested"]),
+    }
+    return _ACTORS_FALLBACK.copy(), semantic, ui
+
+
+_loaded = _load_palette_from_tokens()
+if _loaded is not None:
+    ACTORS, SEMANTIC, UI = _loaded
+else:
+    ACTORS = _ACTORS_FALLBACK.copy()
+    SEMANTIC = _SEMANTIC_FALLBACK.copy()
+    UI = _UI_FALLBACK.copy()
 
 
 def _hex_to_rgb(hex_str: str) -> tuple[float, float, float]:
