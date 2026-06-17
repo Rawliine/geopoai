@@ -69,6 +69,7 @@ def _mean_abs_rgb_diff(a: Path, b: Path) -> float:
     return sum(abs(p1[i] - p2[i]) for i in range(n)) / float(n)
 
 
+@pytest.mark.render
 @pytest.mark.parametrize(
     "scene_rel",
     [

@@ -1,0 +1,37 @@
+{
+  "permissions": {
+    "allow": [
+      "Shell(ls)",
+      "Shell(cat)",
+      "Shell(head)",
+      "Shell(tail)",
+      "Shell(wc)",
+      "Shell(grep)",
+      "Shell(rg)",
+      "Shell(find)",
+      "Shell(mkdir)",
+      "Shell(cp)",
+      "Shell(ln)",
+      "Shell(python)",
+      "Shell(python3)",
+      "Shell(pytest)",
+      "Shell(pip)",
+      "Shell(ffmpeg)",
+      "Shell(ffprobe)",
+      "Shell(git status)",
+      "Shell(git diff)",
+      "Shell(git log)",
+      "Shell(git show)",
+      "Shell(git add)",
+      "Shell(git commit)",
+      "Shell(git branch)",
+      "Shell(git mv)"
+    ],
+    "deny": [
+      "Shell(git push)",
+      "Shell(git remote)",
+      "Shell(gh)",
+      "Shell(sudo)"
+    ]
+  }
+}

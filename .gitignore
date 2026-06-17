@@ -7,10 +7,11 @@ infra/.terraform/
 output/
 tmp/
 data/
-# Provisioned asset trees (lockfile: assets/manifest.json)
+# Provisioned asset trees (lockfile: assets/manifest.json).
+# Dir names mirror the schema `kind` enum: icons | font | sfx | model.
 assets/icons/
-assets/fonts/
-assets/models/
+assets/font/
+assets/model/
 assets/sfx/*
 !assets/sfx/palette.json
 # Manim LaTeX/SVG cache (regenerated per render)

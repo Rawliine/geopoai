@@ -17,7 +17,8 @@ config/design_tokens.json
 Reproduce: render `scripts/manim/qa_showcase_v_2.json`, capture the font
 warning/error from stderr (likely Pango fallback for Barlow Condensed or
 STIX Two Math not installed system-wide). Fix properly: load font files from
-`assets/fonts/` (provisioned by `tools/prepare_assets.py`) and register them
+`assets/font/` (provisioned by `tools/prepare_assets.py`; dir name = schema
+`kind` "font", singular) and register them
 with `manim.utils.register_font` (or context-manager equivalent) inside theme
 setup, so renders are font-correct on any machine without system installs.
 Acceptance: warning gone from stderr; titles visibly condensed (Barlow).
