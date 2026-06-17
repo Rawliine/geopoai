@@ -68,6 +68,23 @@ def _glob_match(name: str, pattern: str) -> bool:
     return fnmatch.fnmatch(name, pattern) or fnmatch.fnmatch(Path(name).name, pattern)
 
 
+def _bundle_zip(files: dict[str, bytes]) -> bytes:
+    buf = BytesIO()
+    with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_STORED) as zf:
+        for rel, content in sorted(files.items()):
+            zf.writestr(rel, content)
+    return buf.getvalue()
+
+
+def _download_direct_files(
+    direct_files: tuple[tuple[str, str], ...],
+) -> dict[str, bytes]:
+    out: dict[str, bytes] = {}
+    for url, rel in direct_files:
+        out[rel] = _download(url)
+    return out
+
+
 def _extract_members(
     archive_bytes: bytes,
     source: ResolvedSource,
@@ -113,12 +130,14 @@ def _resolve_source(defn: PackDefinition, manifest: dict[str, Any]) -> ResolvedS
     slug = pack_slug(defn.name)
     existing = manifest.get("packs", {}).get(slug)
     if existing:
+        direct = existing.get("_direct_files", [])
         return ResolvedSource(
             resolved_url=existing["resolved_url"],
             version=existing["version"],
             archive_prefix=existing.get("_archive_prefix", ""),
             extract_glob=existing.get("_extract_glob", "**/*"),
             dest_subdir=existing.get("_dest_subdir", ""),
+            direct_files=tuple((row[0], row[1]) for row in direct),
         )
     return defn.resolve()
 
@@ -139,7 +158,12 @@ def add_pack(pack_name: str, *, refresh: bool = False) -> None:
         raise SystemExit(f"pack {pack_name!r} missing license metadata — fail closed")
 
     print(f"fetching {pack_name} from {source.resolved_url}")
-    archive_bytes = _download(source.resolved_url)
+    if source.direct_files:
+        extracted = _download_direct_files(source.direct_files)
+        archive_bytes = _bundle_zip(extracted)
+    else:
+        archive_bytes = _download(source.resolved_url)
+        extracted = _extract_members(archive_bytes, source)
     archive_sha = _sha256_bytes(archive_bytes)
 
     _CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -148,11 +172,11 @@ def add_pack(pack_name: str, *, refresh: bool = False) -> None:
     if not cache_path.exists():
         cache_path.write_bytes(archive_bytes)
 
-    extracted = _extract_members(archive_bytes, source)
     if not extracted:
         raise SystemExit(
             f"no files matched for pack {pack_name!r} "
-            f"(prefix={source.archive_prefix!r}, glob={source.extract_glob!r})"
+            f"(prefix={source.archive_prefix!r}, glob={source.extract_glob!r}, "
+            f"direct={len(source.direct_files)} file(s))"
         )
 
     manifest_files = _install_files(defn.kind, defn.name, extracted)
@@ -168,6 +192,7 @@ def add_pack(pack_name: str, *, refresh: bool = False) -> None:
         "_archive_prefix": source.archive_prefix,
         "_extract_glob": source.extract_glob,
         "_dest_subdir": source.dest_subdir,
+        "_direct_files": [list(pair) for pair in source.direct_files],
     }
     manifest.setdefault("packs", {})[slug] = pack_entry
     _save_manifest(manifest)

@@ -3,15 +3,11 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Callable
 from urllib.parse import quote
 
-# Shared google/fonts release archive (pinned tag for reproducibility).
-_GOOGLE_FONTS_TAG = "v0.4.9"
-_GOOGLE_FONTS_ARCHIVE = (
-    f"https://github.com/google/fonts/archive/refs/tags/{_GOOGLE_FONTS_TAG}.zip"
-)
+_GOOGLE_FONTS_RAW = "https://raw.githubusercontent.com/google/fonts/main/ofl"
 
 
 @dataclass(frozen=True)
@@ -31,9 +27,10 @@ class ResolvedSource:
 
     resolved_url: str
     version: str
-    archive_prefix: str
-    extract_glob: str
-    dest_subdir: str
+    archive_prefix: str = ""
+    extract_glob: str = ""
+    dest_subdir: str = ""
+    direct_files: tuple[tuple[str, str], ...] = field(default_factory=tuple)
 
 
 def _github_release_asset(repo: str, asset_substring: str) -> ResolvedSource:
@@ -91,14 +88,21 @@ def _github_branch_archive(
     )
 
 
-def _google_font(family_dir: str, display_version: str | None = None) -> ResolvedSource:
-    prefix = f"fonts-{_GOOGLE_FONTS_TAG}/ofl/{family_dir}/"
+def _google_font_files(
+    family_dir: str,
+    filenames: tuple[str, ...],
+    *,
+    version: str = "main",
+) -> ResolvedSource:
+    """Pin individual TTFs from google/fonts main (variable/static as shipped)."""
+    files = tuple(
+        (f"{_GOOGLE_FONTS_RAW}/{family_dir}/{quote(name)}", name)
+        for name in filenames
+    )
     return ResolvedSource(
-        resolved_url=_GOOGLE_FONTS_ARCHIVE,
-        version=display_version or _GOOGLE_FONTS_TAG.lstrip("v"),
-        archive_prefix=prefix,
-        extract_glob="**/*.ttf",
-        dest_subdir="",
+        resolved_url=files[0][0],
+        version=version,
+        direct_files=files,
     )
 
 
@@ -186,28 +190,44 @@ PACKS: dict[str, PackDefinition] = {
         kind="font",
         license="OFL-1.1",
         license_url="https://openfontlicense.org/",
-        resolve=lambda: _google_font("inter"),
+        resolve=lambda: _google_font_files(
+            "inter",
+            ("Inter[opsz,wght].ttf", "Inter-Italic[opsz,wght].ttf"),
+        ),
     ),
     "Barlow Condensed": PackDefinition(
         name="Barlow Condensed",
         kind="font",
         license="OFL-1.1",
         license_url="https://openfontlicense.org/",
-        resolve=lambda: _google_font("barlowcondensed"),
+        resolve=lambda: _google_font_files(
+            "barlowcondensed",
+            (
+                "BarlowCondensed-Regular.ttf",
+                "BarlowCondensed-Bold.ttf",
+                "BarlowCondensed-SemiBold.ttf",
+            ),
+        ),
     ),
     "JetBrains Mono": PackDefinition(
         name="JetBrains Mono",
         kind="font",
         license="OFL-1.1",
         license_url="https://openfontlicense.org/",
-        resolve=lambda: _google_font("jetbrainsmono"),
+        resolve=lambda: _google_font_files(
+            "jetbrainsmono",
+            ("JetBrainsMono[wght].ttf", "JetBrainsMono-Italic[wght].ttf"),
+        ),
     ),
     "STIX Two Math": PackDefinition(
         name="STIX Two Math",
         kind="font",
         license="OFL-1.1",
         license_url="https://openfontlicense.org/",
-        resolve=lambda: _google_font("stixtwomath"),
+        resolve=lambda: _google_font_files(
+            "stixtwomath",
+            ("STIXTwoMath-Regular.ttf",),
+        ),
     ),
 }
 
