@@ -206,7 +206,7 @@ The user works on 3D with Claude Code in the loop. Critical to make this fast.
 - Stats dump in stdout. Vert count, shape key inventory, bone hierarchy diff — text Claude Code can read directly without rendering.
 - Determinism. Same edit script = same output, every time. No accidental randomness in seeds or modifiers.
 
-This loop is described in detail in `verda_workflow.md`, but the design implication for the presenter system is: **preview render must be optimized for Claude Code iteration speed, not for human visual review quality.** A slightly worse-looking preview that renders in 3s beats a better preview that renders in 30s, by a wide margin.
+This loop is described in detail in `infra/OPERATOR_RUNBOOK.md`, but the design implication for the presenter system is: **preview render must be optimized for Claude Code iteration speed, not for human visual review quality.** A slightly worse-looking preview that renders in 3s beats a better preview that renders in 30s, by a wide margin.
 
 `[LOCKED]` — preview render optimized for iteration speed.
 

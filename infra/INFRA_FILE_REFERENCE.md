@@ -2,7 +2,7 @@
 
 This document stands alone: it describes **every file under `infra/`**, what each does in isolation, how they behave **as one system**, and explicit **non-goals** (what nothing here does for you).
 
-Operator-oriented steps (apply, destroy, credentials) live in **`README.md`**. Narrative strategy and costs live in **`verda_workflow(2).md`**. This file is the **map of the machinery**.
+Operator-oriented steps (apply, destroy, credentials) live in **`README.md`**. Narrative strategy and costs live in **`OPERATOR_RUNBOOK.md`**. This file is the **map of the machinery**.
 
 ---
 
@@ -209,13 +209,13 @@ These files are **read by Terraform** (`file()` / `templatefile()`) and **never 
 
 **Alone:** This document — a directory map: each file’s role, how they compose, and explicit non-goals.
 
-**Together:** Complements **`README.md`** (procedures) and **`verda_workflow(2).md`** (strategy); use it when onboarding or refactoring Terraform/shell layout.
+**Together:** Complements **`README.md`** (procedures) and **`OPERATOR_RUNBOOK.md`** (strategy); use it when onboarding or refactoring Terraform/shell layout.
 
 **Does not:** Define Verda API fields (see provider registry) or guarantee pricing.
 
 ---
 
-### `verda_workflow(2).md`
+### `OPERATOR_RUNBOOK.md`
 
 **Alone:** Long-form personal playbook: strategy, costs, when to use spot, ComfyUI mental model, optional Claude/Blender iteration notes, example snippets (some may drift from committed Terraform).
 

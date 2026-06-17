@@ -28,7 +28,7 @@ Goal: end-to-end "hello world" — JSON in, MP4 out, no real components yet.
 - Create `manim_renderer/` skeleton (full layout below in AGENT.md).
 - `pipeline/render.py` — unified dispatcher reading `"renderer"` field from JSON, calling the right backend.
 - `pipeline/render_manim.py` — thin async wrapper that validates JSON, instantiates `JSONScene`, runs Manim, copies output to `output/`.
-- `manim_renderer/theme/` — palette, typography, timing, easing. Palette must be diffed against `renderer/effects.css` actor colors. Same hex codes everywhere.
+- `manim_renderer/theme/` — palette, typography, timing, easing. Palette must be diffed against `map_renderer/web/css/*.css` actor colors. Same hex codes everywhere.
 - `manim_renderer/components/base.py` — `BaseComponent(VGroup)` abstract class. Methods: `build()`, `entrance(effect, timing)`, `exit(effect)`, `get_anchor(name)`, `measure()`.
 - `manim_renderer/scene.py` — `JSONScene(MovingCameraScene)`. Reads JSON, sorts timeline, dispatches to component registry, manages `id → mobject` registry, handles inter-action waits.
 - `manim_renderer/registry.py` — `REGISTRY: dict[str, type[BaseComponent]]`.
