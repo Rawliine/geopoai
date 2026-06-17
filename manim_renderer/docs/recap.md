@@ -202,7 +202,7 @@ The viewer should never feel they've switched apps. Natural cuts:
 - Shape echo — closing element of the map clip (pulse, glow) opens the Manim clip's first reveal.
 - Shared visual elements — flag colors in `PlayerLabel` match the highlighted region on the map.
 
-`[LOCKED]` — color palette synced across `renderer/effects.css` and `manim_renderer/theme/palette.py`. CI enforces equality.
+`[LOCKED]` — color palette synced across `map_renderer/web/css/*.css` and `manim_renderer/theme/palette.py`. CI enforces equality. (W02 unifies both under `config/design_tokens.json`.)
 
 ---
 
@@ -261,7 +261,7 @@ Three rules, enforced by code reviews and by sensible defaults in the easing/tim
 
 ## 12. Color & typography systems
 
-### Palette (`manim_renderer/theme/palette.py`, mirrors `renderer/effects.css`)
+### Palette (`manim_renderer/theme/palette.py`, mirrors `map_renderer/web/css/*.css`)
 
 ```
 actors:
