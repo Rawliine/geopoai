@@ -67,6 +67,10 @@ def render_manim_sync(scene: dict, clip_name: str) -> Path:
 
     _configure_manim(fmt, quality, media_dir)
 
+    from manim_renderer.theme.typography import ensure_fonts
+
+    ensure_fonts()
+
     from manim_renderer.scene import JSONScene
 
     JSONScene.scene_data = scene

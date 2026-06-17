@@ -44,3 +44,10 @@ if _loaded is not None:
 else:
     FONTS = _FONTS_FALLBACK.copy()
     FONT_SCALE = {k: v.copy() for k, v in _FONT_SCALE_FALLBACK.items()}
+
+
+def ensure_fonts() -> None:
+    """Register provisioned TTFs before any Manim Text is constructed."""
+    from manim_renderer.theme.fonts import ensure_brand_fonts_registered
+
+    ensure_brand_fonts_registered()
