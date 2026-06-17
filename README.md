@@ -3,7 +3,7 @@
 Two-engine pipeline for short-form geopolitical / game-theory video clips. Both engines consume scene JSON and produce MP4.
 
 - **Mapbox engine** (`pipeline/render_scene.py` → `map_renderer/runner.py`) — Mapbox GL JS in headless Chromium (Playwright). HTML/CSS/JS live under `map_renderer/web/`. Renders maps, country fills, borders, arrows, ripples.
-- **Manim engine** (`pipeline/render_manim.py`) — Manim Community Edition. Renders payoff matrices, game trees, charts, system diagrams. Phases 0–1.5 live: dispatcher, 10 components, 8 layouts, 4 mutations with auto-cleanup overlays, 4 callout styles (neon default), validator overflow detection.
+- **Manim engine** (`pipeline/render_manim.py`) — Manim Community Edition. Renders payoff matrices, game trees, charts, system diagrams. Live: dispatcher, 10 components, 8 named layouts across both formats, 4 auto-cleanup mutations plus role/layout restaging, 3 callout styles (neon default), and a three-tier scene validator. See `manim_renderer/docs/` for the phase roadmap.
 
 A unified dispatcher (`pipeline/render.py`) routes by the `"renderer"` field on each scene JSON.
 
@@ -100,7 +100,7 @@ To add a new dataset: add one entry to `map_renderer/data_prep/map_versions.json
 
 ## Manim engine
 
-Phases 0–2 live: dispatcher, 10 components, 8 layout solvers, 4 mutations with auto-cleanup overlays, 6 callout styles (neon default), validator overflow + composition-fit detection, role-based composition + restaging.
+Live: dispatcher, 10 components, 8 layout solvers, 4 auto-cleanup mutations, 3 callout styles (neon default), validator overflow + composition-fit detection, and role-based composition + restaging. The full phase roadmap lives in `manim_renderer/docs/plan.md`.
 
 JSON-authored Manim scenes for diagrams that don't sit on a map (payoff matrices, charts, system maps). The schema bans raw coordinates — composition uses named **layouts**, relative **anchors**, and **subject**-based callout placement. Every component has a **role** (`hero` / `primary` / `supporting` / `ambient` / `annotation` / `hidden`); the runner re-solves the layout on every composition change.
 
@@ -132,7 +132,7 @@ python pipeline/render.py scripts/manim/hello.json hello
 
 **Available layouts:** `hero` (both formats), `split` (h) / `stacked` (v), `data-left` (h) / `data-top` (v), `trio` (h) / `trio-stack` (v), `title-body` (both).
 
-**Available actions:** show* family (`showTextCard`, `showStatBlock`, `showMetricGroup`, `showCalloutBox`, `showBarChart`, `showLineChart`, `showTimeline`, `showGameTree`, `showAllianceWeb`, `showPayoffMatrix`); mutation/composition family (`removeComponent`, `highlightCell`, `crossOut`, `bestResponseArrow`, `setRole`, `showCalloutSequence`).
+**Available actions:** show* family (`showTextCard`, `showStatBlock`, `showMetricGroup`, `showCalloutBox`, `showBarChart`, `showLineChart`, `showTimeline`, `showGameTree`, `showAllianceWeb`, `showPayoffMatrix`); mutation/composition family (`removeComponent`, `highlightCell`, `crossOut`, `bestResponseArrow`, `setRole`, `setLayout`).
 
 **Quality modes:** `preview` → 480p / 15fps · `draft` → 720p / 30fps · `full` → 1080p / 60fps. Vertical swaps width and height.
 
@@ -158,7 +158,16 @@ manim_renderer/
   tests/            # one test per component, plus golden frames + fuzz harness
 ```
 
-See `manim md files/AGENT.md`, `plan.md`, `recap.md` for the full design and roadmap, and `phase_0_status.md` for what's currently shippable.
+See `manim_renderer/docs/` (`AGENT.md`, `SKILL.md`, `plan.md`, `recap.md`) for the full design, scene-authoring guide, and roadmap.
+
+## Composition & orchestration (in progress)
+
+These layers are being built — see [`plans/PLAN.md`](plans/PLAN.md) for scope, waves, and status.
+
+- **Composition** (`composition/`) — assembles rendered clips into episodes: occupancy-aware caption burn-in, an automatic SFX/music sound pass, transitions, color grading, and multi-format export. Specs: `plans/W15`–`plans/W17`.
+- **Orchestration** (`orchestration/`) — episode manifest plus a stage runner with hash-based selective re-render, QC gates, and publish, driven by Claude Code as the brain (no LLM API). Spec: `plans/W20`.
+
+Brand consistency across every layer comes from `config/design_tokens.json` (palette, typography, glow, timing, safe areas) and the asset lockfile `assets/manifest.json` — both established in W02. Never hardcode visual constants or fetch assets ad hoc.
 
 ## Tests
 
