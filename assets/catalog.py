@@ -175,10 +175,9 @@ PACKS: dict[str, PackDefinition] = {
             "Boyquotes/kenney-impact-sounds-for-godot",
             "main",
             archive_prefix=(
-                "kenney-impact-sounds-for-godot-main/"
-                "addons/kenney_impact_sounds/audio/"
+                "kenney-impact-sounds-for-godot-main/addons/kenney impact sounds/"
             ),
-            extract_glob="**/*.{wav,ogg}",
+            extract_glob="impact*.ogg",
             version="1.0.0",
         ),
     ),
