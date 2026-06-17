@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://geopoai.local/contracts/layout.schema.json",
+  "title": "Clip layout occupancy",
+  "description": "Per-clip *.layout.json — normalized bounding boxes over time.",
+  "type": "object",
+  "required": ["clip_id", "format", "sample_hz", "frames"],
+  "additionalProperties": false,
+  "properties": {
+    "clip_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "format": {
+      "type": "string",
+      "enum": ["horizontal", "vertical"]
+    },
+    "sample_hz": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "frames": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/frame" }
+    }
+  },
+  "$defs": {
+    "normalized": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "box_kind": {
+      "type": "string",
+      "enum": [
+        "callout",
+        "label",
+        "chart",
+        "matrix",
+        "caption",
+        "image",
+        "other"
+      ]
+    },
+    "box": {
+      "type": "object",
+      "required": ["id", "kind", "x", "y", "w", "h"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "kind": { "$ref": "#/$defs/box_kind" },
+        "x": { "$ref": "#/$defs/normalized" },
+        "y": { "$ref": "#/$defs/normalized" },
+        "w": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "h": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      }
+    },
+    "frame": {
+      "type": "object",
+      "required": ["t", "boxes"],
+      "additionalProperties": false,
+      "properties": {
+        "t": { "type": "number", "minimum": 0 },
+        "boxes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/box" }
+        }
+      }
+    }
+  }
+}

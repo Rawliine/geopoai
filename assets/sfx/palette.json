@@ -1,0 +1,107 @@
+{
+  "_comment": "SFX palette skeleton — restraint over spectacle. W16 curates TODO_CURATE slots.",
+  "version": 1,
+  "density_cap_per_10s": 6,
+  "families": {
+    "whoosh": {
+      "file": "assets/sfx/kenney-ui-audio/switch35.wav",
+      "gain_db": -8,
+      "cooldown_s": 2.5,
+      "max_per_10s": 3,
+      "variants": [
+        {
+          "file": "assets/sfx/kenney-ui-audio/rollover6.wav",
+          "gain_db": -10,
+          "note": "short airy whoosh, no bass tail"
+        },
+        {
+          "file": "assets/sfx/kenney-ui-audio/switch28.wav",
+          "gain_db": -9,
+          "note": "TODO_CURATE — alternate camera-cut whoosh"
+        }
+      ]
+    },
+    "impact": {
+      "file": "assets/sfx/kenney-impact-sounds/impact_generic_light_002.ogg",
+      "gain_db": -6,
+      "cooldown_s": 1.8,
+      "max_per_10s": 4,
+      "variants": [
+        {
+          "file": "assets/sfx/kenney-impact-sounds/impact_metal_heavy_001.ogg",
+          "gain_db": -4,
+          "note": "chapter stinger — punchy but brief"
+        },
+        {
+          "file": "assets/sfx/kenney-impact-sounds/impact_glass_medium_002.ogg",
+          "gain_db": -7,
+          "note": "label-slam weight"
+        }
+      ]
+    },
+    "tick": {
+      "file": "assets/sfx/kenney-ui-audio/click3.wav",
+      "gain_db": -12,
+      "cooldown_s": 0.35,
+      "max_per_10s": 8,
+      "variants": [
+        {
+          "file": "assets/sfx/kenney-ui-audio/mouseclick1.wav",
+          "gain_db": -11,
+          "note": "counter/stat tick"
+        },
+        {
+          "file": "assets/sfx/kenney-ui-audio/click5.wav",
+          "gain_db": -13,
+          "note": "TODO_CURATE — lighter stat tick"
+        }
+      ]
+    },
+    "swell": {
+      "file": "assets/sfx/kenney-ui-audio/switch1.wav",
+      "gain_db": -14,
+      "cooldown_s": 3.0,
+      "max_per_10s": 2,
+      "variants": [
+        {
+          "file": "assets/sfx/kenney-ui-audio/switch14.wav",
+          "gain_db": -15,
+          "note": "fill/border swell — soft rise"
+        },
+        {
+          "file": "assets/sfx/kenney-ui-audio/switch22.wav",
+          "gain_db": -16,
+          "note": "TODO_CURATE — advanceFront peak swell"
+        }
+      ]
+    },
+    "ambient_bed": {
+      "file": "TODO_CURATE",
+      "gain_db": -22,
+      "cooldown_s": 0,
+      "max_per_10s": 1,
+      "variants": [
+        {
+          "file": "assets/sfx/kenney-ui-audio/rollover1.wav",
+          "gain_db": -24,
+          "note": "placeholder bed texture until curated loop is chosen"
+        }
+      ]
+    }
+  },
+  "event_map": {
+    "camera": "whoosh",
+    "chapter": "impact",
+    "label": "impact",
+    "callout": "impact",
+    "insight": "impact",
+    "counter": "tick",
+    "fill": "swell",
+    "border": "swell",
+    "arrow": "whoosh",
+    "highlight": "swell",
+    "image": "tick",
+    "model": "swell",
+    "remove": "tick"
+  }
+}

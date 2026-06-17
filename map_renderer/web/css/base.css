@@ -1,4 +1,5 @@
 /* Split from renderer/effects.css (W00) — keep rules verbatim per family. */
+@import url("tokens.css");
 
 /* ============================================================
    EFFECTS.CSS — Map Animation Effect Library

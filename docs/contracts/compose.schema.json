@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://geopoai.local/contracts/compose.schema.json",
+  "title": "Episode compose specification",
+  "description": "Clip assembly order, transitions, audio inputs, and export profiles.",
+  "type": "object",
+  "required": ["episode_id", "clips", "transitions", "audio", "export"],
+  "additionalProperties": false,
+  "properties": {
+    "episode_id": { "type": "string", "minLength": 1 },
+    "clips": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/clip_ref" },
+      "minItems": 1
+    },
+    "transitions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/transition" }
+    },
+    "audio": { "$ref": "#/$defs/audio_inputs" },
+    "export": { "$ref": "#/$defs/export_block" },
+    "flags": { "$ref": "#/$defs/compose_flags" }
+  },
+  "$defs": {
+    "clip_ref": {
+      "type": "object",
+      "required": ["clip_id", "path", "offset_s"],
+      "additionalProperties": false,
+      "properties": {
+        "clip_id": { "type": "string", "minLength": 1 },
+        "path": { "type": "string", "minLength": 1 },
+        "offset_s": { "type": "number", "minimum": 0 },
+        "events_path": { "type": "string" },
+        "layout_path": { "type": "string" }
+      }
+    },
+    "transition_type": {
+      "type": "string",
+      "enum": ["cut", "crossfade", "whoosh"]
+    },
+    "transition": {
+      "type": "object",
+      "required": ["after_clip_id", "type"],
+      "additionalProperties": false,
+      "properties": {
+        "after_clip_id": { "type": "string", "minLength": 1 },
+        "type": { "$ref": "#/$defs/transition_type" },
+        "duration": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Seconds; required for crossfade/whoosh, ignored for cut."
+        }
+      }
+    },
+    "audio_inputs": {
+      "type": "object",
+      "required": ["vo"],
+      "additionalProperties": false,
+      "properties": {
+        "vo": { "type": "string", "minLength": 1 },
+        "bed": { "type": "string" }
+      }
+    },
+    "export_profile": {
+      "type": "string",
+      "enum": ["yt_long", "shorts"]
+    },
+    "export_block": {
+      "type": "object",
+      "required": ["profiles"],
+      "additionalProperties": false,
+      "properties": {
+        "profiles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/export_profile" },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      }
+    },
+    "compose_flags": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "captions": { "type": "boolean" },
+        "sound": { "type": "boolean" },
+        "grade": { "type": "boolean" }
+      }
+    }
+  }
+}

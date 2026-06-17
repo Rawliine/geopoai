@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "palette": {
+    "background": "#0e1116",
+    "surface": "#1a1f2e",
+    "text": {
+      "primary": "#ecf0f1",
+      "secondary": "#95a5a6"
+    },
+    "roles": {
+      "highlight": {
+        "core": "#f1c40f",
+        "glow": "#f6d963",
+        "dim": "#9d7f0a"
+      },
+      "threat": {
+        "core": "#e74c3c",
+        "glow": "#ef8b80",
+        "dim": "#963127"
+      },
+      "ally": {
+        "core": "#2ecc71",
+        "glow": "#77dea3",
+        "dim": "#1e8549"
+      },
+      "contested": {
+        "core": "#e67e22",
+        "glow": "#efab6f",
+        "dim": "#965216"
+      },
+      "neutral": {
+        "core": "#95a5a6",
+        "glow": "#bac4c5",
+        "dim": "#616b6c"
+      }
+    }
+  },
+  "typography": {
+    "display": "Barlow Condensed",
+    "primary": "Inter",
+    "mono": "JetBrains Mono",
+    "math": "STIX Two Math",
+    "scale": {
+      "horizontal": {
+        "title": 64,
+        "body": 36,
+        "label": 28,
+        "caption": 22
+      },
+      "vertical": {
+        "title": 84,
+        "body": 48,
+        "label": 36,
+        "caption": 28
+      }
+    }
+  },
+  "glow": {
+    "core_px": 2,
+    "halo_px": 6,
+    "halo_opacity": 0.35
+  },
+  "timing": {
+    "beat_min_s": 2.0,
+    "beat_max_s": 4.0,
+    "static_max_s": 2.5,
+    "stagger_ms": 120,
+    "exit_ratio": 0.6,
+    "read_rate_cps": 15,
+    "callout_min_s": 1.2
+  },
+  "safe_areas": {
+    "vertical": {
+      "caption_band": [0.78, 0.92],
+      "platform_margins": {
+        "top": 0.06,
+        "bottom": 0.10,
+        "left": 0.04,
+        "right": 0.14
+      }
+    },
+    "horizontal": {
+      "caption_band": [0.84, 0.96],
+      "platform_margins": {
+        "top": 0.04,
+        "bottom": 0.04,
+        "left": 0.04,
+        "right": 0.04
+      }
+    }
+  },
+  "grading": {
+    "lut": null,
+    "vignette_opacity": 0.25,
+    "grain_opacity": 0.06
+  },
+  "sound": {
+    "palette_manifest": "assets/sfx/palette.json",
+    "vo_duck_db": -6,
+    "target_lufs": -14
+  }
+}

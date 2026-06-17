@@ -7,6 +7,12 @@ infra/.terraform/
 output/
 tmp/
 data/
+# Provisioned asset trees (lockfile: assets/manifest.json)
+assets/icons/
+assets/fonts/
+assets/models/
+assets/sfx/*
+!assets/sfx/palette.json
 # Manim LaTeX/SVG cache (regenerated per render)
 media/
 
