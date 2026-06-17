@@ -1,113 +1,101 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) working in this repository. This file
+is a **router**: it points at each layer's own docs instead of duplicating them.
+Keep it thin — when a layer changes, update that layer's docs, not this file.
 
-## What this project does
+## What this project is
 
-GeoPoAI is a geopolitical map animation pipeline. It renders scene JSON files into MP4 clips by headlessly driving a Mapbox GL JS page via Playwright, then encoding frames/video with ffmpeg.
+GeoPoAI turns scene JSON into MP4 clips for short-form geopolitical /
+game-theory video. Several renderers share one scene-JSON convention
+(`duration`, `timeline`, action-based events); an LLM (Claude Code) authors the
+JSON. The composition layer assembles rendered clips with captions and a sound
+pass into finished episodes.
 
-## Running the renderer
+## Layers and where their docs live
 
-Requires a `.env` file at the project root:
+| Layer | Path | Status | Docs |
+|---|---|---|---|
+| Map renderer | `map_renderer/` | live | `map_renderer/docs/` (SKILL, AGENT, recap) |
+| Manim renderer | `manim_renderer/` | live | `manim_renderer/docs/` (SKILL, AGENT, recap, plan) |
+| B-roll | `broll/` | live | `broll/` (AGENT, plan, recap) |
+| Presenter renderer | `presenter_renderer/` | in progress | `presenter_renderer/` (AGENT, plan, recap, SKILL) |
+| Infra (GPU sessions) | `infra/` | live | `infra/README.md` + `infra/OPERATOR_RUNBOOK.md` + `infra/AGENT.md` |
+| Composition | `composition/` | in progress — see `plans/W15`–`W17` | — |
+| Orchestration | `orchestration/` | in progress — see `plans/W20` | — |
+
+## Running renders
+
+Every render goes through the unified dispatcher, which routes on the scene's
+`"renderer"` field (`"mapbox"` default, or `"manim"`):
+
+```bash
+python pipeline/render.py scripts/map/MA_AG.json my_clip     # -> output/my_clip.mp4
+python pipeline/render.py scripts/manim/hello.json hello     # -> output/manim/hello.mp4
+```
+
+The per-engine entry points still work directly (`pipeline/render_scene.py` for
+Mapbox, `pipeline/render_manim.py` for Manim). Mapbox rendering needs a `.env`
+at the repo root:
+
 ```
 MAPBOX_TOKEN=pk.eyJ1...
 ```
 
-Render a scene:
-```bash
-python pipeline/render_scene.py scripts/map/test_scene.json hook_clip
-# → output/hook_clip.mp4
-```
+Programmatic use:
 
-Programmatic usage:
 ```python
-from pipeline.render_scene import render_scene
-path = asyncio.run(render_scene(scene_dict, "clip_name"))
+import asyncio
+from pipeline.render import render
+path = asyncio.run(render(scene_dict, "clip_name"))
 ```
 
-Data prep (run once per map version, or on-demand via auto-provisioning):
+## Map data
+
+Country geometry auto-provisions on first use. To pre-download or inspect:
+
 ```bash
 python config/prepare_maps.py --list-versions
 python config/prepare_maps.py --from-manifest --version latest
-python config/prepare_maps.py --from-manifest --version 1991_ceasefire
-python config/prepare_maps.py --zip /path/to/file.zip --version my_version
 ```
 
-## Architecture
+The dataset registry is `map_renderer/data_prep/map_versions.json` (aliases in
+`map_aliases.json`). Generated geometry lands in `data/maps/<version>/`
+(gitignored); downloads cache to `data/.cache/`. Scene-authoring details live in
+`map_renderer/docs/SKILL.md`.
 
-### Render pipeline flow
+## Validating and testing
 
-1. `pipeline/render_scene.py` — Python entry point. Resolves `country` shorthand in timeline entries to full GeoJSON via `data/maps/<version>/countries.featurecollection.geojson`, then launches Playwright.
-2. Playwright opens `renderer/map.html` headlessly, injects the Mapbox token, waits for `window.sceneReady === true`, then calls either `window.playScene(scene)` (realtime) or `window.loadScene(scene)` + `window.stepTo(t)` per frame (deterministic).
-3. `renderer/effects.js` — pure-JS animation engine. Implements `runTimeline`, `createDeterministicRuntime`, and all overlay effects (fills, arrows, labels, borders). No Mapbox dependency in this file.
-4. `renderer/effects.css` — GPU-accelerated CSS animation classes applied by effects.js.
-5. ffmpeg assembles the final MP4 from either a captured WebM (realtime) or a PNG frame sequence (deterministic).
+```bash
+python -m manim_renderer.schema.validator scripts/manim/hello.json
+pytest                                          # full suite
+```
 
-### Two render modes
+## Setup
 
-**Realtime** (default): Playwright records video as WebM while `playScene()` runs in real time → ffmpeg converts to MP4.
+```bash
+pip install -r requirements.txt
+playwright install chromium
+```
 
-**Deterministic** (`_deterministic: true`): `loadScene()` sets up a frozen runtime, then `stepTo(t)` is called for each frame `t = i/fps`. One `page.screenshot()` per frame → ffmpeg assembles. Produces exactly `round(duration * fps)` frames. Use this for consistent motion quality and repeatable output with `_seed`.
+## Project-wide rules (enforced; see `.cursor/rules/agent-discipline.mdc`)
 
-### Scene JSON structure
+- **No hardcoded visual constants.** Colors, fonts, glow, timing, and safe
+  areas come from `config/design_tokens.json` — the frozen brand source of
+  truth (established in W02). Never inline hex values or font names.
+- **Assets only via the manifest.** New icons/fonts/SFX/models enter through
+  `tools/prepare_assets.py` + `assets/manifest.json` (a committed lockfile;
+  every entry carries a `license` field). Never download assets ad hoc (W02).
+- **Frozen contracts.** `docs/contracts/*.schema.json` and
+  `config/design_tokens.json` change only via the lead — never inside a lane.
+- **Each layer documents its own surface.** New actions/effects/params/flags go
+  in `<layer>/docs/fragments/<lane>.md`, merged into that layer's `SKILL.md` at
+  integration — feature lanes never edit `SKILL.md` directly.
 
-Top-level scene keys:
-- `duration` — total clip length in seconds
-- `map_style` — `"dark"` | `"satellite"` | `"terrain"` | `"light"` | `"streets"` | raw Mapbox URL
-- `camera` — opening camera: `{ center, zoom, pitch, bearing, duration }`
-- `timeline` — array of `{ at, action, params }` entries
-- `_deterministic`, `_fps`, `_seed`, `_nvenc_qp`, `_x264_crf` — render controls
-- `_map_version` — default country data version (default: `"latest"`)
-- `_include_islands` — whether to include island geometry (default: `false`)
+## The plans/ workflow
 
-### Country data versioning
-
-The **manifest** (tracked in git) lives at `config/map_versions.json`; aliases at `config/map_aliases.json`. Both are committed and describe all available download sources.
-
-Generated data (gitignored) goes to `data/maps/<version>/`. Downloads are cached to `data/.cache/`.
-
-When a scene action uses `country: "Morocco"` without `geojson`, `render_scene.py` resolves it by reading pre-extracted per-country files from `data/maps/<version>/countries/`. If none exist, it falls back to parsing the full `countries.featurecollection.geojson`. If the version isn't downloaded at all, it auto-runs `pipeline/prepare_maps.py --from-manifest`.
-
-Version resolution order per action: `params.version` → scene `_map_version` → `"latest"`.
-
-Available versions (see `config/map_versions.json`):
-- `latest` — Natural Earth 10m countries (Morocco + W. Sahara merged)
-- `1991_ceasefire` / `ceasefire` — Natural Earth 10m map units (Morocco + W. Sahara split)
-- `ne_10m_sovereignty` — Natural Earth 10m sovereignty units
-- `ne_50m_countries` / `fast` — Natural Earth 50m (lower res, faster)
-- `ne_110m_countries` / `global` — Natural Earth 110m (minimal, planetary overview)
-
-### Overlay system
-
-`renderer/map.html` has two overlay layers above the Mapbox WebGL canvas:
-- `#arrows-layer` — SVG for arrows/paths
-- `#labels-layer` — HTML divs for text labels
-
-Both are reprojected on every camera `move`/`moveend` event via `MapEffects.bindReproject`. Geo-pinned elements carry `data-lng`/`data-lat` attributes; screen-fixed labels use `position: { x, y }`.
-
-## Key files
-
-| Path | Role |
-|---|---|
-| `pipeline/render_scene.py` | Main Python renderer, Playwright driver, country resolver |
-| `config/prepare_maps.py` | Downloads/processes Natural Earth shapefiles → versioned GeoJSON |
-| `renderer/map.html` | Mapbox GL JS page; exposes `window.playScene`, `window.loadScene`, `window.stepTo` |
-| `renderer/effects.js` | JS animation engine: timeline sequencer, all effect implementations |
-| `renderer/effects.css` | CSS animation classes (`fill-fade`, `border-marching`, `arrow-draw`, `label-slam`, etc.) |
-| `config/map_versions.json` | Map version manifest with download sources (tracked by git) |
-| `config/map_aliases.json` | Short alias → canonical version name (tracked by git) |
-| `scripts/map/` | Example Mapbox scene JSON files |
-| `scripts/manim/` | Example Manim scene JSON files |
-| `tests/` | Browser-based HTML + pytest test files |
-
-## Effects reference
-
-**Fill effects**: `fill-fade`, `fill-wipe`, `fill-ripple`, `fill-contested`  
-**Border effects**: `border-trim`, `border-glow`, `border-marching`, `border-breathe`  
-**Arrow effects**: `arrow-draw`, `arrow-travel`, `arrow-glow`  
-**Label effects**: `label-slam`, `label-typewriter`, `label-fade`
-
-## Dependencies
-
-Python: `playwright`, `python-dotenv`, `pyshp` (shapefile)  
-System: `ffmpeg` (with optional `h264_nvenc` for GPU encoding), Chromium (installed via `playwright install chromium`)
+Pre-launch work is organized as lanes under `plans/` — one spec file per lane
+(`plans/W*.md`), each its own git worktree + branch + PR-sized diff, with one
+commit per checklist item (`W<lane>.T<item>: <summary>`). Start at
+`plans/PLAN.md` for the wave and dependency order. Superseded or historical
+docs live under `docs/archive/`.

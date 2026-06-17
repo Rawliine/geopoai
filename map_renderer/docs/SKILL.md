@@ -1,7 +1,9 @@
-# map_animation_skill — LLM Guide to Authoring Scene JSON
+# SKILL.md — Authoring Map Scene JSON
 
-This file teaches an LLM how to write scene JSON files for the GeoPoAI renderer.
-Tone: be precise, use the exact key names, default to safe choices.
+This file teaches an LLM how to write scene JSON files for the GeoPoAI map renderer.
+Tone: be precise, use the exact key names, default to safe choices. The action and
+effect tables below are verified against `map_renderer/web/js/effects/*.js` and
+`map_renderer/web/css/*.css`.
 
 ---
 
@@ -11,9 +13,10 @@ The renderer reads a **scene JSON file**, drives a headless Mapbox GL JS browser
 via Playwright, and produces an MP4. A scene is a sequence of timed actions that add
 fills, borders, arrows, labels, and pulse effects to a map.
 
-The Python entry point is `pipeline/render_scene.py`. It resolves `country:` shorthands
-to GeoJSON, then passes the full scene to the browser. All visual logic lives in
-`map_renderer/web/js/` modules and `map_renderer/web/css/*.css`.
+The entry point is the unified dispatcher `pipeline/render.py` (or `pipeline/render_scene.py`
+directly); the Mapbox implementation lives in `map_renderer/runner.py`. It resolves
+`country:` shorthands to GeoJSON, then passes the full scene to the browser. All visual
+logic lives in `map_renderer/web/js/` modules and `map_renderer/web/css/*.css`.
 
 ---
 
@@ -375,8 +378,8 @@ Instead of providing raw GeoJSON, use the `country` shorthand:
 "version": "ceasefire"    // optional version; default = scene's _map_version or "latest"
 ```
 
-Available versions are listed in `data/maps/versions.json`.
-Aliases (like `"ceasefire"` → `"1991_ceasefire"`) are in `data/maps/aliases.json`.
+Available versions are listed in `map_renderer/data_prep/map_versions.json`.
+Aliases (like `"ceasefire"` → `"1991_ceasefire"`) are in `map_renderer/data_prep/map_aliases.json`.
 
 When to use raw `geojson` instead:
 - Custom regions not matching any country

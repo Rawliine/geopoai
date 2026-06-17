@@ -131,9 +131,9 @@ See "Where to start Phase 2" below.
 
 ### Docs
 
-- `manim md files/AGENT.md` — 15 hard rules (rules 9–15 added in Phase 1).
-- `manim md files/recap.md` — Phase 1 implementation decisions block (§22a).
-- `manim md files/plan.md` — Phase 1 marked complete.
+- `manim_renderer/docs/AGENT.md` — 15 hard rules (rules 9–15 added in Phase 1).
+- `manim_renderer/docs/recap.md` — Phase 1 implementation decisions block (§22a).
+- `manim_renderer/docs/plan.md` — Phase 1 marked complete.
 - `scripts/manim/_skill.md` — every action documented with example JSON,
   custom anchors, allowed effects.
 
@@ -162,7 +162,7 @@ this order.
    packages (`amsmath`, `amssymb`, `mathtools`). Without this, font fallback
    is silent and breaks visual regression.
 5. **CI palette diff** between `manim_renderer/theme/palette.py` and
-   `renderer/effects.css` (per `AGENT.md` line 96 + `recap.md` §9 LOCKED).
+   `map_renderer/web/css/*.css` (per `AGENT.md` line 96 + `recap.md` §9 LOCKED).
    Currently asserted in docs but not enforced.
 6. **Golden-frame tests** for the top 4 components — `recap.md` §16. Phase 1
    has component build tests but no pixel diff.
@@ -287,7 +287,7 @@ testable individually; pick them off in any order.
    check that fonts + LaTeX packages are present is gating future visual
    regression work — block all visual PRs until this is in place.
 
-5. **Palette CI diff.** Compare `theme/palette.py` against `renderer/effects.css`.
+5. **Palette CI diff.** Compare `theme/palette.py` against `map_renderer/web/css/*.css`.
    `recap.md` §9 says CI enforces equality; make it actually true.
 
 Once camera + remaining effects are in, the next PRs are content-driven —
@@ -828,17 +828,17 @@ Each callout enters, holds, fades out, next enters. Validator counts the sequenc
 
 **Update every md file:**
 
-- `manim md files/AGENT.md`:
+- `manim_renderer/docs/AGENT.md`:
   - **New rule 17:** "Components have a role at every instant. Roles drive size/opacity/z-order via the layout solver. Default role is `primary`. Set via `params.role` or `setRole` action."
   - **New rule 18:** "Restage fires after every composition change (show, remove, setRole). Mutations don't trigger restage; overlays follow the host via the parallel-Transform walker in `_overlays_by_host`."
   - **Rule 9 addendum:** "Subject-based callouts re-sample anchor after each restage Transform via `reposition(host_bbox)` hook."
   - "How to add a new component" step 5: "Override `preferred_size(params, format, role)` only if linear scaling by role doesn't fit your component."
 
-- `manim md files/plan.md`:
+- `manim_renderer/docs/plan.md`:
   - Mark **Phase 2** DONE with the shipped list.
   - Drop the original Phase 2 "Effects, motion, camera" entry — that scope moves to **Phase 3**.
 
-- `manim md files/recap.md`:
+- `manim_renderer/docs/recap.md`:
   - New **§22c — Phase 2 implementation decisions**, ~6 entries:
     1. Role enum: why these 6 and not more
     2. Restage timing: after every composition change, not on mutations
@@ -848,7 +848,7 @@ Each callout enters, holds, fades out, next enters. Validator counts the sequenc
     6. Color inheritance: opt-in via subject, explicit always wins
   - Add ~6 rows to **§22 Decision log**.
 
-- `manim md files/handoff.md`:
+- `manim_renderer/docs/handoff.md`:
   - Strike this Phase 2 brief (it's done).
   - Add a new **Phase 2 → Phase 3** section covering camera (cameraZoom/Pan/Focus), remaining ~20 effects, content-driven component expansion.
 
@@ -977,7 +977,7 @@ Mechanical: factory function + `EffectSpec` entry + schema enum line +
   Block visual PRs until this lands.
 
 ## 4. Palette CI diff
-- Compare `theme/palette.py` against `renderer/effects.css` (recap.md
+- Compare `theme/palette.py` against `map_renderer/web/css/*.css` (recap.md
   §9 LOCKED). Currently documented but not enforced.
 
 ## 5. Golden-frame tests

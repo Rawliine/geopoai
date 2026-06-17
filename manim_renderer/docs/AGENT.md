@@ -8,7 +8,7 @@ Read this first. This file is the working brief for any agent (Claude Code, auto
 
 A pipeline that converts scene JSON into MP4 video clips for short-form geopolitical / game-theory content. Two rendering engines live side by side:
 
-- **Mapbox engine** (existing, complete) — Mapbox GL JS in a headless Chromium, driven by Playwright. Renders maps, country fills, borders, arrows, ripples. Entry: `pipeline/render_scene.py`.
+- **Mapbox engine** (existing, complete) — Mapbox GL JS in a headless Chromium, driven by Playwright. Renders maps, country fills, borders, arrows, ripples. Lives in `map_renderer/` (entry: `pipeline/render.py` dispatcher → `pipeline/render_scene.py` shim). See `map_renderer/docs/`.
 - **Manim engine** (in progress) — Manim Community Edition. Renders payoff matrices, game trees, charts, system diagrams. Entry: `pipeline/render_manim.py`.
 
 Both consume JSON of the same general shape (`duration`, `timeline`, action-based events). An LLM authors the JSON. The two engines stay separate but their visual languages (colors, typography, motion) are designed to feel like one piece.
@@ -24,16 +24,17 @@ GeoPoAI/
 │   ├── render_scene.py        # Mapbox engine entry (existing, do not break)
 │   └── render_manim.py        # Manim engine entry
 │
-├── renderer/                   # Mapbox/Playwright engine
-│   ├── map.html
-│   ├── effects.js
-│   └── effects.css
+├── map_renderer/               # Mapbox/Playwright engine (see map_renderer/docs/)
+│   ├── runner.py               # Playwright driver + ffmpeg encode
+│   ├── resolver.py             # country/version → GeoJSON
+│   ├── data_prep/              # Natural Earth download + versioned GeoJSON
+│   └── web/                    # map.html + js/{core,effects}/ + css/ (per-family split)
 │
 ├── manim_renderer/             # Manim engine
 │   ├── scene.py                # JSONScene(MovingCameraScene) — the runner
 │   ├── registry.py             # action → component class map
 │   ├── theme/
-│   │   ├── palette.py          # colors — MUST match renderer/effects.css
+│   │   ├── palette.py          # colors — MUST match map_renderer/web/css/*.css
 │   │   ├── typography.py       # fonts + sizes per format
 │   │   ├── timing.py           # TIMING constants
 │   │   └── easing.py           # EASE dict, rate funcs
@@ -73,7 +74,7 @@ GeoPoAI/
 │       ├── golden_frames/      # reference images for diff testing
 │       └── fuzz/               # LLM output fuzzer
 │
-├── config/                     # data prep for the map engine (existing)
+├── config/                     # prepare_maps.py shim (data prep is in map_renderer/data_prep/)
 ├── scripts/
 │   ├── map/                    # Mapbox scene JSONs
 │   └── manim/                  # Manim scene JSONs
@@ -92,19 +93,19 @@ These are not style preferences. Breaking them breaks the pipeline.
 
 1. **Coordinates never appear in scene JSON.** Use zone names (`"CENTER"`, `"TOP-RIGHT"`) or anchors (`"below:matrix-1"`). Schema rejects raw `x`/`y` values. The renderer is the only place coordinates exist.
 
-2. **Colors are pulled from `theme/palette.py`, never hardcoded.** If you write `"#3498db"` in component code, you are wrong. The same hex must work on both the map and Manim — `palette.py` and `effects.css` are diffed in CI.
+2. **Colors are pulled from `theme/palette.py`, never hardcoded.** If you write `"#3498db"` in component code, you are wrong. The same hex must work on both the map and Manim — `palette.py` and `map_renderer/web/css/*.css` stay in sync (W02 unifies both under `config/design_tokens.json`).
 
 3. **Timings are pulled from `theme/timing.py`, never raw floats in component code.** `TIMING["normal"]` not `0.6`.
 
 4. **One component per file.** `payoff_matrix.py` defines exactly one component. Helpers go in private functions inside the same file unless they're reused. Visual-variant spec dicts (e.g., callout style specs in `components/narrative/_callout_styles.py`) live in a leading-underscore module beside the component — keeps the dispatch additive, mirrors the `EffectSpec` pattern.
 
-5. **Every new component:** inherits `BaseComponent`, registers in `COMPONENT_REGISTRY`, gets a schema in `schema/action_schemas/`, gets a test in `tests/components/`, and gets an entry in `scripts/manim/_skill.md`. No exceptions. The LLM authoring layer relies on schema coverage being complete.
+5. **Every new component:** inherits `BaseComponent`, registers in `COMPONENT_REGISTRY`, gets a schema in `schema/action_schemas/`, gets a test in `tests/components/`, and gets documented in `manim_renderer/docs/SKILL.md` (feature lanes add the entry to `manim_renderer/docs/fragments/<lane>.md`; the lead merges fragments into `SKILL.md` at integration). No exceptions. The LLM authoring layer relies on schema coverage being complete.
 
 6. **Manim Community Edition only.** No ManimGL imports. Pinned in `requirements.txt`.
 
 7. **Format-awareness is mandatory.** Every component must render correctly in both horizontal (`16:9`, 1920×1080) and vertical (`9:16`, 1080×1920). Use the `format` flag passed at init. Components stay format-agnostic; resolvers (`resolve_size`, `resolve_anchor`) absorb format differences.
 
-8. **Do not modify the Mapbox engine** (`renderer/`, `pipeline/render_scene.py`, `config/`) while building Manim. It is complete and shipping. Touch it only for the shared dispatcher and for color-palette synchronization.
+8. **Do not modify the Mapbox engine** (`map_renderer/`, `pipeline/render_scene.py`) while building Manim. It is complete and shipping. Touch it only for the shared dispatcher and for color-palette synchronization.
 
 9. **Anchor coords sample at call time.** When an anchored event fires, `resolve_anchor` reads the target's *current* state — not its post-animation state. If the target is mid-animation, the anchor sees the in-flight position. Don't anchor against actively-moving targets.
 
@@ -184,7 +185,7 @@ pipeline/render.py
 5. Register in `manim_renderer/registry.py:COMPONENT_REGISTRY`: `"showFooBar": FooBar`.
 6. Create `manim_renderer/schema/action_schemas/show_foo_bar.json` with full param schema. Use `$ref` into `scene_schema.json#/definitions/` for `id_string`, `timing_name`, `anchor_string`, `size_role`, `color_key`, `entrance_effect`, etc. Set `additionalProperties: false`.
 7. Create `manim_renderer/tests/components/test_foo_bar.py` — render both formats at `-ql`. Add unit tests for any non-trivial logic (no rendering required).
-8. Add a section to `scripts/manim/_skill.md` describing the action — required params, accepted effects, one minimal JSON example.
+8. Document the action in `manim_renderer/docs/SKILL.md` — required params, accepted effects, one minimal JSON example. In a feature lane, add it to `manim_renderer/docs/fragments/<lane>.md` for the lead to merge.
 
 The schema is the contract. If it's not in the schema, the LLM doesn't know about it and won't generate it.
 
@@ -227,7 +228,10 @@ LLM-generated scenes default to `preview`. Human or approved scenes use `full`. 
 
 ## Camera
 
-`JSONScene` extends `MovingCameraScene`. Three new timeline actions:
+`JSONScene` extends `MovingCameraScene`. Three camera timeline actions are
+**planned (Phase 3, see `plan.md`)** and are *not yet registered* in
+`ACTION_REGISTRY` — verify in `registry.py`/`actions/__init__.py` before relying
+on them:
 
 ```json
 { "action": "cameraZoom",  "params": { "factor": 0.6, "duration": "normal" } }
@@ -257,12 +261,13 @@ Custom scenes bypass the layout system but must still respect the theme palette 
 
 ## Schema validation
 
-`schema/validator.py` is called by `pipeline/render_manim.py` before any rendering. It runs four tiers:
+`schema/validator.py` is called by `pipeline/render_manim.py` before any rendering. It runs five tiers:
 
 1. **Structural** — JSON matches `scene_schema.json` (and coords-banned keys absent anywhere).
 2. **Action-level** — each action's `params` matches `action_schemas/<action>.json`. Per-action schemas use `$ref` into `scene_schema.json#/definitions/` for shared enums (timing, effects, anchor pattern, color keys); centralized resolution via `referencing.Registry`.
 3. **Semantic** — layout exists for the format (`LAYOUT_FORMATS` map), declared slots match the layout, `at` values within `duration`, no duplicate ids.
 4. **Anchors** — every `params.anchor` and `params.target` references an id declared by an event with strictly-earlier sort key (`at`, then phase). Walks events in the same `(at, phase)` order as the scene runner.
+5. **Spatial dry-run** — `schema/_dry_run.py` estimates each component's box via `measure()` and flags slot-fit overflow, anchor overflow, and collisions before rendering. Skipped when earlier tiers already failed structurally.
 
 Validation errors include the JSON path and a human-readable explanation. The LLM authoring loop reads these to self-correct.
 
@@ -282,7 +287,7 @@ CI runs all three on every commit. Fuzz failures don't block merge (only crash f
 
 ## Common pitfalls
 
-- **LaTeX missing packages.** `MathTex` failures look like garbled error messages. Confirm `setup_assets.sh` ran successfully.
+- **LaTeX missing packages.** `MathTex` failures look like garbled error messages. Confirm a LaTeX distribution (TeX Live) and the brand fonts are installed.
 - **Font fallback.** If Inter or Barlow Condensed aren't installed, Manim silently falls back to defaults. Visual regression. CI test renders a known glyph and checks dimensions.
 - **`Text` vs `MarkupText` vs `MathTex`.** `Text` is fastest, supports system fonts. `MarkupText` allows inline styling. `MathTex` for equations only. Don't use `MathTex` for plain labels.
 - **Manim coordinate confusion.** Y-axis is up, origin at center. If a component looks shifted, check that you're not treating y like screen coordinates.
@@ -305,10 +310,11 @@ python -m manim_renderer.tests.components.test_payoff_matrix
 
 # validate JSON without rendering
 python -m manim_renderer.schema.validator <scene.json>
-
-# install assets (fonts, LaTeX packages, flag SVGs)
-bash manim_renderer/assets/setup_assets.sh
 ```
+
+Brand assets (fonts, flag SVGs, icons) are committed under
+`manim_renderer/assets/{fonts,flags,icons}/`; there is no separate install
+script. System LaTeX must be installed for `MathTex`.
 
 ---
 
@@ -427,8 +433,9 @@ plan without spinning up a renderer.
    + leader re-anchor; pick whichever reads better in source.
 4. Before swapping to a single-slot layout (hero), `removeComponent`
    anything you don't want carried along.
-5. Use `showCalloutSequence` when you want a chain of callouts to play
-   in order — each fades out before the next enters.
+5. Chained one-at-a-time callouts (`showCalloutSequence`) are described in
+   `plan.md` but are **not yet a registered action** — verify in
+   `registry.py` before relying on it.
 6. Validate with `python -m manim_renderer.schema.validator <scene>`.
 7. Dry-run with `python scripts/manim/debug_replay.py <scene>` and
    confirm every `show` event has `plan (N)` with N > 0.

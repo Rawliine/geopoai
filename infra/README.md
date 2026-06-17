@@ -1,6 +1,6 @@
 # GeoPoAI → Verda infrastructure (Terraform)
 
-This directory turns the personal playbook in `verda_workflow(2).md` into **repeatable, versioned infrastructure**: one persistent **block volume** for models/LoRAs/datasets, and **ephemeral GPU instances** you bring up for batches and destroy when idle.
+This directory turns the personal playbook in `OPERATOR_RUNBOOK.md` into **repeatable, versioned infrastructure**: one persistent **block volume** for models/LoRAs/datasets, and **ephemeral GPU instances** you bring up for batches and destroy when idle.
 
 If you only read one section: **Credentials → First apply → SSH → Destroy**.
 
@@ -329,5 +329,5 @@ GPU **spot** savings apply only when you apply with `comfyui_production.tfvars` 
 
 ## Related documentation
 
-- Narrative playbook + cost model: `verda_workflow(2).md`
+- Narrative playbook + cost model: `OPERATOR_RUNBOOK.md`
 - Map render pipeline (separate from Verda): `../CLAUDE.md`

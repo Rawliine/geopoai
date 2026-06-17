@@ -225,7 +225,7 @@ Goal: the system is maintainable by the user + Claude Code over months.
 
 - `_assets_manifest.json` in `scenes/` — tracks every third-party asset used per scene file. Critical because Blend files don't carry license metadata.
 - Asset audit pass — walks scenes, verifies every external asset has `.meta.json`, surfaces missing
-- Preview render harness — for Claude Code iteration loops (see `verda_workflow.md` for the iteration pattern):
+- Preview render harness — for Claude Code iteration loops (see `infra/OPERATOR_RUNBOOK.md` for the iteration pattern):
   - `scripts/preview.py` — runs a script, generates multi-angle preview PNG, prints mesh/scene stats to stdout
   - Output to `/tmp/preview_*.png` — Claude Code reads them between iterations
 - Shape key tester — renders the owl through every shape key in a sequence, produces a QC sheet for visual review

@@ -249,7 +249,7 @@ Verda L40S (cheap GPU)       → draft batch
 Verda B200 (production)      → full quality, parallelizable across frames
 ```
 
-Local handles all authoring work. Verda handles final renders only. See `verda_workflow.md` for instance management.
+Local handles all authoring work. Verda handles final renders only. See `infra/OPERATOR_RUNBOOK.md` for instance management.
 
 ---
 
@@ -303,7 +303,7 @@ For authoring/editing the owl, scenes, or gestures with Claude Code in the loop:
 5. User reviews the same PNGs in their file browser, gives natural-language feedback
 6. Loop continues until satisfactory
 
-See `verda_workflow.md` for the broader iteration pattern + render harness details.
+See `infra/OPERATOR_RUNBOOK.md` for the broader iteration pattern + render harness details.
 
 ---
 
