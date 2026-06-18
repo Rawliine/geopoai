@@ -1,4 +1,4 @@
-"""Phase-0 end-to-end smoke test against the real Pexels API.
+"""Phase-0 end-to-end smoke test against the real source cascade.
 
 Skipped when PEXELS_API_KEY is not set so the rest of the suite stays offline.
 Network test marker keeps it out of fast loops; run with::
@@ -38,5 +38,10 @@ def test_phase0_smoke(tmp_path, monkeypatch) -> None:
     asset = tmp_path / "phase0-smoke-pytest.mp4"
     assert asset.exists() and asset.stat().st_size > 0
     assert asset_wrapper.meta_path_for(asset).exists()
-    assert meta["source"]["name"] == "pexels"
+    # The cascade is priority-ordered (Wikimedia first), so this end-to-end smoke
+    # proves "a real source satisfied the shot", not Pexels specifically — Pexels
+    # has dedicated live coverage in test_phase1_smoke::test_live_source_returns_results.
+    assert meta["source"]["name"] in {
+        "wikimedia", "loc", "nara", "archive_org", "pexels", "pixabay",
+    }
     assert meta["license"]["commercial_use_ok"] is True
