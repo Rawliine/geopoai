@@ -35,6 +35,7 @@ _COMPONENT_ACTIONS = [
     "showGameTree",
     "showAllianceWeb",
     "showPayoffMatrix",
+    "showIcon",
 ]
 
 
@@ -108,6 +109,7 @@ _VALID_PARAMS_FOR: dict[str, dict] = {
             [{"a": 2, "b": 0}, {"a": 1, "b": 1}],
         ],
     },
+    "showIcon": {"id": "x", "icon": "shield"},
 }
 
 # CalloutBox needs an anchor, so it lives in overlays referencing a prior id.

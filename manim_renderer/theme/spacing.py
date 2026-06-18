@@ -36,10 +36,19 @@ _RATIOS: dict[str, float] = {
 }
 
 
+def text_height_units(role: str, fmt: str = "horizontal") -> float:
+    """Scene-unit height of a ``role``-sized text line (token-derived).
+
+    Lets non-text components (icons, chips) size themselves relative to the brand
+    type scale instead of hardcoding Manim units. ``role`` is a typography key
+    (``title`` / ``body`` / ``label`` / ``caption``)."""
+    scale = FONT_SCALE.get(fmt, FONT_SCALE["horizontal"])
+    return scale.get(role, scale["caption"]) * _UNIT_PER_PT
+
+
 def _caption_unit(fmt: str) -> float:
     """Caption text height for ``fmt`` in scene units (token-derived)."""
-    scale = FONT_SCALE.get(fmt, FONT_SCALE["horizontal"])
-    return scale["caption"] * _UNIT_PER_PT
+    return text_height_units("caption", fmt)
 
 
 def spacing(slot: str, fmt: str = "horizontal") -> float:
