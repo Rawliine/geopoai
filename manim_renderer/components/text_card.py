@@ -45,6 +45,10 @@ class TextCard(BaseComponent):
         text = self.params.get("text", "")
         size_role = self.params.get("size", "title")
         font_size = FONT_SCALE[self.format][size_role]
+        # Titles render in the brand DISPLAY face (Barlow Condensed) so headlines
+        # read as condensed, genre-standard cards; body/label/caption stay in the
+        # primary face (Inter). Both are registered by theme.fonts at render time.
+        font_family = FONTS["display"] if size_role == "title" else FONTS["primary"]
         # Exposed for subject-color inheritance even though TextCard
         # doesn't accept a color param today — keeps the surface uniform
         # across components so resolvers don't need a special case.
@@ -56,7 +60,7 @@ class TextCard(BaseComponent):
 
         self.label = auto_fit_text(
             text,
-            font=FONTS["primary"],
+            font=font_family,
             font_size=font_size,
             color=UI["text_primary"],
             target_width=target_w,

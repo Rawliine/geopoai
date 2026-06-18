@@ -33,7 +33,16 @@ def _token_font_families() -> tuple[str, ...]:
 
 
 def ensure_brand_fonts_registered() -> None:
-    """Load TTFs from assets/fonts/<pack>/ into Pango (idempotent)."""
+    """Load brand TTFs from ``assets/font/<pack-slug>/`` into Pango so renders
+    are font-correct on any machine without system installs (idempotent).
+
+    We register globally via ``manimpango.register_font`` rather than Manim's
+    ``manim.utils.register_font`` context manager: the latter de-registers the
+    font when its ``with`` block exits, which would drop the family before the
+    scene's many ``Text`` mobjects are rasterized. A render is long-lived and
+    every component expects the brand families to stay resident, so a one-shot
+    global registration (the call the context manager wraps) is the right tool.
+    """
     global _DONE
     if _DONE:
         return
