@@ -41,6 +41,7 @@ from manim_renderer.components.game_theory.payoff_matrix import PayoffMatrix
 from manim_renderer.components.geopolitical.alliance_web import AllianceWeb
 from manim_renderer.components.narrative.callout_box import CalloutBox
 from manim_renderer.components.narrative.icon import Icon
+from manim_renderer.components.narrative.image_card import ImageCard
 from manim_renderer.components.narrative.timeline import Timeline
 from manim_renderer.components.text_card import TextCard
 
@@ -56,6 +57,7 @@ COMPONENT_REGISTRY: dict = {
     "showAllianceWeb":   AllianceWeb,
     "showPayoffMatrix":  PayoffMatrix,
     "showIcon":          Icon,
+    "showImageCard":     ImageCard,
 }
 
 ACTION_REGISTRY: dict[str, Callable[[ActionContext], Optional[Animation]]] = {

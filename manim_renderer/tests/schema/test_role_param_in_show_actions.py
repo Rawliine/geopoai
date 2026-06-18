@@ -36,6 +36,7 @@ _COMPONENT_ACTIONS = [
     "showAllianceWeb",
     "showPayoffMatrix",
     "showIcon",
+    "showImageCard",
 ]
 
 
@@ -110,6 +111,11 @@ _VALID_PARAMS_FOR: dict[str, dict] = {
         ],
     },
     "showIcon": {"id": "x", "icon": "shield"},
+    "showImageCard": {
+        "id": "x",
+        "image": "manim_renderer/assets/images/sample.png",
+        "source": "Test",
+    },
 }
 
 # CalloutBox needs an anchor, so it lives in overlays referencing a prior id.
