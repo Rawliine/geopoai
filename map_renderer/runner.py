@@ -59,6 +59,21 @@ def _check_ffmpeg() -> bool:
     return shutil.which("ffmpeg") is not None
 
 
+def _probe_duration(mp4: Path) -> float | None:
+    """Container duration in seconds via ffprobe, or None if it can't be read."""
+    if shutil.which("ffprobe") is None:
+        return None
+    try:
+        result = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=nw=1:nk=1", str(mp4)],
+            capture_output=True, text=True, check=True,
+        )
+        return float(result.stdout.strip())
+    except (subprocess.CalledProcessError, ValueError):
+        return None
+
+
 @lru_cache(maxsize=1)
 def _supports_nvenc() -> bool:
     """Return True if ffmpeg reports h264_nvenc support."""
@@ -317,6 +332,20 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
     if deterministic:
         if not frames_dir.exists():
             raise RuntimeError("Deterministic frames directory missing; capture failed.")
+        # Guard: ffmpeg's frame_%06d.png pattern stops at the first missing index,
+        # so a single dropped screenshot (e.g. under resource contention) would
+        # silently truncate the clip. Fail loudly on any gap before encoding.
+        first_missing = next(
+            (i for i in range(total_frames)
+             if not (frames_dir / f"frame_{i:06d}.png").is_file()),
+            None,
+        )
+        if first_missing is not None:
+            raise RuntimeError(
+                f"Deterministic capture for '{clip_name}' is missing frame "
+                f"{first_missing}/{total_frames}; ffmpeg would truncate here. "
+                "Re-run (a screenshot was likely dropped under load)."
+            )
         success = _frames_to_mp4(
             frames_dir=frames_dir,
             output_path=output_path,
@@ -357,7 +386,16 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
     if not success:
         raise RuntimeError(f"FFmpeg conversion failed for clip '{clip_name}'.")
 
-    log.info("Done: %s", output_path)
+    # Guard: a clip materially shorter than the scene means a truncated capture
+    # or recording. Silent short clips corrupt downstream composition — fail loud.
+    actual = _probe_duration(output_path)
+    if actual is not None and actual < duration - 0.5:
+        raise RuntimeError(
+            f"Rendered clip '{clip_name}' is {actual:.2f}s but the scene is "
+            f"{duration:.1f}s — output truncated. Re-run."
+        )
+
+    log.info("Done: %s (%.2fs)", output_path, actual if actual is not None else -1.0)
     return output_path
 
 
