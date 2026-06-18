@@ -60,6 +60,7 @@ from manim import (
 from manim_renderer.components.base import BaseComponent
 from manim_renderer.resolvers.size import resolve_size
 from manim_renderer.theme.palette import ACTORS, SEMANTIC, UI
+from manim_renderer.theme.spacing import spacing
 from manim_renderer.theme.timing import STAGGER, TIMING
 from manim_renderer.theme.typography import FONTS, FONT_SCALE
 
@@ -184,7 +185,10 @@ class PayoffMatrix(BaseComponent):
                 self.add(cell_group)
 
         # Strategy labels: row labels (left strip), col labels (top strip).
+        # Gap from the grid edge is token-derived (theme.spacing), not a magic
+        # number, so it tracks the brand type scale per format.
         label_font_size = int(FONT_SCALE[self.format]["caption"] * 0.95)
+        label_gap = spacing("label_gap", self.format)
         self._row_labels: list[Text] = []
         self._col_labels: list[Text] = []
         for i, name in enumerate(self._row_strategies):
@@ -196,7 +200,7 @@ class PayoffMatrix(BaseComponent):
                 color=UI["text_primary"],
             )
             label.move_to(np.array([
-                grid_left - label.width / 2 - 0.10,
+                grid_left - label.width / 2 - label_gap,
                 cy,
                 0.0,
             ]))
@@ -212,14 +216,22 @@ class PayoffMatrix(BaseComponent):
             )
             label.move_to(np.array([
                 cx,
-                grid_top + label.height / 2 + 0.10,
+                grid_top + label.height / 2 + label_gap,
                 0.0,
             ]))
             self._col_labels.append(label)
             self.add(label)
 
-        # Player names: above the col strategy strip; left of the row strategy strip.
+        # Player names: outboard of their strategy-label band. Positioned
+        # RELATIVE to the actual band edge plus a token gap so the name never
+        # crowds the strategy labels — the previous fixed `label_strip * 0.7`
+        # offset let long strategy labels overlap the player name (the col name
+        # touched / overlapped the strategy row in vertical format).
         player_font_size = int(FONT_SCALE[self.format]["caption"] * 1.0)
+        title_gap = spacing("axis_title_gap", self.format)
+        row_band_left = min(lbl.get_left()[0] for lbl in self._row_labels)
+        col_band_top = max(lbl.get_top()[1] for lbl in self._col_labels)
+
         row_player_label = Text(
             self._row_player["name"],
             font=FONTS["primary"],
@@ -229,7 +241,7 @@ class PayoffMatrix(BaseComponent):
         )
         row_player_label.rotate(np.pi / 2)
         row_player_label.move_to(np.array([
-            grid_left - label_strip * 0.7,
+            row_band_left - title_gap - row_player_label.width / 2,
             (grid_top + grid_bottom) / 2,
             0.0,
         ]))
@@ -245,7 +257,7 @@ class PayoffMatrix(BaseComponent):
         )
         col_player_label.move_to(np.array([
             (grid_left + grid_right) / 2,
-            grid_top + label_strip * 0.7,
+            col_band_top + title_gap + col_player_label.height / 2,
             0.0,
         ]))
         self.add(col_player_label)
