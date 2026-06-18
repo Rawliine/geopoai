@@ -249,7 +249,104 @@ def validate(scene: dict) -> tuple[bool, list[str]]:
         from manim_renderer.schema._dry_run import run_overflow_checks
         errors.extend(run_overflow_checks(scene))
 
+    # Pacing lint (T6): non-fatal WARNINGS surfaced on stderr. They never affect
+    # the (ok, errors) verdict — a scene can be valid yet poorly paced. Callers
+    # that want the list back use `pacing_warnings(scene)`.
+    for w in check_pacing(scene):
+        print(w, file=sys.stderr)
+
     return (len(errors) == 0, errors)
+
+
+def pacing_warnings(scene: dict) -> list[str]:
+    """Public accessor for the pacing lint (the 'returned report' half of T6).
+    Returns warning strings; never raises on a structurally odd scene."""
+    try:
+        return check_pacing(scene)
+    except Exception:
+        return []
+
+
+def check_pacing(scene: dict) -> list[str]:
+    """Editorial pacing warnings (not errors). Thresholds come from the timing
+    tokens (`theme.timing.BEATS`):
+
+      * [pacing-static]    — a gap with no visual change > ``static_max_s``.
+      * [pacing-callout]   — a callout on screen shorter than
+                             ``max(callout_min_s, chars / read_rate_cps)``.
+      * [pacing-entrances] — more than 3 components entering at the same ``at``.
+      * [pacing-stagger]   — two entrances spaced by a positive gap smaller than
+                             ``stagger_ms`` (under-staggered burst).
+    """
+    from collections import defaultdict
+
+    from manim_renderer.theme.timing import BEATS
+
+    static_max = float(BEATS["static_max_s"])
+    stagger_s = float(BEATS["stagger_ms"]) / 1000.0
+    read_cps = float(BEATS["read_rate_cps"])
+    callout_min = float(BEATS["callout_min_s"])
+    duration = float((scene.get("scene") or {}).get("duration", 0.0))
+
+    sorted_events = sorted(
+        (t for t in _iter_events(scene) if isinstance(t[1], dict)),
+        key=lambda t: (float(t[1].get("at", 0.0)), t[3]),
+    )
+    evs = [(float(ev.get("at", 0.0)), ev) for _p, ev, _s, _ph in sorted_events]
+
+    warnings: list[str] = []
+
+    # 1. static gap between consecutive visual-change events
+    for (a0, _e0), (a1, _e1) in zip(evs, evs[1:]):
+        gap = a1 - a0
+        if gap > static_max + 1e-9:
+            warnings.append(
+                f"[pacing-static] {gap:.1f}s with no visual change between "
+                f"t={a0:g} and t={a1:g} (exceeds static_max_s={static_max:g})"
+            )
+
+    # 2. callout on screen shorter than the read time it needs
+    remove_at: dict[str, float] = {}
+    for a, ev in evs:
+        if ev.get("action") == "removeComponent":
+            tgt = (ev.get("params") or {}).get("target")
+            if isinstance(tgt, str) and tgt not in remove_at:
+                remove_at[tgt] = a
+    for a, ev in evs:
+        if ev.get("action") != "showCalloutBox":
+            continue
+        p = ev.get("params") or {}
+        cid = p.get("id")
+        text = str(p.get("text", ""))
+        end = remove_at.get(cid, duration if duration else a)
+        life = end - a
+        need = max(callout_min, (len(text) / read_cps) if read_cps else 0.0)
+        if life < need - 1e-9:
+            warnings.append(
+                f"[pacing-callout] callout {cid!r} on screen {life:.1f}s < "
+                f"{need:.1f}s needed (max of callout_min_s={callout_min:g}, "
+                f"{len(text)} chars / read_rate_cps={read_cps:g})"
+            )
+
+    # 3 & 4. entrance bursts (any show* action is an entrance)
+    entrances = [(a, ev) for a, ev in evs if str(ev.get("action", "")).startswith("show")]
+    by_at: dict[float, list] = defaultdict(list)
+    for a, ev in entrances:
+        by_at[a].append(ev)
+    for a, group in sorted(by_at.items()):
+        if len(group) > 3:
+            warnings.append(
+                f"[pacing-entrances] {len(group)} components enter at once at "
+                f"t={a:g} (>3 simultaneous); stagger their entrances"
+            )
+    for (a0, _e0), (a1, _e1) in zip(entrances, entrances[1:]):
+        d = a1 - a0
+        if 1e-9 < d < stagger_s - 1e-9:
+            warnings.append(
+                f"[pacing-stagger] entrances at t={a0:g} and t={a1:g} are "
+                f"{d * 1000:.0f}ms apart (< stagger_ms={BEATS['stagger_ms']:g})"
+            )
+    return warnings
 
 
 def _validate_anchors(scene: dict) -> list[str]:

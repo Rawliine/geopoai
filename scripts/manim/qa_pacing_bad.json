@@ -1,0 +1,59 @@
+{
+  "renderer": "manim",
+  "format": "horizontal",
+  "quality": "preview",
+  "scene": {
+    "layout": "hero",
+    "duration": 20,
+    "theme": "dark"
+  },
+  "slots": {
+    "main": {
+      "at": 0.0,
+      "action": "showStatBlock",
+      "params": {
+        "id": "host", "value": 42, "label": "Host",
+        "value_format": "int", "size": "medium", "color": "highlight",
+        "timing": "normal", "effect": "count-up", "role": "primary"
+      }
+    }
+  },
+  "overlays": [
+    { "at": 3.0, "action": "showCalloutBox",
+      "params": { "id": "c1", "anchor": "above:host", "text": "A",
+        "style": "neon", "width": 2.0, "timing": "fast" } },
+    { "at": 3.0, "action": "showCalloutBox",
+      "params": { "id": "c2", "anchor": "below:host", "text": "B",
+        "style": "neon", "width": 2.0, "timing": "fast" } },
+    { "at": 3.0, "action": "showCalloutBox",
+      "params": { "id": "c3", "anchor": "left-of:host", "text": "C",
+        "style": "neon", "width": 2.0, "timing": "fast" } },
+    { "at": 3.0, "action": "showCalloutBox",
+      "params": { "id": "c4", "anchor": "right-of:host", "text": "D",
+        "style": "neon", "width": 2.0, "timing": "fast" } },
+
+    { "at": 3.3, "action": "removeComponent",
+      "params": { "target": "c1", "effect": "fade-out", "timing": "fast" } },
+    { "at": 3.3, "action": "removeComponent",
+      "params": { "target": "c2", "effect": "fade-out", "timing": "fast" } },
+    { "at": 3.3, "action": "removeComponent",
+      "params": { "target": "c3", "effect": "fade-out", "timing": "fast" } },
+    { "at": 3.3, "action": "removeComponent",
+      "params": { "target": "c4", "effect": "fade-out", "timing": "fast" } },
+
+    { "at": 6.0, "action": "showCalloutBox",
+      "params": { "id": "c5", "anchor": "above:host",
+        "text": "First of an under-staggered pair.",
+        "style": "neon", "width": 4.0, "timing": "fast" } },
+    { "at": 6.05, "action": "showCalloutBox",
+      "params": { "id": "c6", "anchor": "below:host",
+        "text": "Second arrives 50ms later.",
+        "style": "neon", "width": 4.0, "timing": "fast" } },
+
+    { "at": 12.0, "action": "removeComponent",
+      "params": { "target": "c5", "effect": "fade-out", "timing": "fast" } },
+    { "at": 12.0, "action": "removeComponent",
+      "params": { "target": "c6", "effect": "fade-out", "timing": "fast" } }
+  ],
+  "timeline": []
+}
