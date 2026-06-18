@@ -62,6 +62,43 @@ _RESTAGE_POS_TOL = 1e-4
 # How close to 1.0 the scale ratio must be before we skip the scale step.
 _RESTAGE_SCALE_TOL = 1e-3
 
+# --- sidecar emission ----------------------------------------------------
+# Maps each dispatched action to an event TYPE from the frozen events contract
+# (docs/contracts/events.schema.json). Consumed by the W16 sound pass + W15
+# captions. Action names not in this map emit no event.
+_ACTION_EVENT_TYPE: dict[str, str] = {
+    "showTextCard":      "label",
+    "showStatBlock":     "counter",
+    "showMetricGroup":   "counter",
+    "showBarChart":      "counter",
+    "showLineChart":     "counter",
+    "showCalloutBox":    "callout",
+    "showTimeline":      "label",
+    "showGameTree":      "label",
+    "showAllianceWeb":   "label",
+    "showPayoffMatrix":  "label",
+    "showIcon":          "label",
+    "showImageCard":     "image",
+    "highlightCell":     "highlight",
+    "crossOut":          "highlight",
+    "bestResponseArrow": "arrow",
+    "removeComponent":   "remove",
+    "setLayout":         "camera",
+    "setRole":           "highlight",
+}
+
+# Cue intensity by component role (heuristic): foreground content cues loud,
+# supporting medium, ambient quiet. Mutations/unroled actions take the default.
+_ROLE_INTENSITY: dict[str, float] = {
+    "hero":       0.8,
+    "primary":    0.8,
+    "supporting": 0.5,
+    "ambient":    0.2,
+    "annotation": 0.5,
+    "hidden":     0.2,
+}
+_DEFAULT_INTENSITY = 0.5
+
 
 class JSONScene(MovingCameraScene):
     """Class attribute scene_data is set by the wrapper before render()."""
@@ -77,6 +114,8 @@ class JSONScene(MovingCameraScene):
         self._layout = resolve_layout(layout_name, fmt)
         self._format = fmt
         self._id_to_mobject: dict = {}
+        # events.json cue stream (T3), accumulated during the action loop.
+        self.emitted_events: list[dict] = []
         # Overlay tracking (Phase 1.5): mutation actions register overlays
         # against their host id here; `removeComponent` consumes the list to
         # fade host + overlays together. See `actions/_context.py`.
@@ -108,7 +147,7 @@ class JSONScene(MovingCameraScene):
         events = self._collect_events(scene)
 
         cursor = 0.0
-        for slot_name, _phase, ev in events:
+        for idx, (slot_name, _phase, ev) in enumerate(events):
             at = float(ev["at"])
             if at > cursor:
                 self.wait(at - cursor)
@@ -148,6 +187,9 @@ class JSONScene(MovingCameraScene):
                     f"components: {sorted(COMPONENT_REGISTRY)}, "
                     f"actions: {sorted(ACTION_REGISTRY)}"
                 )
+
+            # Record the cue (events.json) once the action has dispatched.
+            self._record_event(at, action, params, idx)
 
         if duration > cursor:
             self.wait(duration - cursor)
@@ -757,6 +799,32 @@ class JSONScene(MovingCameraScene):
             reposition = getattr(callout, "reposition", None)
             if callable(reposition):
                 reposition(host_mob=host, format=self._format)
+
+    # --- sidecar recording (T3 events) ---------------------------------------
+
+    def _record_event(
+        self, at: float, action: str, params: dict, idx: int,
+    ) -> None:
+        """Append one events.json cue for a dispatched action (or nothing for
+        actions without a mapped type). See `docs/contracts/events.schema.json`."""
+        etype = _ACTION_EVENT_TYPE.get(action)
+        if etype is None:
+            return
+        ident = params.get("id") or params.get("target") or f"{action}-{idx}"
+        # Intensity from the live role for show actions (seeded in
+        # `_dispatch_component`), else the param role, else the default.
+        show_id = params.get("id")
+        if show_id and show_id in self._roles:
+            role = self._roles[show_id]
+        else:
+            role = params.get("role")
+        self.emitted_events.append({
+            "t": round(float(at), 4),
+            "type": etype,
+            "phase": "start",
+            "intensity": _ROLE_INTENSITY.get(role, _DEFAULT_INTENSITY),
+            "id": str(ident),
+        })
 
     # --- event collection ----------------------------------------------------
 

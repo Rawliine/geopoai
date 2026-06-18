@@ -84,7 +84,24 @@ def render_manim_sync(scene: dict, clip_name: str) -> Path:
     src = max(mp4s, key=lambda p: p.stat().st_mtime)
     dst = OUTPUT_DIR / f"{clip_name}.mp4"
     shutil.copy2(src, dst)
+
+    # Sidecars consumed by the composition lanes (W15 captions / W16 sound).
+    fps = _QUALITY_PRESETS[quality]["fps"]
+    _write_events_sidecar(scene_obj, clip_name, fps, dst)
     return dst
+
+
+def _write_events_sidecar(scene_obj, clip_name: str, fps: int, mp4_path: Path) -> Path:
+    """Write `<clip>.events.json` next to the MP4 from the scene's recorded cue
+    stream. Schema: docs/contracts/events.schema.json."""
+    doc = {
+        "clip_id": clip_name,
+        "fps": float(fps),
+        "events": list(getattr(scene_obj, "emitted_events", []) or []),
+    }
+    out = mp4_path.with_suffix(".events.json")
+    out.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+    return out
 
 
 async def render_manim(scene: dict, clip_name: str) -> Path:
