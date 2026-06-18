@@ -31,6 +31,7 @@ from manim import Line, Text, VGroup
 
 from manim_renderer.components.data_viz._value_format import format_value
 from manim_renderer.theme.palette import UI
+from manim_renderer.theme.spacing import spacing
 from manim_renderer.theme.typography import FONTS, FONT_SCALE
 
 
@@ -44,12 +45,10 @@ _AXIS_TITLE_EXTRA = 0.05  # added if that axis has a title
 
 _AXIS_STROKE_WIDTH = 1.5
 _TICK_LENGTH = 0.08
-_TICK_LABEL_BUFF = 0.10
-# Buff between the tick-label band and the axis title. Titles are now
-# positioned RELATIVE to the tick-label band (not the bbox edge), so this
-# constant directly controls the visible gap users perceive between e.g.
-# the y-tick numbers ("80", "60") and the axis title ("%").
-_AXIS_TITLE_BUFF = 0.30
+# Tick-label and axis-title gaps are token-derived (theme.spacing) and resolved
+# per format via `_tick_gap()` / `_title_gap()`. They replace the former fixed
+# magic numbers (0.10 / 0.30) that let the "Quarter" x-title and "Sales" y-title
+# crowd the tick band — most visibly in vertical format with its larger type.
 
 # Default number of ticks if `y_axis.ticks` is omitted.
 _DEFAULT_Y_TICKS = 4
@@ -294,6 +293,14 @@ class Axes2D(VGroup):
 
     # --- private builders ----------------------------------------------------
 
+    def _tick_gap(self) -> float:
+        """Gap between the axis line/tick and its tick-label band."""
+        return spacing("axis_tick_gap", self._format)
+
+    def _title_gap(self) -> float:
+        """Gap between the tick-label band and the axis title."""
+        return spacing("axis_title_gap", self._format)
+
     def _tick_font_size(self) -> int:
         # caption-class font for tick labels, slightly smaller than caption.
         return int(FONT_SCALE[self._format]["caption"] * 0.78)
@@ -323,9 +330,10 @@ class Axes2D(VGroup):
 
     def _build_y_ticks(self, target_count: int) -> None:
         ticks = nice_ticks(self.y_min, self.y_max, target_count)
+        tick_gap = self._tick_gap()
         # Track leftmost x of the y-tick label band so the y-axis title can
         # be placed with a clean buff to its left (instead of pinned to bbox).
-        self._y_tick_label_left = self.plot.left - _TICK_LENGTH - _TICK_LABEL_BUFF
+        self._y_tick_label_left = self.plot.left - _TICK_LENGTH - tick_gap
         for v in ticks:
             y = self.value_to_y(v)
             mark = Line(
@@ -341,7 +349,7 @@ class Axes2D(VGroup):
                 color=UI["text_secondary"],
             )
             label.move_to(np.array([
-                self.plot.left - _TICK_LENGTH - _TICK_LABEL_BUFF - label.width / 2,
+                self.plot.left - _TICK_LENGTH - tick_gap - label.width / 2,
                 y,
                 0.0,
             ]))
@@ -351,9 +359,10 @@ class Axes2D(VGroup):
             self.add(mark, label)
 
     def _build_x_labels(self, target_count: int) -> None:
+        tick_gap = self._tick_gap()
         # Track the lowest y of the x-tick label band so the x-axis title
         # can be placed below it with a clean buff (instead of pinned to bbox).
-        self._x_tick_label_bottom = self.plot.bottom - _TICK_LABEL_BUFF
+        self._x_tick_label_bottom = self.plot.bottom - tick_gap
         if self._categorical:
             for i, name in enumerate(self.x_categories):
                 x = self.category_to_x(i)
@@ -365,7 +374,7 @@ class Axes2D(VGroup):
                 )
                 label.move_to(np.array([
                     x,
-                    self.plot.bottom - _TICK_LABEL_BUFF - label.height / 2,
+                    self.plot.bottom - tick_gap - label.height / 2,
                     0.0,
                 ]))
                 lbl_bottom = label.get_bottom()[1]
@@ -391,7 +400,7 @@ class Axes2D(VGroup):
             )
             label.move_to(np.array([
                 x,
-                self.plot.bottom - _TICK_LENGTH - _TICK_LABEL_BUFF - label.height / 2,
+                self.plot.bottom - _TICK_LENGTH - tick_gap - label.height / 2,
                 0.0,
             ]))
             lbl_bottom = label.get_bottom()[1]
@@ -411,9 +420,9 @@ class Axes2D(VGroup):
         # with a clear buff. Falls back to bbox-pinning if the title would
         # overflow past the bbox left edge.
         band_left = getattr(
-            self, "_y_tick_label_left", self.plot.left - _TICK_LENGTH - _TICK_LABEL_BUFF
+            self, "_y_tick_label_left", self.plot.left - _TICK_LENGTH - self._tick_gap()
         )
-        title_center_x = band_left - _AXIS_TITLE_BUFF - title.width / 2
+        title_center_x = band_left - self._title_gap() - title.width / 2
         bbox_left_min = -self.plot.bbox_width / 2 + 0.02 + title.width / 2
         title_center_x = max(title_center_x, bbox_left_min)
         title.move_to(np.array([
@@ -434,9 +443,9 @@ class Axes2D(VGroup):
         # buff. Falls back to bbox-pinning if the title would overflow past
         # the bbox bottom edge.
         band_bottom = getattr(
-            self, "_x_tick_label_bottom", self.plot.bottom - _TICK_LABEL_BUFF
+            self, "_x_tick_label_bottom", self.plot.bottom - self._tick_gap()
         )
-        title_center_y = band_bottom - _AXIS_TITLE_BUFF - title.height / 2
+        title_center_y = band_bottom - self._title_gap() - title.height / 2
         bbox_bottom_min = -self.plot.bbox_height / 2 + 0.02 + title.height / 2
         title_center_y = max(title_center_y, bbox_bottom_min)
         title.move_to(np.array([
