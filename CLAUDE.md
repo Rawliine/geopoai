@@ -96,6 +96,10 @@ playwright install chromium
 
 Pre-launch work is organized as lanes under `plans/` — one spec file per lane
 (`plans/W*.md`), each its own git worktree + branch + PR-sized diff, with one
-commit per checklist item (`W<lane>.T<item>: <summary>`). Start at
-`plans/PLAN.md` for the wave and dependency order. Superseded or historical
-docs live under `docs/archive/`.
+commit per checklist item. Commit messages use a conventional-commit prefix
+with the lane/item marker at the end:
+`<type>(<scope>): <summary> (W<lane>.T<item>)` — e.g.
+`feat(map): static neon border effect (W11.T1)`. Start at `plans/PLAN.md` for
+the wave and dependency order, and `plans/AGENT_PROMPTS.md` for the ready-to-
+paste Cursor dispatch prompts. Superseded or historical docs live under
+`docs/archive/`.

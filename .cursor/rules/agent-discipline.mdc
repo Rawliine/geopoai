@@ -8,23 +8,47 @@ alwaysApply: true
 You are executing ONE lane file from `plans/`. Rules:
 
 1. **Read your assigned `plans/W*.md` file first, fully.** It is the contract.
-2. **Touch only files in your lane's allowlist.** If a fix seems to require
+   Also skim `plans/PLAN.md` and the sibling lanes named in your "Depends on"
+   so you build against the right contracts.
+2. **Work on a branch named `agents/<lane-id>`** (e.g. `agents/w11-territory`).
+   Create it as your first action: `git checkout -b agents/<lane-id>`. If the
+   worktree gave you an auto-generated branch name, rename it:
+   `git branch -m agents/<lane-id>`. Never work directly on `main`.
+3. **Touch only files in your lane's allowlist.** If a fix seems to require
    editing a file outside it, STOP and report — do not improvise.
-3. **One commit per checklist item**, message: `W<lane>.T<item>: <summary>`.
-4. **Run the acceptance command(s) before declaring an item done.** Paste the
-   output (or describe the rendered artifact) in your report.
-5. **Never refactor opportunistically.** Out-of-scope cleanups are forbidden
+4. **One commit per checklist item.** The message uses a **conventional-commit
+   prefix** with the lane/item marker at the END in parentheses:
+   `<type>(<scope>): <summary> (W<lane>.T<item>)`
+   e.g. `feat(map): static neon border effect (W11.T1)`.
+   Valid `<type>`: feat, fix, docs, refactor, test, chore. `<scope>` is the
+   layer (map, manim, broll, infra, compose, assets, orchestration…).
+   **NEVER use `W<lane>.T<item>` as the prefix** — the prefix is always the
+   conventional type. Plain `git commit -m` only. NEVER add `Co-authored-by:`
+   or any attribution trailer, never modify git user.name/user.email.
+5. **You never touch GitHub.** No `git push`, no PRs, no remotes. Commit
+   locally; the operator reviews, merges, and pushes. Ending your session with
+   unpushed local commits on your branch is the CORRECT final state.
+6. **Run the acceptance command(s) before declaring an item done.** Paste the
+   output (or describe the rendered artifact) in your report. If a render or
+   test needs secrets and `.env` is missing here, link it:
+   `ln -sf /home/rawline/GeoPoAI/.env ./.env`.
+7. **Never refactor opportunistically.** Out-of-scope cleanups are forbidden
    even if they look easy.
-6. **Schemas in `docs/contracts/` and `config/design_tokens.json` are frozen.**
+8. **Schemas in `docs/contracts/` and `config/design_tokens.json` are frozen.**
    If your task seems to need a schema change, STOP and report.
-7. All visual constants (colors, fonts, glow, timing, safe areas) come from
+9. All visual constants (colors, fonts, glow, timing, safe areas) come from
    `config/design_tokens.json` — never hardcode hex values or font names.
-8. New assets (icons, fonts, SFX, models) enter only via `tools/prepare_assets.py`
-   and `assets/manifest.json` — never download ad hoc. Every asset entry needs
-   a license field.
-9. If a checklist item is ambiguous, implement the narrowest reading and flag
-   the ambiguity in your report rather than expanding scope.
-10. Final report format: per item — what changed, how verified, open concerns.
-11. New user-facing surface (actions, effects, params, CLI flags) gets
+   Provisioned asset dirs are `assets/{icons,font,sfx,model}/` (the `kind`
+   names from the manifest schema — note `font`/`model` are singular).
+10. New assets (icons, fonts, SFX, models) enter only via
+    `tools/prepare_assets.py` and `assets/manifest.json` — never download ad
+    hoc. Every asset entry needs a license field.
+11. No placeholders, no half-finished stubs, no shortcuts: whatever the
+    acceptance step says to download, render, or verify must actually be
+    downloaded, rendered, and verified — for real.
+12. If a checklist item is ambiguous, implement the narrowest reading and flag
+    the ambiguity in your report rather than expanding scope.
+13. New user-facing surface (actions, effects, params, CLI flags) gets
     documented in your layer's `docs/fragments/<lane>.md` — never edit
     SKILL.md directly; the lead merges fragments at integration.
+14. Final report format: per item — what changed, how verified, open concerns.

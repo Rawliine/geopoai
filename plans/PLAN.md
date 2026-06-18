@@ -78,7 +78,10 @@ tag so Wave-1 map lanes never edit shared files.
 
 ## Standing rules (mirrored in .cursor/rules/agent-discipline.mdc)
 
-- One commit per checklist item: `W<lane>.T<item>: <summary>`.
+- One commit per checklist item. Conventional-commit prefix, lane/item marker
+  at the END: `<type>(<scope>): <summary> (W<lane>.T<item>)` — e.g.
+  `feat(map): advance-front effect (W11.T2)`. Valid types: feat, fix, docs,
+  refactor, test, chore. Never use `W<lane>.T<item>` as the prefix.
 - Acceptance commands run before "done"; output goes in the report.
 - `docs/contracts/` and `config/design_tokens.json` are frozen — changes only
   via the lead (Claude Code), never inside a lane.
