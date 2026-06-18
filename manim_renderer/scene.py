@@ -527,7 +527,62 @@ class JSONScene(MovingCameraScene):
             targets[id_] = Rect(
                 cx=float(c[0]), cy=float(c[1]), width=w, height=h,
             )
-        return targets
+        return self._apply_safe_area(targets)
+
+    def _apply_safe_area(self, targets: dict[str, Rect]) -> dict[str, Rect]:
+        """Keep every staged component out of the platform caption band and
+        margins (T5). The layout solver stays format-agnostic; this stage-time
+        pass clamps its output (plus anchored components carried through as
+        identity rects) into the token-derived safe content area. Subject
+        callouts and their host are lifted as a group so the pack spacing the
+        solver chose is preserved (avoids the callout colliding with its host).
+        """
+        from manim_renderer.theme.safe_area import (
+            clamp_center, clamp_rect, safe_content_rect,
+        )
+
+        safe = safe_content_rect(self._format)
+        band_floor = safe.cy - safe.height / 2.0  # safe rect bottom == band top
+        subject_map = getattr(self, "_subject_host_by_id", {}) or {}
+
+        # Group lift: for each subject callout + host pair, find the single
+        # upward delta that lifts the lower member's bottom to the band floor,
+        # then apply it to both so their relative spacing is unchanged.
+        group_delta: dict[str, float] = {}
+        for cid, hid in subject_map.items():
+            members = [m for m in (cid, hid) if m in targets]
+            if not members:
+                continue
+            lift = 0.0
+            for mid in members:
+                r = targets[mid]
+                h = r.height if r.height > 0 else float(
+                    getattr(self._id_to_mobject.get(mid), "height", 0.0) or 0.0
+                )
+                bottom = r.cy - h / 2.0
+                lift = max(lift, band_floor - bottom)
+            if lift > 0.0:
+                for mid in members:
+                    group_delta[mid] = max(group_delta.get(mid, 0.0), lift)
+
+        out: dict[str, Rect] = {}
+        for id_, rect in targets.items():
+            if id_ in group_delta:
+                out[id_] = Rect(
+                    cx=rect.cx, cy=rect.cy + group_delta[id_],
+                    width=rect.width, height=rect.height,
+                )
+            elif rect.width <= 0.0 or rect.height <= 0.0:
+                # Position-only sentinel: clamp the centre using the live
+                # mobject size so the no-scale passthrough still clears the band.
+                mob = self._id_to_mobject.get(id_)
+                w = float(getattr(mob, "width", 0.0) or 0.0)
+                h = float(getattr(mob, "height", 0.0) or 0.0)
+                cx, cy = clamp_center(rect.cx, rect.cy, w, h, self._format)
+                out[id_] = Rect(cx=cx, cy=cy, width=rect.width, height=rect.height)
+            else:
+                out[id_] = clamp_rect(rect, self._format)
+        return out
 
     def _show_at_solver_target(
         self,
