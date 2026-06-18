@@ -26,6 +26,10 @@ _FORMAT_FRAME = {
     "vertical": (8.0, 14.2, 9 / 16),
 }
 
+# Occupancy sampling rate (Hz) written into layout.json. The scene records a
+# snapshot at each composition change; we resample onto this fixed grid.
+_LAYOUT_SAMPLE_HZ = 2
+
 
 def _configure_manim(fmt: str, quality: str, media_dir: Path):
     from manim import config
@@ -88,6 +92,7 @@ def render_manim_sync(scene: dict, clip_name: str) -> Path:
     # Sidecars consumed by the composition lanes (W15 captions / W16 sound).
     fps = _QUALITY_PRESETS[quality]["fps"]
     _write_events_sidecar(scene_obj, clip_name, fps, dst)
+    _write_layout_sidecar(scene_obj, clip_name, fmt, scene, dst)
     return dst
 
 
@@ -100,6 +105,42 @@ def _write_events_sidecar(scene_obj, clip_name: str, fps: int, mp4_path: Path) -
         "events": list(getattr(scene_obj, "emitted_events", []) or []),
     }
     out = mp4_path.with_suffix(".events.json")
+    out.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
+    return out
+
+
+def _resample_snapshots(snapshots, duration: float, hz: int) -> list[dict]:
+    """Resample (t, boxes) composition snapshots onto a fixed `hz` grid over
+    [0, duration]. Each grid frame holds the latest snapshot at-or-before it
+    (a step function), so occupancy is recorded at every solve AND between
+    solves at the sample rate."""
+    snaps = sorted(snapshots, key=lambda s: float(s[0]))
+    if not snaps or float(snaps[0][0]) > 0.0:
+        snaps = [(0.0, [])] + snaps
+    step = 1.0 / hz
+    n = max(1, int(round(max(duration, 0.0) * hz)) + 1)
+    frames: list[dict] = []
+    si = 0
+    for k in range(n):
+        tg = round(k * step, 4)
+        while si + 1 < len(snaps) and float(snaps[si + 1][0]) <= tg + 1e-9:
+            si += 1
+        frames.append({"t": tg, "boxes": snaps[si][1]})
+    return frames
+
+
+def _write_layout_sidecar(scene_obj, clip_name: str, fmt: str, scene: dict, mp4_path: Path) -> Path:
+    """Write `<clip>.layout.json` next to the MP4 from the scene's occupancy
+    snapshots. Schema: docs/contracts/layout.schema.json."""
+    duration = float(scene.get("scene", {}).get("duration", 0.0))
+    snapshots = list(getattr(scene_obj, "_layout_snapshots", []) or [])
+    doc = {
+        "clip_id": clip_name,
+        "format": fmt,
+        "sample_hz": _LAYOUT_SAMPLE_HZ,
+        "frames": _resample_snapshots(snapshots, duration, _LAYOUT_SAMPLE_HZ),
+    }
+    out = mp4_path.with_suffix(".layout.json")
     out.write_text(json.dumps(doc, indent=2) + "\n", encoding="utf-8")
     return out
 

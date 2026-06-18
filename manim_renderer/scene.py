@@ -34,7 +34,7 @@ import numpy as np
 from manim import AnimationGroup, MovingCameraScene, Transform
 
 from manim_renderer.actions import ActionContext
-from manim_renderer.layouts.base import CastMember, Rect
+from manim_renderer.layouts.base import FRAME_BOUNDS, CastMember, Rect
 from manim_renderer.layouts.resolver import resolve_layout
 from manim_renderer.registry import ACTION_REGISTRY, COMPONENT_REGISTRY
 from manim_renderer.resolvers.anchor import parse_anchor, place_at_anchor
@@ -99,6 +99,29 @@ _ROLE_INTENSITY: dict[str, float] = {
 }
 _DEFAULT_INTENSITY = 0.5
 
+# Component class name -> layout.json box `kind` (frozen layout contract).
+_CLASS_BOX_KIND: dict[str, str] = {
+    "PayoffMatrix": "matrix",
+    "BarChart":     "chart",
+    "LineChart":    "chart",
+    "CalloutBox":   "callout",
+    "TextCard":     "label",
+    "ImageCard":    "image",
+    "Icon":         "label",
+}
+
+
+def _clamp01(v: float) -> float:
+    """Clamp to the closed unit interval (layout.json normalized coords)."""
+    return 0.0 if v < 0.0 else 1.0 if v > 1.0 else v
+
+
+def _clamp_pos(v: float) -> float:
+    """Clamp a normalized extent to (0, 1] (schema forbids zero / over-unit w/h)."""
+    if v <= 0.0:
+        return 1e-4
+    return 1.0 if v > 1.0 else v
+
 
 class JSONScene(MovingCameraScene):
     """Class attribute scene_data is set by the wrapper before render()."""
@@ -114,8 +137,11 @@ class JSONScene(MovingCameraScene):
         self._layout = resolve_layout(layout_name, fmt)
         self._format = fmt
         self._id_to_mobject: dict = {}
-        # events.json cue stream (T3), accumulated during the action loop.
+        # Sidecar accumulators. `emitted_events` is the events.json cue stream
+        # (T3); `_layout_snapshots` is a list of (t, boxes) captured at every
+        # composition change (T4), expanded to a fixed-Hz grid post-render.
         self.emitted_events: list[dict] = []
+        self._layout_snapshots: list[tuple[float, list[dict]]] = []
         # Overlay tracking (Phase 1.5): mutation actions register overlays
         # against their host id here; `removeComponent` consumes the list to
         # fade host + overlays together. See `actions/_context.py`.
@@ -147,6 +173,8 @@ class JSONScene(MovingCameraScene):
         events = self._collect_events(scene)
 
         cursor = 0.0
+        # Seed an empty occupancy frame so layout.json always covers t=0.
+        self._snapshot_layout(0.0)
         for idx, (slot_name, _phase, ev) in enumerate(events):
             at = float(ev["at"])
             if at > cursor:
@@ -188,8 +216,10 @@ class JSONScene(MovingCameraScene):
                     f"actions: {sorted(ACTION_REGISTRY)}"
                 )
 
-            # Record the cue (events.json) once the action has dispatched.
+            # Record the cue (events.json) and resting occupancy (layout.json)
+            # once the action's animations have settled.
             self._record_event(at, action, params, idx)
+            self._snapshot_layout(cursor)
 
         if duration > cursor:
             self.wait(duration - cursor)
@@ -800,7 +830,7 @@ class JSONScene(MovingCameraScene):
             if callable(reposition):
                 reposition(host_mob=host, format=self._format)
 
-    # --- sidecar recording (T3 events) ---------------------------------------
+    # --- sidecar recording (T3 events / T4 layout) ---------------------------
 
     def _record_event(
         self, at: float, action: str, params: dict, idx: int,
@@ -825,6 +855,33 @@ class JSONScene(MovingCameraScene):
             "intensity": _ROLE_INTENSITY.get(role, _DEFAULT_INTENSITY),
             "id": str(ident),
         })
+
+    def _snapshot_layout(self, t: float) -> None:
+        """Capture normalized bounding boxes of every visible top-level
+        component at time `t`. Boxes use top-left origin in [0,1] image space
+        (y-down), matching `docs/contracts/layout.schema.json`."""
+        fw, fh = FRAME_BOUNDS.get(self._format, FRAME_BOUNDS["horizontal"])
+        boxes: list[dict] = []
+        for id_, mob in self._id_to_mobject.items():
+            cls = self._class_by_id.get(id_)
+            if cls is None:
+                continue  # child / orphan mobjects aren't top-level occupants
+            w = float(getattr(mob, "width", 0.0) or 0.0)
+            h = float(getattr(mob, "height", 0.0) or 0.0)
+            if w <= 0.0 or h <= 0.0:
+                continue
+            c = mob.get_center()
+            left = float(c[0]) - w / 2.0
+            top = float(c[1]) + h / 2.0  # Manim y-up: the top edge is larger y
+            boxes.append({
+                "id": str(id_),
+                "kind": _CLASS_BOX_KIND.get(cls.__name__, "other"),
+                "x": _clamp01((left + fw / 2.0) / fw),
+                "y": _clamp01((fh / 2.0 - top) / fh),
+                "w": _clamp_pos(w / fw),
+                "h": _clamp_pos(h / fh),
+            })
+        self._layout_snapshots.append((round(float(t), 4), boxes))
 
     # --- event collection ----------------------------------------------------
 
