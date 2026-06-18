@@ -13,7 +13,16 @@
       "properties": {
         "layout": { "$ref": "#/definitions/layout_name" },
         "duration": { "type": "number", "exclusiveMinimum": 0 },
-        "theme": { "type": "string" }
+        "theme": { "type": "string" },
+        "safe_areas": {
+          "type": "object",
+          "description": "Per-scene override of the safe-area policy. platform_margins reserves the platform UI chrome; caption_band reserves the burned-in caption strip. Defaults are format-derived (vertical: both true; horizontal: both false).",
+          "properties": {
+            "platform_margins": { "type": "boolean" },
+            "caption_band": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
       },
       "additionalProperties": true
     },

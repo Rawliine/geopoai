@@ -136,6 +136,12 @@ class JSONScene(MovingCameraScene):
 
         self._layout = resolve_layout(layout_name, fmt)
         self._format = fmt
+        # Safe-area policy (T5): two independent toggles (platform margins,
+        # caption band). Format-derived defaults — vertical Shorts reserve both,
+        # horizontal long-form reserves neither (keeps full-frame symmetry) —
+        # overridable via `scene.safe_areas`.
+        from manim_renderer.theme.safe_area import resolve_safe_area_policy
+        self._safe_margins, self._safe_band = resolve_safe_area_policy(scene)
         self._id_to_mobject: dict = {}
         # Sidecar accumulators. `emitted_events` is the events.json cue stream
         # (T3); `_layout_snapshots` is a list of (t, boxes) captured at every
@@ -531,18 +537,24 @@ class JSONScene(MovingCameraScene):
 
     def _apply_safe_area(self, targets: dict[str, Rect]) -> dict[str, Rect]:
         """Keep every staged component out of the platform caption band and
-        margins (T5). The layout solver stays format-agnostic; this stage-time
-        pass clamps its output (plus anchored components carried through as
-        identity rects) into the token-derived safe content area. Subject
-        callouts and their host are lifted as a group so the pack spacing the
-        solver chose is preserved (avoids the callout colliding with its host).
+        margins (T5), per the scene's resolved policy. The layout solver stays
+        format-agnostic; this stage-time pass clamps its output (plus anchored
+        components carried through as identity rects) into the token-derived safe
+        content area. Subject callouts and their host are lifted as a group so
+        the pack spacing the solver chose is preserved (avoids the callout
+        colliding with its host).
         """
+        margins = getattr(self, "_safe_margins", True)
+        band = getattr(self, "_safe_band", True)
+        if not margins and not band:
+            return targets  # policy disables both — full-frame layout
+
         from manim_renderer.theme.safe_area import (
             clamp_center, clamp_rect, safe_content_rect,
         )
 
-        safe = safe_content_rect(self._format)
-        band_floor = safe.cy - safe.height / 2.0  # safe rect bottom == band top
+        safe = safe_content_rect(self._format, margins, band)
+        band_floor = safe.cy - safe.height / 2.0  # safe rect bottom edge
         subject_map = getattr(self, "_subject_host_by_id", {}) or {}
 
         # Group lift: for each subject callout + host pair, find the single
@@ -578,10 +590,12 @@ class JSONScene(MovingCameraScene):
                 mob = self._id_to_mobject.get(id_)
                 w = float(getattr(mob, "width", 0.0) or 0.0)
                 h = float(getattr(mob, "height", 0.0) or 0.0)
-                cx, cy = clamp_center(rect.cx, rect.cy, w, h, self._format)
+                cx, cy = clamp_center(
+                    rect.cx, rect.cy, w, h, self._format, margins, band,
+                )
                 out[id_] = Rect(cx=cx, cy=cy, width=rect.width, height=rect.height)
             else:
-                out[id_] = clamp_rect(rect, self._format)
+                out[id_] = clamp_rect(rect, self._format, margins, band)
         return out
 
     def _show_at_solver_target(
