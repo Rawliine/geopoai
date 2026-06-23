@@ -51,6 +51,31 @@ def _configure_manim(fmt: str, quality: str, media_dir: Path):
     config.media_dir = str(media_dir)
     config.disable_caching = True
     config.write_to_movie = True
+    # Long showcase scenes emit 200+ partial movie files (one per play()).
+    # Manim's default max_files_cached=100 evicts the oldest partials mid-render,
+    # so the final concat is incomplete and the combined movie is truncated.
+    # Raise the cap so every partial survives until the final combine.
+    config.max_files_cached = 10_000
+
+
+def _final_movie_path(scene_obj, media_dir: Path) -> Path:
+    """Resolve the combined scene movie. Trusts the writer's recorded
+    `movie_file_path`; falls back to the newest top-level video (never a
+    partial under `partial_movie_files/`)."""
+    writer = getattr(getattr(scene_obj, "renderer", None), "file_writer", None)
+    recorded = getattr(writer, "movie_file_path", None)
+    if recorded is not None and Path(recorded).exists():
+        return Path(recorded)
+    candidates = [
+        p for p in media_dir.rglob("*.mp4")
+        if "partial_movie_files" not in p.parts
+    ]
+    if not candidates:
+        raise RuntimeError(
+            f"Manim produced no combined MP4 in {media_dir} "
+            f"(only partial movie files — the final concat did not run)"
+        )
+    return max(candidates, key=lambda p: p.stat().st_mtime)
 
 
 def render_manim_sync(scene: dict, clip_name: str) -> Path:
@@ -82,10 +107,11 @@ def render_manim_sync(scene: dict, clip_name: str) -> Path:
     scene_obj.render()
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    mp4s = list(media_dir.rglob("*.mp4"))
-    if not mp4s:
-        raise RuntimeError(f"Manim produced no MP4 in {media_dir}")
-    src = max(mp4s, key=lambda p: p.stat().st_mtime)
+    # Prefer the writer's canonical combined-movie path; never a partial. The
+    # old "newest *.mp4 by mtime" heuristic could grab a stray partial movie
+    # file (under partial_movie_files/) when a combine was incomplete, silently
+    # copying a few-second clip in place of the full scene.
+    src = _final_movie_path(scene_obj, media_dir)
     dst = OUTPUT_DIR / f"{clip_name}.mp4"
     shutil.copy2(src, dst)
 
