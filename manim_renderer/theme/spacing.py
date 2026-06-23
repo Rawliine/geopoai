@@ -32,7 +32,11 @@ _UNIT_PER_PT = 0.0104
 _RATIOS: dict[str, float] = {
     "label_gap":      0.70,
     "axis_tick_gap":  0.55,
-    "axis_title_gap": 1.50,
+    # Gap from a tick-label band to its axis title (charts) / from a strategy
+    # band to its player name (payoff matrix). 0.50× caption — tuned by eye so
+    # the title clears the numbers without the loose look the old 1.50 gave once
+    # the chart margins stopped clamping it.
+    "axis_title_gap": 0.50,
 }
 
 
