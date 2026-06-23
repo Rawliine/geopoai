@@ -100,3 +100,45 @@ def test_restage_target_at_new_center_emits_move():
 
     assert rt > 0.0
     assert len(s._play_calls) == 1
+
+
+def test_position_only_sentinel_restores_shrunk_host_to_natural():
+    """A lone primary that a now-removed subject callout had shrunk must grow
+    back to its natural (build-time) size when the solver returns a
+    position-only sentinel — not stay stuck small."""
+    s = _bare_scene()
+    mob = _text("a")
+    mob.move_to(np.array([0.0, 0.0, 0.0]))
+    s._id_to_mobject = {"a": mob}
+    base_w, base_h = float(mob.width), float(mob.height)
+    s._restage_base_size["a"] = (base_w, base_h)
+    mob.scale(0.6)  # as a side callout's pack would have shrunk it
+
+    # Solver returns a position-only sentinel (zero dims) for the lone primary.
+    s._compute_target_rects = lambda: {
+        "a": Rect(cx=0.0, cy=0.0, width=0.0, height=0.0)
+    }
+
+    rt = s._restage("test-restore")
+
+    assert rt > 0.0  # a restore animation was queued (old code queued nothing)
+    assert len(s._play_calls) == 1
+
+
+def test_position_only_sentinel_leaves_natural_host_untouched():
+    """A lone primary already at natural size gets no spurious scale from the
+    position-only sentinel (no distortion / no needless motion)."""
+    s = _bare_scene()
+    mob = _text("a")
+    mob.move_to(np.array([0.0, 0.0, 0.0]))
+    s._id_to_mobject = {"a": mob}
+    s._restage_base_size["a"] = (float(mob.width), float(mob.height))
+
+    s._compute_target_rects = lambda: {
+        "a": Rect(cx=0.0, cy=0.0, width=0.0, height=0.0)
+    }
+
+    rt = s._restage("test-natural")
+
+    assert rt == 0.0
+    assert s._play_calls == []

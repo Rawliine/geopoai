@@ -702,64 +702,56 @@ class JSONScene(MovingCameraScene):
             current_center, _ = state[id_]
             target_center = target.center
 
-            # Position-only sentinel: when Layout.solve returns a Rect
-            # with zero dimensions, the solver is signalling "center this
-            # mobject at target.cx/cy and DO NOT scale it". Used for lone
-            # primary/hero passthrough so a tall TextCard doesn't get
-            # shrunk to fit a short slot.
-            position_only = target.width <= 0.0 or target.height <= 0.0
+            # Scale relative to the build-time bbox (not live width) so
+            # successive restages don't compound. Missing base size
+            # (child of MetricGroup, test fixture bypassing dispatcher)
+            # falls back to the mobject's current bbox — identity scale.
+            base_size_map = getattr(self, "_restage_base_size", {}) or {}
+            base_w, base_h = base_size_map.get(
+                id_,
+                (float(getattr(mob, "width", 0.0) or 0.01),
+                 float(getattr(mob, "height", 0.0) or 0.01)),
+            )
 
-            if position_only:
-                position_changed = not np.allclose(
-                    current_center, target_center, atol=_RESTAGE_POS_TOL,
+            # Position-only sentinel: Layout.solve returns a zero-dim Rect for a
+            # lone primary/hero, meaning "center here at NATURAL size". Rewrite
+            # it to the build-time bbox so the scale path below restores a host
+            # that a now-removed subject callout had shrunk — instead of leaving
+            # it stuck small. The min(..., 1.0) cap still forbids growing past
+            # natural, so a tall TextCard is never stretched to fill a short slot.
+            if target.width <= 0.0 or target.height <= 0.0:
+                target = Rect(
+                    cx=target.cx, cy=target.cy, width=base_w, height=base_h,
                 )
-                if not position_changed:
-                    continue
-                anims.append(
-                    mob.animate(run_time=run_time).move_to(target_center)
-                )
-                relative_scale = 1.0
-                scale_changed = False
-            else:
-                # Scale relative to the build-time bbox (not live width) so
-                # successive restages don't compound. Missing base size
-                # (child of MetricGroup, test fixture bypassing dispatcher)
-                # falls back to the mobject's current bbox — identity scale.
-                base_size_map = getattr(self, "_restage_base_size", {}) or {}
-                base_w, base_h = base_size_map.get(
-                    id_,
-                    (float(getattr(mob, "width", 0.0) or 0.01),
-                     float(getattr(mob, "height", 0.0) or 0.01)),
-                )
-                cur_w = max(1e-4, float(getattr(mob, "width", 0.0) or 0.0))
-                cur_h = max(1e-4, float(getattr(mob, "height", 0.0) or 0.0))
-                target_scale_w = target.width / max(1e-4, base_w)
-                target_scale_h = target.height / max(1e-4, base_h)
-                # Never scale a mobject larger than its build-time size.
-                # Slot rects can exceed the natural bbox; growing distorts.
-                target_scale = min(target_scale_w, target_scale_h, 1.0)
-                current_scale = max(cur_w / base_w, cur_h / base_h)
-                # Manim's `.animate.scale(k)` is relative to current size,
-                # not absolute, so divide by current scale to get the
-                # delta factor.
-                relative_scale = target_scale / max(1e-4, current_scale)
+                target_center = target.center
 
-                position_changed = not np.allclose(
-                    current_center, target_center, atol=_RESTAGE_POS_TOL,
-                )
-                scale_changed = (
-                    abs(relative_scale - 1.0) > _RESTAGE_SCALE_TOL
-                )
+            cur_w = max(1e-4, float(getattr(mob, "width", 0.0) or 0.0))
+            cur_h = max(1e-4, float(getattr(mob, "height", 0.0) or 0.0))
+            target_scale_w = target.width / max(1e-4, base_w)
+            target_scale_h = target.height / max(1e-4, base_h)
+            # Never scale a mobject larger than its build-time size.
+            # Slot rects can exceed the natural bbox; growing distorts.
+            target_scale = min(target_scale_w, target_scale_h, 1.0)
+            current_scale = max(cur_w / base_w, cur_h / base_h)
+            # Manim's `.animate.scale(k)` is relative to current size,
+            # not absolute, so divide by current scale to get the
+            # delta factor.
+            relative_scale = target_scale / max(1e-4, current_scale)
 
-                if not position_changed and not scale_changed:
-                    continue
+            position_changed = not np.allclose(
+                current_center, target_center, atol=_RESTAGE_POS_TOL,
+            )
+            scale_changed = abs(relative_scale - 1.0) > _RESTAGE_SCALE_TOL
 
-                animator = mob.animate(run_time=run_time)
-                if scale_changed:
-                    animator = animator.scale(relative_scale)
-                if position_changed:
-                    animator = animator.move_to(target_center)
-                anims.append(animator)
+            if not position_changed and not scale_changed:
+                continue
+
+            animator = mob.animate(run_time=run_time)
+            if scale_changed:
+                animator = animator.scale(relative_scale)
+            if position_changed:
+                animator = animator.move_to(target_center)
+            anims.append(animator)
 
             # Overlays travel with their host. Two paths:
             #   1. Recipe-based: the mutation action attached a rebuild
@@ -771,64 +763,43 @@ class JSONScene(MovingCameraScene):
             #      using scale around the host's old center then a shift
             #      so the math matches the host transform. Used for
             #      overlays without a recipe.
-            if position_only:
-                delta = target_center - current_center
-                for overlay in self._overlays_by_host.get(id_, []):
-                    recipe = getattr(overlay, "_rebuild_recipe", None)
-                    if recipe is not None:
-                        # Position-only host — synthetic host has the same
-                        # geometry (no scale) just moved to the new center.
-                        synthetic = mob.copy().shift(delta)
-                        try:
-                            new_overlay = recipe(synthetic)
-                            anims.append(Transform(
-                                overlay, new_overlay, run_time=run_time,
-                            ))
-                            continue
-                        except Exception:
-                            pass
-                    if abs(delta[0]) + abs(delta[1]) > _RESTAGE_POS_TOL:
-                        anims.append(
-                            overlay.animate(run_time=run_time).shift(delta)
-                        )
-            else:
-                delta = target_center - current_center
-                for overlay in self._overlays_by_host.get(id_, []):
-                    recipe = getattr(overlay, "_rebuild_recipe", None)
-                    if recipe is not None:
-                        # Build a positioned + scaled copy of the host to
-                        # serve as the synthetic target. Manim's mob.copy()
-                        # snapshots the current state; we apply the same
-                        # scale + move_to as the real host's animation.
-                        synthetic = mob.copy()
-                        if scale_changed:
-                            synthetic.scale(
-                                relative_scale,
-                                about_point=current_center,
-                            )
-                        synthetic.move_to(target_center)
-                        try:
-                            new_overlay = recipe(synthetic)
-                            anims.append(Transform(
-                                overlay, new_overlay, run_time=run_time,
-                            ))
-                            continue
-                        except Exception:
-                            # Defensive: a misbehaving recipe shouldn't
-                            # break restage. Fall through to scale+shift.
-                            pass
-                    # Legacy walker — scale around host's current center
-                    # (not the overlay's), then shift. This produces the
-                    # mathematically correct transform: P_new =
-                    # host_target + scale * (P_old - host_old).
-                    ov_anim = overlay.animate(run_time=run_time)
+            delta = target_center - current_center
+            for overlay in self._overlays_by_host.get(id_, []):
+                recipe = getattr(overlay, "_rebuild_recipe", None)
+                if recipe is not None:
+                    # Build a positioned + scaled copy of the host to
+                    # serve as the synthetic target. Manim's mob.copy()
+                    # snapshots the current state; we apply the same
+                    # scale + move_to as the real host's animation.
+                    synthetic = mob.copy()
                     if scale_changed:
-                        ov_anim = ov_anim.scale(
-                            relative_scale, about_point=current_center,
+                        synthetic.scale(
+                            relative_scale,
+                            about_point=current_center,
                         )
-                    if position_changed:
-                        ov_anim = ov_anim.shift(delta)
-                    anims.append(ov_anim)
+                    synthetic.move_to(target_center)
+                    try:
+                        new_overlay = recipe(synthetic)
+                        anims.append(Transform(
+                            overlay, new_overlay, run_time=run_time,
+                        ))
+                        continue
+                    except Exception:
+                        # Defensive: a misbehaving recipe shouldn't
+                        # break restage. Fall through to scale+shift.
+                        pass
+                # Legacy walker — scale around host's current center
+                # (not the overlay's), then shift. This produces the
+                # mathematically correct transform: P_new =
+                # host_target + scale * (P_old - host_old).
+                ov_anim = overlay.animate(run_time=run_time)
+                if scale_changed:
+                    ov_anim = ov_anim.scale(
+                        relative_scale, about_point=current_center,
+                    )
+                if position_changed:
+                    ov_anim = ov_anim.shift(delta)
+                anims.append(ov_anim)
 
         if _DEBUG:
             self._debug_trace(reason, targets, len(anims), run_time)
