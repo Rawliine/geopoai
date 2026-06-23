@@ -93,16 +93,33 @@ def compute_plot_area(
     *,
     has_y_title: bool = False,
     has_x_title: bool = False,
+    left_margin_units: float | None = None,
+    bottom_margin_units: float | None = None,
 ) -> PlotArea:
-    """Carve out the plot-area rect from the bbox. Bbox is centered at origin."""
+    """Carve out the plot-area rect from the bbox. Bbox is centered at origin.
+
+    `left_margin_units` / `bottom_margin_units` are absolute Manim-unit margins
+    measured from the actual tick-label + axis-title extents (see
+    `Axes2D._dynamic_margins`). When given, they OVERRIDE the conservative
+    fractional defaults (never shrinking below them), so the axis title always
+    clears the tick numbers by the same token gap regardless of label width —
+    instead of overflowing and getting clamped into the numbers on small charts.
+    """
     left_margin = _MARGIN_LEFT_BASE + (_AXIS_TITLE_EXTRA if has_y_title else 0.0)
     bottom_margin = _MARGIN_BOTTOM_BASE + (_AXIS_TITLE_EXTRA if has_x_title else 0.0)
 
     half_w = width / 2
     half_h = height / 2
-    left = -half_w + width * left_margin
+    left_inset = width * left_margin
+    if left_margin_units is not None:
+        left_inset = max(left_inset, left_margin_units)
+    bottom_inset = height * bottom_margin
+    if bottom_margin_units is not None:
+        bottom_inset = max(bottom_inset, bottom_margin_units)
+
+    left = -half_w + left_inset
     right = half_w - width * _MARGIN_RIGHT
-    bottom = -half_h + height * bottom_margin
+    bottom = -half_h + bottom_inset
     top = half_h - height * _MARGIN_TOP
     return PlotArea(width, height, left, right, bottom, top)
 
@@ -255,10 +272,19 @@ class Axes2D(VGroup):
         self._x_format = x_format
         self._x_format_opts = x_format_opts or {}
 
+        # Size the left/bottom margins to the ACTUAL tick-label + axis-title
+        # extents, so the title always clears the numbers by the same token gap
+        # (no clamping into wide labels like "100", no double gap on "0–5").
+        left_u, bottom_u = self._dynamic_margins(
+            y_min, y_max, y_ticks, y_label,
+            x_categories, x_min, x_max, x_ticks, x_label,
+        )
         self.plot = compute_plot_area(
             width, height,
             has_y_title=y_label is not None,
             has_x_title=x_label is not None,
+            left_margin_units=left_u,
+            bottom_margin_units=bottom_u,
         )
 
         self.y_min, self.y_max = y_min, y_max
@@ -311,6 +337,63 @@ class Axes2D(VGroup):
         # titles read clearly on small charts without dominating ~9% of
         # chart height each.
         return int(FONT_SCALE[self._format]["caption"] * 0.75)
+
+    # Breathing room kept between the outermost axis content and the bbox edge.
+    _MARGIN_PAD = 0.06
+
+    def _dynamic_margins(
+        self,
+        y_min: float, y_max: float, y_ticks: int, y_label: str | None,
+        x_categories: list[str] | None, x_min, x_max, x_ticks: int,
+        x_label: str | None,
+    ) -> tuple[float, float]:
+        """Measure the real tick-label + axis-title extents (cheap temp Text)
+        and return the (left, bottom) margins in Manim units needed to seat the
+        axis titles at the exact token gap. Returns the components so
+        `compute_plot_area` can take the max against its conservative defaults.
+        """
+        tick_gap = self._tick_gap()
+        title_gap = self._title_gap()
+        tick_fs = self._tick_font_size()
+        title_fs = self._title_font_size()
+
+        def _w(s: str, fs: int) -> float:
+            return float(Text(s, font=FONTS["primary"], font_size=fs).width)
+
+        def _h(s: str, fs: int) -> float:
+            return float(Text(s, font=FONTS["primary"], font_size=fs).height)
+
+        # Left margin = tick mark + gap + widest y-tick number (+ title block).
+        y_vals = nice_ticks(y_min, y_max, y_ticks)
+        max_y_label_w = max(
+            (_w(format_value(v, self._y_format, **self._y_format_opts), tick_fs)
+             for v in y_vals),
+            default=0.0,
+        )
+        left = _TICK_LENGTH + tick_gap + max_y_label_w
+        if y_label:
+            # The y-title is rotated 90°, so its horizontal thickness is the
+            # un-rotated text HEIGHT.
+            left += title_gap + _h(y_label, title_fs)
+        left += self._MARGIN_PAD
+
+        # Bottom margin = tick mark + gap + tallest x-tick label (+ title block).
+        if x_categories is not None:
+            x_labels = [str(c) for c in x_categories]
+        elif x_min is not None and x_max is not None:
+            x_labels = [
+                format_value(v, self._x_format, **self._x_format_opts)
+                for v in nice_ticks(x_min, x_max, x_ticks)
+            ]
+        else:
+            x_labels = []
+        max_x_label_h = max((_h(s, tick_fs) for s in x_labels), default=0.0)
+        bottom = _TICK_LENGTH + tick_gap + max_x_label_h
+        if x_label:
+            bottom += title_gap + _h(x_label, title_fs)
+        bottom += self._MARGIN_PAD
+
+        return left, bottom
 
     def _build_axis_lines(self) -> None:
         color = UI["border"]
