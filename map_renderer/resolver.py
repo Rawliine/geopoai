@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 import logging
+import re
 import subprocess
 import sys
 from functools import lru_cache
@@ -63,8 +64,32 @@ def _resolve_version_alias(version: str) -> str:
     return aliases.get(key, key)  # fall back to the key itself (already defaults to "latest")
 
 
+def _resolve_year_string(version: str, manifest: dict[str, dict]) -> str | None:
+    """Map a 4-digit year to the nearest world_YYYY manifest key <= that year."""
+    if not re.fullmatch(r"\d{4}", version):
+        return None
+    target = int(version)
+    candidates: list[tuple[int, str]] = []
+    for key in manifest:
+        match = re.fullmatch(r"world_(\d{4})", key)
+        if not match:
+            continue
+        year = int(match.group(1))
+        if year <= target:
+            candidates.append((year, key))
+    if not candidates:
+        return None
+    _year, best_key = max(candidates, key=lambda item: item[0])
+    log.info("%s → %s (nearest available)", version, best_key)
+    return best_key
+
+
 def _ensure_version_available(version: str) -> str:
     resolved = _resolve_version_alias(version)
+    manifest = load_manifest(VERSIONS_MANIFEST_PATH)
+    year_match = _resolve_year_string(resolved, manifest)
+    if year_match:
+        resolved = year_match
     if _version_file(resolved).exists():
         _warn_non_commercial(resolved)
         return resolved
