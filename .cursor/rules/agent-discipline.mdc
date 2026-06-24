@@ -17,15 +17,20 @@ Composer or Claude Code — these rules apply to either. Rules:
    `git branch -m agents/<lane-id>`. Never work directly on `main`.
 3. **Touch only files in your lane's allowlist.** If a fix seems to require
    editing a file outside it, STOP and report — do not improvise.
-4. **One commit per checklist item.** The message uses a **conventional-commit
-   prefix** with the lane/item marker at the END in parentheses:
-   `<type>(<scope>): <summary> (W<lane>.T<item>)`
-   e.g. `feat(map): static neon border effect (W11.T1)`.
-   Valid `<type>`: feat, fix, docs, refactor, test, chore. `<scope>` is the
-   layer (map, manim, broll, infra, compose, assets, orchestration…).
-   **NEVER use `W<lane>.T<item>` as the prefix** — the prefix is always the
-   conventional type. Plain `git commit -m` only. NEVER add `Co-authored-by:`
-   or any attribution trailer, never modify git user.name/user.email.
+4. **One commit per checklist item, in THREE parts:**
+   1. **Subject** — a conventional-commit line, NO marker:
+      `<type>(<scope>): <summary>`
+   2. **Body** — bullet points grouped by file: a `<path>:` header per file
+      touched, then `- ` bullets of what changed in it.
+   3. **Marker** — the `(W<lane>.T<item>)` marker ALONE on the final line,
+      after the body (one blank line above it).
+   `<type>` is feat, fix, docs, refactor, test, chore; `<scope>` is the layer
+   (map, manim, broll, infra, compose, assets, orchestration…). **NEVER use
+   `W<lane>.T<item>` as the prefix**, and **NEVER glue the marker to the
+   subject** — it lives on its own last line. Always include the per-file bullet
+   body (no bare one-line commits); the body is multi-line, so write it to a
+   file and `git commit -F msg.txt`. NEVER add `Co-authored-by:` or any
+   attribution trailer, never modify git user.name/user.email.
 5. **You never touch GitHub (executor role).** No `git push`, no PRs, no
    remotes. Commit locally; the operator reviews, merges, and pushes. Ending
    your session with unpushed local commits on your branch is the CORRECT final

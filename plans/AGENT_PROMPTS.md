@@ -7,26 +7,47 @@ missed.
 
 ## Commit format — read this once
 
-The prefix is a **conventional-commit type**, and the `Wxx.Ty` marker goes at
-the **end** in parentheses. This is the one thing agents got wrong before.
+Every commit message has **THREE parts**:
 
-- ✅ `feat(map): static neon border effect (W11.T1)`
-- ✅ `fix(manim): close matrix label gap (W10.T2)`
-- ✅ `docs(map): SKILL fragment for territory effects (W11.T8)`
-- ❌ `W11.T1: static neon border effect`  ← never put the marker as the prefix
+1. **Subject** — a conventional-commit line with **NO marker**:
+   `<type>(<scope>): <summary>`
+2. **Body** — bullet points **grouped by file**: one `<path>:` header per file
+   you touched, then `- ` bullets describing what changed in that file.
+3. **Marker** — the `(Wxx.Ty)` lane/item marker **alone on the final line**,
+   after the body (one blank line above it).
 
-Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`. No `Co-authored-by`.
-Never push — the operator merges and pushes.
+Full example (write it to a file and `git commit -F msg.txt` — the body is
+multi-line, so a single `-m` won't do):
+
+```
+feat(map): static neon border effect
+
+map_renderer/web/js/effects/borders.js:
+- border-neon: layered stroke (core + drop-shadow halo), role-driven, no @keyframes
+- entrance fade-in <= 0.4s, then fully static
+map_renderer/web/css/borders.css:
+- .border-neon classes; halo blur from --glow-* tokens
+
+(W11.T1)
+```
+
+- ✅ subject `feat(map): static neon border effect`, then the per-file body, then `(W11.T1)` alone on the last line
+- ❌ `feat(map): static neon border effect (W11.T1)`  ← marker glued to the subject / no body
+- ❌ `W11.T1: static neon border effect`              ← marker used as the prefix
+
+Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`. Always include the
+per-file bullet body — no bare one-line commits. No `Co-authored-by`. Never
+push — the operator merges and pushes.
 
 ## Dispatch order
 
 - **W00, W01, W02 are merged.** Every Wave-1 lane below is unblocked now.
 - Run **2–3 at a time** (review attention is the bottleneck).
 - **Map lanes:** dispatch **W13 first** — it owns `core/runtime.js` and the
-  `events.json` / `layout.json` emitters that W11, W12, and W22 attach to. Then
-  W11 + W12 + W14 in parallel (disjoint files).
+`events.json` / `layout.json` emitters that W11, W12, and W22 attach to. Then
+W11 + W12 + W14 in parallel (disjoint files).
 - **Wave 2:** W20 waits for all of Wave 1 merged; **W21 waits for W10**; **W22
-  waits for W13**.
+waits for W13**.
 
 ---
 
@@ -39,7 +60,7 @@ Branch: first action — create and switch to agents/w10-manim (git checkout -b 
 
 Env: prefix every Python/render/test command with `conda run -n geopo`. If a render or test needs secrets and .env is missing here, link it: ln -sf /home/rawline/GeoPoAI/.env ./.env
 
-Commits: ONE per checklist item. Conventional-commit prefix with the lane/item marker at the END in parentheses — e.g. `fix(manim): close payoff-matrix label gap (W10.T2)`. Valid types: feat, fix, docs, refactor, test, chore. DO NOT use "W10.Ty" as the prefix. No Co-authored-by trailer. Do NOT push.
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `fix(manim): close payoff-matrix label gap` (NO marker), then a per-file bullet body, then `(W10.T2)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
 
 Discipline: read plans/PLAN.md first. Touch ONLY files in your allowlist (manim_renderer/ except escape_hatch/, scripts/manim/, pipeline/render_manim.py). No placeholders, no shortcuts — actually fix the font warning, actually render the QA scenes, paste acceptance output. If blocked or ambiguous, stop and report.
 
@@ -57,7 +78,7 @@ Branch: first action — create and switch to agents/w13-camera (git checkout -b
 
 Env: prefix every Python/render/test command with `conda run -n geopo`. If a render needs secrets and .env is missing here, link it: ln -sf /home/rawline/GeoPoAI/.env ./.env
 
-Commits: ONE per checklist item. Conventional-commit prefix with the marker at the END — e.g. `feat(map): idle camera drift + swoop easing (W13.T1)`. Types: feat, fix, docs, refactor, test, chore. DO NOT use "W13.Ty" as the prefix. No Co-authored-by. Do NOT push.
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(map): idle camera drift + swoop easing` (NO marker), then a per-file bullet body, then `(W13.T1)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
 
 Discipline: read plans/PLAN.md and skim W11/W12 so the emitter you build matches what they attach (fn.eventMeta). Touch ONLY your allowlist (map_renderer/runner.py, web/map.html, web/js/core/*, web/js/effects/{camera,atmosphere}.js, web/css/{base,atmosphere}.css, scripts/map/). No placeholders — vertical renders must actually be 1080x1920, emitters must produce schema-valid events.json/layout.json. Run acceptance in both realtime + deterministic modes; paste output.
 
@@ -75,7 +96,7 @@ Branch: first action — create and switch to agents/w11-territory (git checkout
 
 Env: prefix every Python/render/test command with `conda run -n geopo`. If a render needs secrets and .env is missing here, link it: ln -sf /home/rawline/GeoPoAI/.env ./.env
 
-Commits: ONE per checklist item. Conventional-commit prefix with the marker at the END — e.g. `feat(map): advanceFront invasion modeling (W11.T2)`. Types: feat, fix, docs, refactor, test, chore. DO NOT use "W11.Ty" as the prefix. No Co-authored-by. Do NOT push.
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(map): advanceFront invasion modeling` (NO marker), then a per-file bullet body, then `(W11.T2)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
 
 Discipline: read plans/PLAN.md first. Touch ONLY your allowlist (web/js/effects/{fills,borders}.js, web/css/{fills,borders}.css, scripts/map/qa_territory.json, map_renderer/docs/fragments/W11.md). Read core/*.js and registry.js but DO NOT edit them — they belong to W13. No placeholders: advanceFront must work in BOTH realtime and deterministic (stepTo) modes, driven by runtime t, not wall clock. Run acceptance; paste frame screenshots/notes.
 
@@ -93,7 +114,7 @@ Branch: first action — create and switch to agents/w12-flowtext (git checkout 
 
 Env: prefix every Python/render/test command with `conda run -n geopo`. If a render needs secrets and .env is missing here, link it: ln -sf /home/rawline/GeoPoAI/.env ./.env
 
-Commits: ONE per checklist item. Conventional-commit prefix with the marker at the END — e.g. `feat(map): tapered military advance arrow (W12.T1)`. Types: feat, fix, docs, refactor, test, chore. DO NOT use "W12.Ty" as the prefix. No Co-authored-by. Do NOT push.
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(map): tapered military advance arrow` (NO marker), then a per-file bullet body, then `(W12.T1)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
 
 Discipline: read plans/PLAN.md first. Touch ONLY your allowlist (web/js/effects/{arrows,labels}.js, web/css/{arrows,labels}.css, scripts/map/qa_flowtext.json, map_renderer/docs/fragments/W12.md). Read core/*.js read-only; do NOT edit it (W13 owns it). No placeholders: counters must be deterministic-safe (value derived from runtime t). Run acceptance; paste screenshots/notes.
 
@@ -111,7 +132,7 @@ Branch: first action — create and switch to agents/w14-catalog (git checkout -
 
 Env: prefix every Python/test command with `conda run -n geopo`.
 
-Commits: ONE per checklist item. Conventional-commit prefix with the marker at the END — e.g. `feat(map): Natural Earth catalog discovery (W14.T2)`. Types: feat, fix, docs, refactor, test, chore. DO NOT use "W14.Ty" as the prefix. No Co-authored-by. Do NOT push.
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(map): Natural Earth catalog discovery` (NO marker), then a per-file bullet body, then `(W14.T2)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
 
 Discipline: read plans/PLAN.md first. Touch ONLY your allowlist (map_renderer/data_prep/, map_renderer/resolver.py, map_renderer/tests/test_catalog.py, map_renderer/docs/fragments/W14.md). No placeholders: --discover must actually hit the catalog and list real datasets; --add must actually download + process. READ each historical source's license during implementation and record commercial_ok honestly. Run acceptance end-to-end; paste output.
 
@@ -129,7 +150,7 @@ Branch: first action — create and switch to agents/w18-broll (git checkout -b 
 
 Env: prefix every Python/test command with `conda run -n geopo`. If a fetch/test needs secrets, link .env: ln -sf /home/rawline/GeoPoAI/.env ./.env
 
-Commits: ONE per checklist item. Conventional-commit prefix with the marker at the END — e.g. `feat(broll): DVIDS public-domain source (W18.T2)`. Types: feat, fix, docs, refactor, test, chore. DO NOT use "W18.Ty" as the prefix. No Co-authored-by. Do NOT push.
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(broll): DVIDS public-domain source` (NO marker), then a per-file bullet body, then `(W18.T2)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
 
 Discipline: read plans/PLAN.md first. Touch ONLY your allowlist (broll/, pipeline/broll.py, .env.example, tests/test_broll_*.py). No placeholders: new sources must really fetch with mocked-HTTP tests; the reference ingest must really split + verify a committed test mp4. Run acceptance; paste output.
 
@@ -147,7 +168,7 @@ Branch: first action — create and switch to agents/w19-infra (git checkout -b 
 
 Env: prefix every Python/test command with `conda run -n geopo`. Terraform commands need .env sourced: set -a && source /home/rawline/GeoPoAI/.env && set +a
 
-Commits: ONE per checklist item. Conventional-commit prefix with the marker at the END — e.g. `feat(infra): generic GPU session manager (W19.T2)`. Types: feat, fix, docs, refactor, test, chore. DO NOT use "W19.Ty" as the prefix. No Co-authored-by. Do NOT push.
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(infra): generic GPU session manager` (NO marker), then a per-file bullet body, then `(W19.T2)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
 
 Discipline: read plans/PLAN.md AND infra/OPERATOR_RUNBOOK.md fully first. Touch ONLY your allowlist (pipeline/gpu_session.py, infra/sessions.json, infra/*.sh edits, infra/OPERATOR_RUNBOOK.md, tests/test_gpu_session.py). NEVER touch verda_volume.models or its prevent_destroy guard. No placeholders, but for the live drill use the CHEAPEST GPU tfvars and ALWAYS destroy the instance after. If a real terraform apply would be expensive/risky, do the mock-based tests in full and STOP before the live drill to report — let the operator run it.
 
@@ -165,7 +186,7 @@ Branch: first action — create and switch to agents/w15-captions (git checkout 
 
 Env: prefix every Python/test command with `conda run -n geopo`.
 
-Commits: ONE per checklist item. Conventional-commit prefix with the marker at the END — e.g. `feat(captions): occupancy-aware ASS placement (W15.T4)`. Types: feat, fix, docs, refactor, test, chore. DO NOT use "W15.Ty" as the prefix. No Co-authored-by. Do NOT push.
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(captions): occupancy-aware ASS placement` (NO marker), then a per-file bullet body, then `(W15.T4)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
 
 Discipline: read plans/PLAN.md first. Touch ONLY your allowlist (composition/captions.py, tools/align_vo.py, tests/test_captions.py, requirements.txt for the whisperX/stable-ts line). No placeholders: actually install the aligner and run it on a committed sample wav; actually burn a 9:16 demo clip. Run acceptance; paste output + screenshots.
 
@@ -183,7 +204,7 @@ Branch: first action — create and switch to agents/w16-sound (git checkout -b 
 
 Env: prefix every Python/test command with `conda run -n geopo`.
 
-Commits: ONE per checklist item. Conventional-commit prefix with the marker at the END — e.g. `feat(sound): cooldown + density rules engine (W16.T2)`. Types: feat, fix, docs, refactor, test, chore. DO NOT use "W16.Ty" as the prefix. No Co-authored-by. Do NOT push.
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(sound): cooldown + density rules engine` (NO marker), then a per-file bullet body, then `(W16.T2)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
 
 Discipline: read plans/PLAN.md first. Touch ONLY your allowlist (composition/sound.py, assets/sfx/palette.json curation, tests/test_sound.py). No placeholders: actually produce a mix.wav with audible whoosh + bed and measure -14 LUFS. Run acceptance; paste the loudnorm JSON.
 
@@ -201,7 +222,7 @@ Branch: first action — create and switch to agents/w17-compose (git checkout -
 
 Env: prefix every Python/test command with `conda run -n geopo`.
 
-Commits: ONE per checklist item. Conventional-commit prefix with the marker at the END — e.g. `feat(compose): whoosh motion-cut transition (W17.T2)`. Types: feat, fix, docs, refactor, test, chore. DO NOT use "W17.Ty" as the prefix. No Co-authored-by. Do NOT push.
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(compose): whoosh motion-cut transition` (NO marker), then a per-file bullet body, then `(W17.T2)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
 
 Discipline: read plans/PLAN.md first. Touch ONLY your allowlist (composition/{engine,transitions,export}.py, composition/README.md, pipeline/compose.py, tests/test_compose.py). Call captions.build / sound.build via the frozen stub signatures — do NOT implement their internals. No placeholders: produce a real playable final mp4 in BOTH export profiles from fixture clips. Run acceptance; paste output + boundary frame dumps.
 
@@ -219,7 +240,7 @@ Branch: first action — create and switch to agents/w20-orchestration (git chec
 
 Env: prefix every Python/test command with `conda run -n geopo`.
 
-Commits: ONE per checklist item. Conventional-commit prefix with the marker at the END — e.g. `feat(orchestration): episode manifest + stage runner (W20.T1)`. Types: feat, fix, docs, refactor, test, chore. DO NOT use "W20.Ty" as the prefix. No Co-authored-by. Do NOT push.
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(orchestration): episode manifest + stage runner` (NO marker), then a per-file bullet body, then `(W20.T1)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
 
 Discipline: read plans/PLAN.md and ALL of docs/contracts/*.schema.json first. Touch ONLY your allowlist (orchestration/, pipeline/orchestrate.py, config/show_bible.geopoai.json, tests/test_orchestration.py). No placeholders: the example episode must actually walk every stage to compose with stub clips; QC rules must actually fire on the deliberately-failing fixtures. Run acceptance; paste output.
 
@@ -237,7 +258,7 @@ Branch: first action — create and switch to agents/w21-escape (git checkout -b
 
 Env: prefix every Python/render/test command with `conda run -n geopo`.
 
-Commits: ONE per checklist item. Conventional-commit prefix with the marker at the END — e.g. `feat(manim): escape-hatch guard linter (W21.T2)`. Types: feat, fix, docs, refactor, test, chore. DO NOT use "W21.Ty" as the prefix. No Co-authored-by. Do NOT push.
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(manim): escape-hatch guard linter` (NO marker), then a per-file bullet body, then `(W21.T2)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
 
 Discipline: read plans/PLAN.md first. Touch ONLY your allowlist (manim_renderer/escape_hatch/, pipeline/render_manim.py dispatch hook ≤15 lines, scripts/manim/qa_escape.json). No placeholders: the guard linter must actually reject the violating fixtures; the real custom scene must render on-brand. Run acceptance; paste output.
 
@@ -255,9 +276,10 @@ Branch: first action — create and switch to agents/w22-map3d (git checkout -b 
 
 Env: prefix every Python/render/test command with `conda run -n geopo`. Link .env for renders if missing: ln -sf /home/rawline/GeoPoAI/.env ./.env
 
-Commits: ONE per checklist item. Conventional-commit prefix with the marker at the END — e.g. `feat(map): glTF model custom WebGL layer (W22.T2)`. Types: feat, fix, docs, refactor, test, chore. DO NOT use "W22.Ty" as the prefix. No Co-authored-by. Do NOT push.
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(map): glTF model custom WebGL layer` (NO marker), then a per-file bullet body, then `(W22.T2)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
 
 Discipline: read plans/PLAN.md first. Touch ONLY your allowlist (web/js/effects/models3d.js, web/vendor/ for three only, tools/prepare_assets.py + assets/manifest.json model-pack entry, scripts/map/qa_models.json, map_renderer/docs/fragments/W22.md). If you genuinely need a new <script> tag in map.html, STOP and report — the lead adds it (rule 3). No placeholders: models must really render and stay geo-anchored through camera moves, in BOTH realtime and deterministic modes. Run acceptance; paste screenshots.
 
 Context: W13's emitter reads your fn.eventMeta (type "model", intensity 0.7). Add the CC0 low-poly model pack to assets/catalog.py (verify CC0, record license in manifest). Deterministic: model transforms derived purely from runtime t.
 ```
+
