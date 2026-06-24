@@ -153,3 +153,36 @@
     100% { opacity: 0; }
   }
 
+
+  /* ── .border-neon ───────────────────────────────────────────
+     Static layered neon stroke — core at role.core, halo via
+     drop-shadow at role.glow / halo_opacity. Default border look.
+     Entrance fade-in ≤0.4s, then fully static (no pulse).      */
+  .border-neon {
+    fill: none;
+    stroke: var(--role-core);
+    stroke-width: var(--glow-core-px, 2px);
+    filter: drop-shadow(0 0 var(--glow-halo-px, 6px) var(--role-glow));
+    opacity: var(--halo-opacity, 0.35);
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .border-neon.border-neon-enter {
+    opacity: 0;
+    animation:
+      border-neon-fade-in
+      var(--enter-duration, 0.4s)
+      ease-out
+      0s
+      forwards;
+  }
+
+  @keyframes border-neon-fade-in {
+    0%   { opacity: 0; }
+    100% {
+      opacity: var(--halo-opacity, 0.35);
+      filter: drop-shadow(0 0 var(--glow-halo-px, 6px) var(--role-glow));
+    }
+  }
+

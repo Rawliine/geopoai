@@ -11,17 +11,34 @@ function _geojsonToBorderLines(geojson) {
   return [];
 }
 
+function _roleColors(role) {
+  const tokens = window.DESIGN_TOKENS || {};
+  const roles = (tokens.palette && tokens.palette.roles) || {};
+  const r = roles[role] || roles.neutral || { core: '#95a5a6', glow: '#bac4c5' };
+  const glow = tokens.glow || {};
+  return {
+    core: r.core,
+    glow: r.glow,
+    haloOpacity: glow.halo_opacity ?? 0.35,
+    corePx: glow.core_px ?? 2,
+    haloPx: glow.halo_px ?? 6,
+  };
+}
+
 function applyBorder(map, overlayEl, borderSpec) {
   const {
     id = `border-${Date.now()}`,
     geojson,
-    color = '#f0c040',
+    color,
+    role,
     width = 2.5,
-    effect = 'border-trim',
+    effect = 'border-neon',
     duration = 1.2,
     delay = 0,
     glowColor,
     dashPattern,
+    deterministic = false,
+    fadeIn = 0.4,
   } = borderSpec;
 
   const lines = _geojsonToBorderLines(geojson);
@@ -29,6 +46,11 @@ function applyBorder(map, overlayEl, borderSpec) {
     console.warn('[effects.js] applyBorder: unsupported or empty geojson');
     return null;
   }
+
+  const rc = _roleColors(role || 'highlight');
+  const strokeColor = color || rc.core;
+  const haloColor = glowColor || rc.glow;
+  const isNeon = effect === 'border-neon';
 
   const w = overlayEl.clientWidth;
   const h = overlayEl.clientHeight;
@@ -45,7 +67,13 @@ function applyBorder(map, overlayEl, borderSpec) {
     overflow: visible;
     --effect-duration: ${duration}s;
     --effect-delay: ${delay}s;
-    --glow-color: ${glowColor ?? color};
+    --glow-color: ${haloColor};
+    --role-core: ${strokeColor};
+    --role-glow: ${haloColor};
+    --glow-core-px: ${rc.corePx}px;
+    --glow-halo-px: ${rc.haloPx}px;
+    --halo-opacity: ${rc.haloOpacity};
+    --enter-duration: ${Math.min(0.4, Math.max(0, fadeIn))}s;
   `;
 
   lines.forEach(line => {
@@ -57,8 +85,10 @@ function applyBorder(map, overlayEl, borderSpec) {
     path.classList.add('border-path');
     path.setAttribute('d', polylinePath(projected));
     path.setAttribute('fill', 'none');
-    path.setAttribute('stroke', color);
-    path.setAttribute('stroke-width', width);
+    if (!isNeon) {
+      path.setAttribute('stroke', strokeColor);
+      path.setAttribute('stroke-width', width);
+    }
     path.setAttribute('stroke-linecap', 'round');
     path.setAttribute('stroke-linejoin', 'round');
     if (dashPattern) {
@@ -70,7 +100,12 @@ function applyBorder(map, overlayEl, borderSpec) {
     svg.appendChild(path);
     path.style.setProperty('--path-length', path.getTotalLength());
     void path.getBoundingClientRect();
-    if (effect) path.classList.add(effect);
+    if (effect) {
+      path.classList.add(effect);
+      if (isNeon && fadeIn > 0 && !deterministic) {
+        path.classList.add('border-neon-enter');
+      }
+    }
   });
 
   overlayEl.appendChild(svg);
@@ -88,7 +123,9 @@ function removeBorder(overlayEl, id, exitDuration = 0.6) {
 
 MapEffects.registerAction('applyBorder', function (map, overlayEl, entry, ctx) {
   const params = entry.params ?? {};
-  const border = applyBorder(map, overlayEl, params);
+  const border = applyBorder(map, overlayEl, Object.assign({}, params, {
+    deterministic: Boolean(ctx.deterministic),
+  }));
   if (ctx.runtime && border?.id) ctx.runtime.createdBorderIds.add(border.id);
 });
 
