@@ -156,3 +156,56 @@ MapEffects.getEasing = function getEasing(name) {
 /* Shared camera-busy window (ms, performance.now() clock). Realtime camera
    actions push this forward so idle_drift suspends during a move (W13.T1). */
 MapEffects._cameraBusyUntil = 0;
+
+/* ============================================================
+   layoutHints (W13.T3)
+   Frame-format aware placement helpers. Owned by core/this lane;
+   W12's label / statBox / titleCard modules consume it (if present)
+   to place screen-fixed overlays inside the safe area and to resolve
+   fraction-based positions. safe_areas come from the injected
+   window.DESIGN_TOKENS (runner.py), with a graceful fallback so manual
+   (non-runner) browser runs don't throw.
+   ============================================================ */
+MapEffects.layoutHints = {
+  // Current frame format.
+  format: function () {
+    return window.sceneFormat || 'horizontal';
+  },
+  // Current frame size in px.
+  frameSize: function () {
+    return this.format() === 'vertical'
+      ? { w: 1080, h: 1920 }
+      : { w: 1920, h: 1080 };
+  },
+  // Usable rectangle (px): inside platform margins, above the caption band.
+  safeRect: function () {
+    var fmt = this.format();
+    var size = this.frameSize();
+    var sa = (window.DESIGN_TOKENS
+      && window.DESIGN_TOKENS.safe_areas
+      && window.DESIGN_TOKENS.safe_areas[fmt]) || null;
+    var m = (sa && sa.platform_margins) || { top: 0.04, bottom: 0.04, left: 0.04, right: 0.04 };
+    var band = (sa && sa.caption_band) || [0.84, 0.96];
+    var leftFrac = Number(m.left) || 0;
+    var rightFrac = Number(m.right) || 0;
+    var topFrac = Number(m.top) || 0;
+    // Usable bottom = whichever is higher: bottom margin or caption band top.
+    var bottomFrac = Math.min(1 - (Number(m.bottom) || 0), band[0]);
+    return {
+      x: Math.round(leftFrac * size.w),
+      y: Math.round(topFrac * size.h),
+      w: Math.round((1 - leftFrac - rightFrac) * size.w),
+      h: Math.round(Math.max(0, bottomFrac - topFrac) * size.h),
+    };
+  },
+  // Resolve a scene position: {x,y,unit:'frac'} → px; {x,y} px and [lng,lat]
+  // geo are passed through unchanged (geo is handled by reprojection).
+  resolvePosition: function (pos) {
+    if (Array.isArray(pos)) return pos;
+    if (pos && typeof pos === 'object' && pos.unit === 'frac') {
+      var size = this.frameSize();
+      return { x: Math.round(Number(pos.x) * size.w), y: Math.round(Number(pos.y) * size.h) };
+    }
+    return pos;
+  },
+};

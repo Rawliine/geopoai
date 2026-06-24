@@ -177,6 +177,9 @@
   /* window.sceneReady — Playwright polls this before calling playScene() */
   window.sceneReady = false;
 
+  /* window.sceneFormat — current frame aspect; W12 text modules read this. */
+  window.sceneFormat = 'horizontal';
+
   function normalizeStyleKey(styleKeyOrUrl) {
     if (typeof styleKeyOrUrl !== 'string' || styleKeyOrUrl.length === 0) {
       return 'dark';
@@ -529,6 +532,25 @@
     realtimeRafId = null;
   }
 
+  /* Set the frame aspect (W13.T3). Sizes the frame + map + overlays to the
+     scene format and resizes Mapbox so the recorded video matches the viewport
+     Playwright set in runner.py (1080×1920 vertical, 1920×1080 horizontal). */
+  function setFrameFormat(format) {
+    format = (format === 'vertical') ? 'vertical' : 'horizontal';
+    window.sceneFormat = format;
+    var w = (format === 'vertical') ? 1080 : 1920;
+    var h = (format === 'vertical') ? 1920 : 1080;
+    var px = function (el) { if (el) { el.style.width = w + 'px'; el.style.height = h + 'px'; } };
+    px(document.documentElement);
+    px(document.body);
+    px(document.getElementById('map'));
+    px(document.getElementById('overlay'));
+    px(document.getElementById('polish-layer'));
+    document.body.classList.toggle('format-vertical', format === 'vertical');
+    document.body.classList.toggle('format-horizontal', format === 'horizontal');
+    if (map && typeof map.resize === 'function') map.resize();
+  }
+
   /* Apply scene-level environment after the style is ready + cleared (W13.T2/T4):
      fog, terrain, the CSS polish stack, and base-label hiding. */
   function applySceneEnvironment(scene) {
@@ -570,6 +592,8 @@
     }
     sceneRunning = true;
 
+    setFrameFormat(scene.format);
+
     var style = scene.map_style || 'dark';
     var requestedStyleKey = normalizeStyleKey(style);
 
@@ -605,6 +629,7 @@
   window.loadScene = async function (scene) {
     deterministicScene = scene;
     deterministicSeed = Number(scene._seed ?? 1);
+    setFrameFormat(scene.format);
     var style = scene.map_style || 'dark';
     var requestedStyleKey = normalizeStyleKey(style);
     if (requestedStyleKey !== activeStyleKey) {

@@ -32,6 +32,13 @@ ROOT = Path(__file__).resolve().parent.parent
 RENDERER_PATH = ROOT / "map_renderer" / "web" / "map.html"
 TMP_DIR = ROOT / "tmp"
 OUTPUT_DIR = ROOT / "output"
+DESIGN_TOKENS_PATH = ROOT / "config" / "design_tokens.json"
+
+# Frame dimensions per scene format (W13.T3).
+FRAME_SIZES = {
+    "horizontal": (1920, 1080),
+    "vertical": (1080, 1920),
+}
 
 # ── Logging ────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -266,6 +273,11 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
     map_style = scene.get("map_style", "dark")
     tile_timeout = scene.get("_tile_timeout", 20_000)
 
+    scene_format = str(scene.get("format", "horizontal")).strip().lower()
+    if scene_format not in FRAME_SIZES:
+        scene_format = "horizontal"
+    frame_w, frame_h = FRAME_SIZES[scene_format]
+
     TMP_DIR.mkdir(parents=True, exist_ok=True)
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -287,13 +299,13 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
         )
 
         context_kwargs = {
-            "viewport": {"width": 1920, "height": 1080},
+            "viewport": {"width": frame_w, "height": frame_h},
         }
         if not deterministic:
             context_kwargs.update(
                 {
                     "record_video_dir": str(TMP_DIR),
-                    "record_video_size": {"width": 1920, "height": 1080},
+                    "record_video_size": {"width": frame_w, "height": frame_h},
                 }
             )
         context = await browser.new_context(**context_kwargs)
@@ -312,6 +324,15 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
             """args => window.init(args.token, { renderMode: true })""",
             {"token": MAPBOX_TOKEN},
         )
+
+        # Expose design tokens to the web layer. safe_areas are not emitted into
+        # tokens.css (the token→CSS generator is out of this lane's scope), so
+        # MapEffects.layoutHints reads them off window.DESIGN_TOKENS (W13.T3).
+        try:
+            design_tokens = json.loads(DESIGN_TOKENS_PATH.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            design_tokens = {}
+        await page.evaluate("d => { window.DESIGN_TOKENS = d; }", design_tokens)
 
         log.info("Waiting for map tiles (timeout=%dms)…", tile_timeout)
         try:
