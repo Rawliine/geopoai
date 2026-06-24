@@ -151,10 +151,11 @@ function applyPolish(scene) {
 }
 
 function updatePolish(t) {
-  t = Number(t) || 0;
+  t = Math.max(0, Number(t) || 0);
   var grain = document.getElementById('polish-grain');
   if (grain && grain.style.display !== 'none') {
-    var step = Math.floor(t * GRAIN_STEPS_PER_S) % GRAIN_STEPS;
+    // Positive modulo (JS % keeps the sign of the dividend).
+    var step = ((Math.floor(t * GRAIN_STEPS_PER_S) % GRAIN_STEPS) + GRAIN_STEPS) % GRAIN_STEPS;
     var p = GRAIN_POSITIONS[step];
     grain.style.backgroundPosition = p[0] + 'px ' + p[1] + 'px';
   }

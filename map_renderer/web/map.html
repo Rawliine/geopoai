@@ -499,7 +499,9 @@
     if (!sceneRunning) { realtimeRafId = null; return; }
     var dt = realtimeLastTs ? (ts - realtimeLastTs) / 1000 : 0;
     realtimeLastTs = ts;
-    var sceneT = (ts - realtimePlayStart) / 1000;
+    // The first rAF timestamp can precede realtimePlayStart by ~a frame; clamp
+    // so scene time never goes negative (would break polish + layout sampling).
+    var sceneT = Math.max(0, (ts - realtimePlayStart) / 1000);
     if (window.MapEffects) MapEffects._currentT = sceneT;
 
     // idle_drift: nudge zoom/bearing only while no camera move is active.

@@ -116,7 +116,7 @@ function reproject(map, overlayEl) {
  */
 function _maybeSnapshotLayout(overlayEl) {
   if (!window.MapEffects || !MapEffects._layoutFrames) return;
-  const t = Number(MapEffects._currentT || 0);
+  const t = Math.max(0, Number(MapEffects._currentT || 0));
   const hz = MapEffects.LAYOUT_SAMPLE_HZ || 2;
   const minDelta = 1 / hz;
   const last = MapEffects._lastLayoutT;
