@@ -39,6 +39,31 @@ Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`. Always include the
 per-file bullet body — no bare one-line commits. No `Co-authored-by`. Never
 push — the operator merges and pushes.
 
+## Branch setup — read this once
+
+The **operator** creates the worktree and branch **before** the first prompt:
+
+```bash
+git worktree add <path> -b agents/<lane-id>
+ln -sf ~/GeoPoAI/.env <path>/.env    # lanes that need secrets
+```
+
+The agent does **not** create worktrees. Do **not** run `git checkout -b` when
+you are already on a feature branch — that leaves an orphan ref (e.g.
+`cursor/<hash>`) next to `agents/<lane-id>`.
+
+**First action (agent):**
+
+```bash
+git branch --show-current   # must print agents/<lane-id> for this lane
+```
+
+- Already on `agents/<lane-id>` → continue.
+- On `cursor/*` or any other wrong name → `git branch -m agents/<lane-id>` (**rename only**).
+- On `main` only → `git checkout -b agents/<lane-id>`.
+
+Never work on `main`.
+
 ## Dispatch order
 
 - **W00, W01, W02 are merged.** Every Wave-1 lane below is unblocked now.
@@ -54,9 +79,9 @@ waits for W13**.
 ## W10 — Manim quality (fonts, layout fixes, emission, pacing, icons, images)
 
 ```text
-/worktree Read plans/W10-manim-quality.md and execute it exactly, checklist items in order.
+Read plans/W10-manim-quality.md and execute it exactly, checklist items in order.
 
-Branch: first action — create and switch to agents/w10-manim (git checkout -b agents/w10-manim); if the worktree auto-named the branch, rename it with git branch -m agents/w10-manim. Never work on main.
+Branch: follow "Branch setup" for agents/w10-manim. Never work on main.
 
 Env: prefix every Python/render/test command with `conda run -n geopo`. If a render or test needs secrets and .env is missing here, link it: ln -sf /home/rawline/GeoPoAI/.env ./.env
 
@@ -72,9 +97,9 @@ Context: fonts are provisioned to assets/font/ (singular) by tools/prepare_asset
 ## W13 — Map camera, atmosphere, vertical format, emitters (DISPATCH FIRST among map lanes)
 
 ```text
-/worktree Read plans/W13-map-camera-atmosphere.md and execute it exactly, checklist items in order.
+Read plans/W13-map-camera-atmosphere.md and execute it exactly, checklist items in order.
 
-Branch: first action — create and switch to agents/w13-camera (git checkout -b agents/w13-camera); rename with git branch -m agents/w13-camera if auto-named. Never work on main.
+Branch: follow "Branch setup" for agents/w13-camera. Never work on main.
 
 Env: prefix every Python/render/test command with `conda run -n geopo`. If a render needs secrets and .env is missing here, link it: ln -sf /home/rawline/GeoPoAI/.env ./.env
 
@@ -90,9 +115,9 @@ Context: you own core/runtime.js + the GENERIC events/layout emitters that W11/W
 ## W11 — Map territory (border-neon, invasion advanceFront, morph, hatch, masked images)
 
 ```text
-/worktree Read plans/W11-map-territory.md and execute it exactly, checklist items in order.
+Read plans/W11-map-territory.md and execute it exactly, checklist items in order.
 
-Branch: first action — create and switch to agents/w11-territory (git checkout -b agents/w11-territory); rename with git branch -m agents/w11-territory if auto-named. Never work on main.
+Branch: follow "Branch setup" for agents/w11-territory. Never work on main.
 
 Env: prefix every Python/render/test command with `conda run -n geopo`. If a render needs secrets and .env is missing here, link it: ln -sf /home/rawline/GeoPoAI/.env ./.env
 
@@ -108,9 +133,9 @@ Context: attach `fn.eventMeta = {type, intensity}` to each registered action (W1
 ## W12 — Map flow + text (arrows, arcs, supply lines, leader labels, counters, title cards, stat boxes, icons)
 
 ```text
-/worktree Read plans/W12-map-flow-text.md and execute it exactly, checklist items in order.
+Read plans/W12-map-flow-text.md and execute it exactly, checklist items in order.
 
-Branch: first action — create and switch to agents/w12-flowtext (git checkout -b agents/w12-flowtext); rename with git branch -m agents/w12-flowtext if auto-named. Never work on main.
+Branch: follow "Branch setup" for agents/w12-flowtext. Never work on main.
 
 Env: prefix every Python/render/test command with `conda run -n geopo`. If a render needs secrets and .env is missing here, link it: ln -sf /home/rawline/GeoPoAI/.env ./.env
 
@@ -126,9 +151,9 @@ Context: attach fn.eventMeta to each action (W13's emitter reads it). Icons reso
 ## W14 — Map data catalog (NE discovery + historical + year resolver)
 
 ```text
-/worktree Read plans/W14-map-catalog.md and execute it exactly, checklist items in order.
+Read plans/W14-map-catalog.md and execute it exactly, checklist items in order.
 
-Branch: first action — create and switch to agents/w14-catalog (git checkout -b agents/w14-catalog); rename with git branch -m agents/w14-catalog if auto-named. Never work on main.
+Branch: follow "Branch setup" for agents/w14-catalog. Never work on main.
 
 Env: prefix every Python/test command with `conda run -n geopo`.
 
@@ -144,9 +169,9 @@ Context: the manifest is a lockfile — tooling writes it, humans don't hand-edi
 ## W18 — B-roll (env audit, PD sources, link ingest, claude_cli verifier, prompt eval)
 
 ```text
-/worktree Read plans/W18-broll-expansion.md and execute it exactly, checklist items in order.
+Read plans/W18-broll-expansion.md and execute it exactly, checklist items in order.
 
-Branch: first action — create and switch to agents/w18-broll (git checkout -b agents/w18-broll); rename with git branch -m agents/w18-broll if auto-named. Never work on main.
+Branch: follow "Branch setup" for agents/w18-broll. Never work on main.
 
 Env: prefix every Python/test command with `conda run -n geopo`. If a fetch/test needs secrets, link .env: ln -sf /home/rawline/GeoPoAI/.env ./.env
 
@@ -162,9 +187,9 @@ Context: the vision verifier DEFAULT backend is `claude_cli` (shells out to `cla
 ## W19 — Infra GPU session manager (⚠️ spends real money on the live drill)
 
 ```text
-/worktree Read plans/W19-infra-sessions.md and execute it exactly, checklist items in order.
+Read plans/W19-infra-sessions.md and execute it exactly, checklist items in order.
 
-Branch: first action — create and switch to agents/w19-infra (git checkout -b agents/w19-infra); rename with git branch -m agents/w19-infra if auto-named. Never work on main.
+Branch: follow "Branch setup" for agents/w19-infra. Never work on main.
 
 Env: prefix every Python/test command with `conda run -n geopo`. Terraform commands need .env sourced: set -a && source /home/rawline/GeoPoAI/.env && set +a
 
@@ -180,9 +205,9 @@ Context: this is the one lane that costs money when tested. The whole point is a
 ## W15 — Captions (whisperX → ASS → occupancy-aware burn-in)
 
 ```text
-/worktree Read plans/W15-captions.md and execute it exactly, checklist items in order.
+Read plans/W15-captions.md and execute it exactly, checklist items in order.
 
-Branch: first action — create and switch to agents/w15-captions (git checkout -b agents/w15-captions); rename with git branch -m agents/w15-captions if auto-named. Never work on main.
+Branch: follow "Branch setup" for agents/w15-captions. Never work on main.
 
 Env: prefix every Python/test command with `conda run -n geopo`.
 
@@ -198,9 +223,9 @@ Context: develop against docs/contracts/fixtures/ (real layout.json arrives afte
 ## W16 — Automatic sound pass (events.json → SFX mix + bed + loudness)
 
 ```text
-/worktree Read plans/W16-sound-pass.md and execute it exactly, checklist items in order.
+Read plans/W16-sound-pass.md and execute it exactly, checklist items in order.
 
-Branch: first action — create and switch to agents/w16-sound (git checkout -b agents/w16-sound); rename with git branch -m agents/w16-sound if auto-named. Never work on main.
+Branch: follow "Branch setup" for agents/w16-sound. Never work on main.
 
 Env: prefix every Python/test command with `conda run -n geopo`.
 
@@ -216,9 +241,9 @@ Context: develop against docs/contracts/fixtures/events.min.json. Implement the 
 ## W17 — Composition engine (assembly, transitions, grading, exports)
 
 ```text
-/worktree Read plans/W17-composition-engine.md and execute it exactly, checklist items in order.
+Read plans/W17-composition-engine.md and execute it exactly, checklist items in order.
 
-Branch: first action — create and switch to agents/w17-compose (git checkout -b agents/w17-compose); rename with git branch -m agents/w17-compose if auto-named. Never work on main.
+Branch: follow "Branch setup" for agents/w17-compose. Never work on main.
 
 Env: prefix every Python/test command with `conda run -n geopo`.
 
@@ -234,9 +259,9 @@ Context: develop against docs/contracts/fixtures/compose.min.json + the frozen s
 ## W20 — Orchestration (episode manifest, stages, QC) — WAIT for all Wave 1 merged
 
 ```text
-/worktree Read plans/W20-orchestration.md and execute it exactly, checklist items in order.
+Read plans/W20-orchestration.md and execute it exactly, checklist items in order.
 
-Branch: first action — create and switch to agents/w20-orchestration (git checkout -b agents/w20-orchestration); rename with git branch -m agents/w20-orchestration if auto-named. Never work on main.
+Branch: follow "Branch setup" for agents/w20-orchestration. Never work on main.
 
 Env: prefix every Python/test command with `conda run -n geopo`.
 
@@ -252,9 +277,9 @@ Context: ZERO LLM API calls — every brain stage HALTS with an instruction + sc
 ## W21 — Escape hatch (guarded custom-Manim) — WAIT for W10 merged
 
 ```text
-/worktree Read plans/W21-escape-hatch.md and execute it exactly, checklist items in order.
+Read plans/W21-escape-hatch.md and execute it exactly, checklist items in order.
 
-Branch: first action — create and switch to agents/w21-escape (git checkout -b agents/w21-escape); rename with git branch -m agents/w21-escape if auto-named. Never work on main.
+Branch: follow "Branch setup" for agents/w21-escape. Never work on main.
 
 Env: prefix every Python/render/test command with `conda run -n geopo`.
 
@@ -270,9 +295,9 @@ Context: this is a CAGED pressure valve. Guard must hard-fail on disallowed impo
 ## W22 — Map 3D models (three.js custom layer) — WAIT for W13 merged
 
 ```text
-/worktree Read plans/W22-map-3d.md and execute it exactly, checklist items in order.
+Read plans/W22-map-3d.md and execute it exactly, checklist items in order.
 
-Branch: first action — create and switch to agents/w22-map3d (git checkout -b agents/w22-map3d); rename with git branch -m agents/w22-map3d if auto-named. Never work on main.
+Branch: follow "Branch setup" for agents/w22-map3d. Never work on main.
 
 Env: prefix every Python/render/test command with `conda run -n geopo`. Link .env for renders if missing: ln -sf /home/rawline/GeoPoAI/.env ./.env
 

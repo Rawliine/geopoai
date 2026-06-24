@@ -106,14 +106,22 @@ tag so Wave-1 map lanes never edit shared files.
 
 ## Dispatch protocol (operator)
 
+Create the worktree and lane branch **before** the first agent prompt — the
+agent verifies the branch name; it does not run `/worktree` or `git worktree
+add`.
+
 ```bash
 git worktree add ../geopoai-w11 -b agents/w11-territory
-ln -s ~/GeoPoAI/.env ../geopoai-w11/.env        # lanes that render need it
+ln -sf ~/GeoPoAI/.env ../geopoai-w11/.env        # lanes that render need it
 cursor ../geopoai-w11
-# Composer prompt:
+# Composer prompt (from plans/AGENT_PROMPTS.md — no /worktree prefix):
 #   Read plans/W11-map-territory.md and execute it exactly, checklist items
-#   in order. One commit per item.
+#   in order. Branch: follow "Branch setup" for agents/w11-territory.
 ```
+
+If Cursor auto-created a worktree on `cursor/<hash>`, either recreate with
+`-b agents/<lane-id>` or tell the agent to run `git branch -m agents/<lane-id>`
+only (never `checkout -b` on that branch).
 
 A lane may instead be executed by **Claude Code** directly (its own
 `agents/<lane-id>` branch in the repo, same prompt and discipline) — as W13 was.
