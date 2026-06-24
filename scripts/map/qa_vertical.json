@@ -1,0 +1,36 @@
+{
+  "duration": 12,
+  "_deterministic": true,
+  "_fps": 20,
+  "format": "vertical",
+  "map_style": "dark",
+  "camera": { "center": [6, 24], "zoom": 1.6, "pitch": 0, "bearing": 0, "duration": 0, "easing": "swoop" },
+  "atmosphere": { "fog": true, "stars": false },
+  "terrain": { "enabled": true, "exaggeration": 1.3 },
+  "polish": { "vignette": true, "grain": true, "haze": false },
+  "idle_drift": { "enabled": true, "zoom_per_s": 0.03, "bearing_per_s": 1.0 },
+  "timeline": [
+    { "at": 0.3, "action": "showLabel", "params": {
+        "id": "qa-title-v", "text": "THE MAGHREB",
+        "position": { "x": 540, "y": 175 },
+        "effect": "label-slam", "color": "#f1c40f", "fontSize": "2.4rem" } },
+    { "at": 0.6, "action": "showLabel", "params": {
+        "id": "qa-sub-v", "text": "A CONTESTED CORNER",
+        "position": { "x": 540, "y": 270 },
+        "effect": "label-fade", "color": "#ecf0f1", "fontSize": "1.4rem" } },
+    { "at": 0.5, "action": "flyTo", "params": {
+        "center": [-5.0, 31.0], "zoom": 4.0, "pitch": 45, "bearing": 0,
+        "duration": 2.5, "easing": "swoop" } },
+    { "at": 4.0, "action": "extrudeBars", "params": {
+        "id": "qa-metric-v", "max_height_m": 300000, "role": "threat",
+        "data": [
+          { "country": "Morocco", "value": 100 },
+          { "country": "Algeria", "value": 65 },
+          { "country": "Spain", "value": 40 }
+        ] } },
+    { "at": 8.0, "action": "rotateAround", "params": {
+        "center": [-6.84, 33.97], "degrees": 40, "duration": 3.0, "easing": "gentle" } },
+    { "at": 9.8, "action": "showPlaceLabels", "params": {
+        "show": true, "types": ["city"], "within": [-12, 27, 4, 37] } }
+  ]
+}
