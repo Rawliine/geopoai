@@ -560,6 +560,7 @@
     var M = window.MapEffects || {};
     if (M.resetExtrudeBars) M.resetExtrudeBars();  // clear prior scene's extrude specs
     if (M.hideBaseLabels) M.hideBaseLabels(map);   // hide base symbol layers by default (T4)
+    if (M.applyBaseLines) M.applyBaseLines(map, scene);  // opt-in: hide internal base borders
     if (M.applyAtmosphere) M.applyAtmosphere(map, scene);
     if (M.applyTerrain) M.applyTerrain(map, scene);
     if (M.applyPolish) M.applyPolish(scene);

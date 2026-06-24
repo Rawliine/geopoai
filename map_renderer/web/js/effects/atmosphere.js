@@ -286,8 +286,31 @@ function showPlaceLabels(map, overlayEl, entry, ctx) {
 showPlaceLabels.eventMeta = { type: 'label', intensity: 0.4 };
 MapEffects.registerAction('showPlaceLabels', showPlaceLabels);
 
+/* ============================================================
+   BASE INTERNAL BORDERS (W13 — opt-in)
+   scene.base = { internal_borders: false } hides the base style's
+   sub-national (admin-1+) boundary LINES that pop in at zoom
+   thresholds, while keeping admin-0 country outlines + coastlines.
+   Default (key absent / true) leaves the base lines untouched.
+   ============================================================ */
+function applyBaseLines(map, scene) {
+  var base = (scene && scene.base) || {};
+  if (base.internal_borders !== false) return;   // opt-in only
+  var style;
+  try { style = map.getStyle(); } catch (e) { return; }
+  if (!style || !style.layers) return;
+  style.layers.forEach(function (layer) {
+    if (layer.type !== 'line') return;
+    // Hide internal admin boundaries (admin-1, admin-2, …); keep admin-0.
+    if (/admin-[1-9]/.test(layer.id) || /(state|province|county|district)-boundary/i.test(layer.id)) {
+      try { map.setLayoutProperty(layer.id, 'visibility', 'none'); } catch (e) {}
+    }
+  });
+}
+
 MapEffects.applyAtmosphere = applyAtmosphere;
 MapEffects.applyTerrain = applyTerrain;
 MapEffects.applyPolish = applyPolish;
 MapEffects.updatePolish = updatePolish;
 MapEffects.hideBaseLabels = hideBaseLabels;
+MapEffects.applyBaseLines = applyBaseLines;
