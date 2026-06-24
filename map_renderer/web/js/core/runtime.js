@@ -14,6 +14,49 @@ function _seededNoise(seed, x) {
   return s - Math.floor(s);
 }
 
+/* ============================================================
+   events.json emission (W13.T5)
+   Generic emitter: every executed action contributes an event,
+   reading fn.eventMeta (fallback type "label" intensity 0.4).
+   Camera actions emit start/end pairs. runner.py reads
+   window.getEmittedEvents() and writes the sidecar.
+   ============================================================ */
+const VALID_ROLES = new Set(['highlight', 'threat', 'ally', 'contested', 'neutral']);
+
+MapEffects._eventLog = MapEffects._eventLog || [];
+MapEffects.resetEvents = function resetEvents() { MapEffects._eventLog = []; };
+MapEffects.recordEvent = function recordEvent(e) { MapEffects._eventLog.push(e); };
+MapEffects.getEmittedEvents = function getEmittedEvents() { return MapEffects._eventLog.slice(); };
+
+function _emitEventForEntry(entry, fn, ctx) {
+  const meta = (fn && fn.eventMeta) || { type: 'label', intensity: 0.4 };
+  const params = entry.params ?? {};
+  const t = Number(entry.at ?? 0);
+  const id = (params.id != null && String(params.id).length)
+    ? String(params.id)
+    : `${entry.action}-${t}`;
+  let intensity = Number(meta.intensity);
+  if (!isFinite(intensity)) intensity = 0.4;
+  intensity = Math.max(0, Math.min(1, intensity));
+  const role = VALID_ROLES.has(params.role) ? params.role : undefined;
+
+  const startEvt = { t, type: meta.type, phase: 'start', intensity, id };
+  if (role) startEvt.role = role;
+  MapEffects.recordEvent(startEvt);
+
+  if (meta.type === 'camera') {
+    let dur = Number(params.duration);
+    if (!isFinite(dur)) dur = (params.durationMs != null) ? Number(params.durationMs) / 1000 : 2;
+    const endEvt = { t: t + dur, type: 'camera', phase: 'end', intensity, id };
+    if (role) endEvt.role = role;
+    if (ctx && ctx.deterministic && ctx.runtime) {
+      ctx.runtime.pendingCameraEnds.push({ at: t + dur, evt: endEvt });
+    } else {
+      setTimeout(function () { MapEffects.recordEvent(endEvt); }, Math.max(0, dur * 1000));
+    }
+  }
+}
+
 /**
  * Dispatch a single timeline entry via the action registry (W00).
  * @param {object} map
@@ -23,11 +66,12 @@ function _seededNoise(seed, x) {
  */
 function executeTimelineAction(map, overlayEl, entry, ctx) {
   const fn = MapEffects.getAction(entry.action);
-  if (fn) {
-    fn(map, overlayEl, entry, ctx);
+  if (!fn) {
+    console.warn(`[MapEffects] unknown action "${entry.action}"`);
     return;
   }
-  console.warn(`[MapEffects] unknown action "${entry.action}"`);
+  _emitEventForEntry(entry, fn, ctx);
+  fn(map, overlayEl, entry, ctx);
 }
 
 function runTimeline(map, overlayEl, scene) {
@@ -79,6 +123,7 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
     pendingRemovals: [],
     pendingFillExits: [],
     pendingBorderExits: [],
+    pendingCameraEnds: [],
   };
 
   function _entryId(entry, idx) {
@@ -244,6 +289,16 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
     });
 
     _updateCameraShake(runtime.currentTime);
+
+    // Flush camera-action end events once their end time has passed (W13.T5).
+    if (runtime.pendingCameraEnds.length) {
+      runtime.pendingCameraEnds = runtime.pendingCameraEnds.filter(item => {
+        if (runtime.currentTime < item.at) return true;
+        MapEffects.recordEvent(item.evt);
+        return false;
+      });
+    }
+
     runtime.pendingRemovals = runtime.pendingRemovals.filter(item => {
       if (runtime.currentTime < item.removeAt) return true;
       const el = document.getElementById(item.id);
@@ -328,6 +383,9 @@ function createDeterministicRuntime(map, overlayEl, scene, options = {}) {
     runtime.removedLabelIds.clear();
     runtime.pendingFillExits.length = 0;
     runtime.pendingBorderExits.length = 0;
+    runtime.pendingCameraEnds.length = 0;
+    // Restart event collection on a backward step so the re-walk stays consistent.
+    MapEffects.resetEvents();
     const container = map.getContainer();
     if (container) container.style.transform = '';
   }

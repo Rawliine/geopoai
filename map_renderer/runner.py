@@ -404,8 +404,30 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
                 await asyncio.sleep(tail)
             video_path_obj = await page.video.path() if page.video else None
 
+        # Capture sidecar emission before tearing the page down (W13.T5/T6).
+        try:
+            emitted_events = await page.evaluate(
+                "() => (window.getEmittedEvents ? window.getEmittedEvents() : [])"
+            )
+        except Exception as exc:  # noqa: BLE001 — emission is best-effort
+            log.warning("Could not read emitted events: %s", exc)
+            emitted_events = []
+
         await context.close()
         await browser.close()
+
+    # ── Sidecar: events.json (schema docs/contracts/events.schema.json) ──
+    if isinstance(emitted_events, list):
+        emitted_events.sort(key=lambda e: (float(e.get("t", 0)), e.get("phase", "")))
+    events_path = OUTPUT_DIR / f"{clip_name}.events.json"
+    events_path.write_text(
+        json.dumps(
+            {"clip_id": clip_name, "fps": fps, "events": emitted_events},
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    log.info("Wrote %d events → %s", len(emitted_events), events_path.name)
 
     output_path = OUTPUT_DIR / f"{clip_name}.mp4"
     if deterministic:

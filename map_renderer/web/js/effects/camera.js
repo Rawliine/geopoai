@@ -4,7 +4,7 @@
  * Timeline actions that manipulate the Mapbox map camera (extracted from legacy switch).
  */
 
-MapEffects.registerAction('cameraShake', function (map, overlayEl, entry, ctx) {
+const _cameraShake = function (map, overlayEl, entry, ctx) {
   const params = entry.params ?? {};
   if (ctx.deterministic && ctx.runtime) {
     const { intensity = 'medium', durationMs = 400 } = params;
@@ -32,7 +32,9 @@ MapEffects.registerAction('cameraShake', function (map, overlayEl, entry, ctx) {
       }
     }, interval);
   }
-});
+};
+_cameraShake.eventMeta = { type: 'camera', intensity: 0.6 };
+MapEffects.registerAction('cameraShake', _cameraShake);
 
 const _flyTo = function (map, overlayEl, entry, ctx) {
   const params = entry.params ?? {};

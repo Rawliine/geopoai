@@ -594,6 +594,7 @@
     sceneRunning = true;
 
     setFrameFormat(scene.format);
+    if (window.MapEffects && MapEffects.resetEvents) MapEffects.resetEvents();
 
     var style = scene.map_style || 'dark';
     var requestedStyleKey = normalizeStyleKey(style);
@@ -631,6 +632,7 @@
     deterministicScene = scene;
     deterministicSeed = Number(scene._seed ?? 1);
     setFrameFormat(scene.format);
+    if (window.MapEffects && MapEffects.resetEvents) MapEffects.resetEvents();
     var style = scene.map_style || 'dark';
     var requestedStyleKey = normalizeStyleKey(style);
     if (requestedStyleKey !== activeStyleKey) {
@@ -743,6 +745,12 @@
       pitch:   map ? map.getPitch()   : null,
       bearing: map ? map.getBearing() : null,
     };
+  };
+
+  /* ── Sidecar emission accessors (read by runner.py) — W13.T5/T6 ── */
+  window.getEmittedEvents = function () {
+    return (window.MapEffects && MapEffects.getEmittedEvents)
+      ? MapEffects.getEmittedEvents() : [];
   };
 
   /* ============================================================
