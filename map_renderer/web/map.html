@@ -161,6 +161,12 @@
   var deterministicSeed = 1;
   var lastDeterministicTime = null;
 
+  /* Realtime per-frame loop (idle_drift + polish + layout sampling) — W13 */
+  var realtimeRafId = null;
+  var realtimePlayStart = 0;
+  var realtimeLastTs = 0;
+  var realtimeDrift = null;
+
   /* window.sceneReady — Playwright polls this before calling playScene() */
   window.sceneReady = false;
 
@@ -297,10 +303,17 @@
           finish();
         }, timeoutMs);
 
+        // Suspend idle_drift during the opening move (W13.T1).
+        MapEffects._cameraBusyUntil = Math.max(
+          MapEffects._cameraBusyUntil || 0,
+          performance.now() + duration
+        );
         map.flyTo(Object.assign({}, opts, {
           duration:  duration,
           essential: true,
-          easing:    easeInOutCubic,
+          easing:    (window.MapEffects && MapEffects.getEasing)
+            ? MapEffects.getEasing(cameraSpec.easing)
+            : easeInOutCubic,
         }));
         map.once('moveend', function () {
           clearTimeout(timeoutId);
@@ -346,12 +359,17 @@
         continue;
       }
       var p = (tSec - seg.start) / seg.duration;
-      var eased = easeInOutCubic(Math.max(0, Math.min(1, p)));
+      var easeFn = (window.MapEffects && MapEffects.getEasing)
+        ? MapEffects.getEasing(seg.easing)
+        : easeInOutCubic;
+      var eased = easeFn(Math.max(0, Math.min(1, p)));
       state = interpolateCamera(seg.from, seg.to, eased);
       return state;
     }
     return state;
   }
+
+  var CAMERA_ACTIONS = { flyTo: true, rotateAround: true };
 
   function buildDeterministicCameraPlan(scene) {
     var baseCamera = { center: [20, 30], zoom: 2, pitch: 0, bearing: 0 };
@@ -367,27 +385,74 @@
         duration: Math.max(0, initialDuration),
         from: baseCamera,
         to: initial,
+        easing: (scene.camera && scene.camera.easing) || 'easeInOut',
       });
     }
 
     var timeline = Array.isArray(scene.timeline) ? [...scene.timeline] : [];
     timeline
-      .filter(function (e) { return e.action === 'flyTo'; })
+      .filter(function (e) { return CAMERA_ACTIONS[e.action]; })
       .sort(function (a, b) { return (a.at ?? 0) - (b.at ?? 0); })
       .forEach(function (entry) {
+        var params = entry.params ?? {};
         var start = Number(entry.at ?? 0);
-        var duration = Number(entry.params?.duration ?? 2);
+        var duration = Number(params.duration ?? 2);
         var from = evaluateCameraPlan(segments, start, baseCamera);
-        var to = cameraFromSpec(entry.params ?? {});
+        var to;
+        if (entry.action === 'rotateAround') {
+          // Orbit: bearing changes around a pinned point, pitch + zoom held.
+          to = {
+            center: params.center ? [...params.center] : [...from.center],
+            zoom: from.zoom,
+            pitch: from.pitch,
+            bearing: from.bearing + Number(params.degrees ?? 0),
+          };
+        } else {
+          to = cameraFromSpec(params);
+        }
         segments.push({
           start: start,
           duration: Math.max(0, duration),
           from: from,
           to: to,
+          easing: params.easing,
         });
       });
 
-    return { baseCamera: baseCamera, segments: segments };
+    var drift = (scene.idle_drift && scene.idle_drift.enabled)
+      ? {
+          zoom_per_s: Number(scene.idle_drift.zoom_per_s ?? 0.004),
+          bearing_per_s: Number(scene.idle_drift.bearing_per_s ?? 0.1),
+        }
+      : null;
+
+    return { baseCamera: baseCamera, segments: segments, drift: drift };
+  }
+
+  /* idle_drift offset at scene-time t: rates × idle time (W13.T1).
+     idleTime = elapsed in [0,t] NOT covered by any camera segment, so drift
+     freezes during a flyTo/rotateAround and resumes after it. Deterministic
+     (derived purely from t). */
+  function idleDriftOffset(plan, t) {
+    if (!plan.drift) return { zoom: 0, bearing: 0 };
+    var intervals = plan.segments
+      .filter(function (s) { return s.duration > 0; })
+      .map(function (s) { return [s.start, s.start + s.duration]; })
+      .sort(function (a, b) { return a[0] - b[0]; });
+    // Merge overlapping busy intervals, accumulate overlap with [0,t].
+    var busy = 0;
+    var curStart = null, curEnd = null;
+    intervals.forEach(function (iv) {
+      if (curEnd === null || iv[0] > curEnd) {
+        if (curEnd !== null) busy += Math.max(0, Math.min(curEnd, t) - Math.min(curStart, t));
+        curStart = iv[0]; curEnd = iv[1];
+      } else {
+        curEnd = Math.max(curEnd, iv[1]);
+      }
+    });
+    if (curEnd !== null) busy += Math.max(0, Math.min(curEnd, t) - Math.min(curStart, t));
+    var idle = Math.max(0, t - busy);
+    return { zoom: plan.drift.zoom_per_s * idle, bearing: plan.drift.bearing_per_s * idle };
   }
 
   /* ============================================================
@@ -412,6 +477,49 @@
         try { map.removeSource(id); } catch(e) {}
       }
     });
+  }
+
+  /* ============================================================
+     REALTIME PER-FRAME LOOP (W13)
+     Drives idle_drift (T1), polish grain/haze (T2), and layout
+     occupancy sampling (T6) during realtime playback. The
+     deterministic path drives the same updates from window.stepTo.
+     ============================================================ */
+  function realtimeFrame(ts) {
+    if (!sceneRunning) { realtimeRafId = null; return; }
+    var dt = realtimeLastTs ? (ts - realtimeLastTs) / 1000 : 0;
+    realtimeLastTs = ts;
+    var sceneT = (ts - realtimePlayStart) / 1000;
+    if (window.MapEffects) MapEffects._currentT = sceneT;
+
+    // idle_drift: nudge zoom/bearing only while no camera move is active.
+    if (realtimeDrift && dt > 0 && ts > (MapEffects._cameraBusyUntil || 0)) {
+      if (realtimeDrift.zoom_per_s) map.setZoom(map.getZoom() + realtimeDrift.zoom_per_s * dt);
+      if (realtimeDrift.bearing_per_s) map.setBearing(map.getBearing() + realtimeDrift.bearing_per_s * dt);
+    }
+
+    // T2: t-driven polish (grain step + haze pan).
+    if (window.MapEffects && MapEffects.updatePolish) MapEffects.updatePolish(sceneT);
+
+    realtimeRafId = requestAnimationFrame(realtimeFrame);
+  }
+
+  function startRealtimeLoop(scene) {
+    realtimePlayStart = performance.now();
+    realtimeLastTs = 0;
+    realtimeDrift = (scene.idle_drift && scene.idle_drift.enabled)
+      ? {
+          zoom_per_s: Number(scene.idle_drift.zoom_per_s ?? 0.004),
+          bearing_per_s: Number(scene.idle_drift.bearing_per_s ?? 0.1),
+        }
+      : null;
+    if (realtimeRafId) cancelAnimationFrame(realtimeRafId);
+    realtimeRafId = requestAnimationFrame(realtimeFrame);
+  }
+
+  function stopRealtimeLoop() {
+    if (realtimeRafId) cancelAnimationFrame(realtimeRafId);
+    realtimeRafId = null;
   }
 
   /* ============================================================
@@ -462,10 +570,14 @@
       cameraPromise = applyInitialCamera(scene.camera);
     }
 
-    /* 4. Run the timeline (scene.duration is total runtime budget) */
+    /* 4. Start the realtime per-frame loop (idle_drift + polish + layout) */
+    startRealtimeLoop(scene);
+
+    /* 5. Run the timeline (scene.duration is total runtime budget) */
     await window.MapEffects.runTimeline(map, overlayEl, scene);
     await cameraPromise;
 
+    stopRealtimeLoop();
     sceneRunning = false;
     console.log('[map.html] Scene complete:', scene.duration + 's');
   };
@@ -518,6 +630,10 @@
       t,
       deterministicCameraPlan.baseCamera
     );
+    // Compose idle_drift additively (push-in zoom + bearing drift) — W13.T1.
+    var drift = idleDriftOffset(deterministicCameraPlan, t);
+    camera.zoom += drift.zoom;
+    camera.bearing += drift.bearing;
     map.jumpTo(camera);
     deterministicRuntime.stepTo(t);
     lastDeterministicTime = t;

@@ -127,3 +127,32 @@ function _elasticOut(t) {
   if (t >= 1) return 1;
   return Math.pow(2, -10 * t) * Math.sin((t * 10 - 0.75) * (2 * Math.PI / 3)) + 1;
 }
+
+/* ============================================================
+   Camera easing registry (W13.T1)
+   Shared by BOTH render paths so flyTo/rotateAround look the
+   same in realtime (Mapbox `easing` option) and deterministic
+   (the evaluateCameraPlan interpolator in map.html).
+   Every fn maps a normalized progress t∈[0,1] → eased ∈[0,1],
+   with f(0)=0 and f(1)=1.
+   ============================================================ */
+MapEffects.easings = {
+  // Constant velocity.
+  linear: t => t,
+  // Soft, symmetric ease (easeInOutSine) — calm pushes.
+  gentle: t => 0.5 - 0.5 * Math.cos(Math.PI * t),
+  // Fast depart, long decelerate (expo-out) — cinematic arrival.
+  swoop: t => (t >= 1 ? 1 : 1 - Math.pow(2, -10 * t)),
+  // Speed ramp: slow-fast-snap-slow (quintic in-out).
+  ramp: t => (t < 0.5 ? 16 * t * t * t * t * t : 1 - Math.pow(-2 * t + 2, 5) / 2),
+  // Legacy default (cubic in-out) — kept for back-compat with pre-W13 scenes.
+  easeInOut: t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
+};
+
+MapEffects.getEasing = function getEasing(name) {
+  return MapEffects.easings[name] || MapEffects.easings.easeInOut;
+};
+
+/* Shared camera-busy window (ms, performance.now() clock). Realtime camera
+   actions push this forward so idle_drift suspends during a move (W13.T1). */
+MapEffects._cameraBusyUntil = 0;

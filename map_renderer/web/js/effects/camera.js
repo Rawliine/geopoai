@@ -34,16 +34,51 @@ MapEffects.registerAction('cameraShake', function (map, overlayEl, entry, ctx) {
   }
 });
 
-MapEffects.registerAction('flyTo', function (map, overlayEl, entry, ctx) {
+const _flyTo = function (map, overlayEl, entry, ctx) {
   const params = entry.params ?? {};
-  if (!ctx.deterministic) {
-    map.flyTo({
-      center: params.center,
-      zoom: params.zoom,
-      pitch: params.pitch ?? 0,
-      bearing: params.bearing ?? 0,
-      duration: (params.duration ?? 2) * 1000,
-      essential: true,
-    });
-  }
-});
+  // Deterministic camera is driven by the camera plan in map.html
+  // (buildDeterministicCameraPlan / evaluateCameraPlan), not by this action.
+  if (ctx.deterministic) return;
+  const durationMs = (params.duration ?? 2) * 1000;
+  // Suspend idle_drift for the duration of the move; it resumes after (W13.T1).
+  MapEffects._cameraBusyUntil = Math.max(
+    MapEffects._cameraBusyUntil || 0,
+    performance.now() + durationMs
+  );
+  map.flyTo({
+    center: params.center,
+    zoom: params.zoom,
+    pitch: params.pitch ?? 0,
+    bearing: params.bearing ?? 0,
+    duration: durationMs,
+    easing: MapEffects.getEasing(params.easing),
+    essential: true,
+  });
+};
+_flyTo.eventMeta = { type: 'camera', intensity: 0.5 };
+MapEffects.registerAction('flyTo', _flyTo);
+
+/* rotateAround — bearing orbit around a pinned point, pitch held (W13.T1).
+   Realtime: easeTo the new bearing while keeping the orbit center centered.
+   Deterministic: handled as a camera-plan segment in map.html. */
+const _rotateAround = function (map, overlayEl, entry, ctx) {
+  const params = entry.params ?? {};
+  if (ctx.deterministic) return;
+  const durationMs = (params.duration ?? 2) * 1000;
+  const degrees = Number(params.degrees ?? 0);
+  MapEffects._cameraBusyUntil = Math.max(
+    MapEffects._cameraBusyUntil || 0,
+    performance.now() + durationMs
+  );
+  map.easeTo({
+    center: params.center ?? map.getCenter(),
+    bearing: map.getBearing() + degrees,
+    pitch: map.getPitch(),         // pitch held
+    zoom: map.getZoom(),
+    duration: durationMs,
+    easing: MapEffects.getEasing(params.easing),
+    essential: true,
+  });
+};
+_rotateAround.eventMeta = { type: 'camera', intensity: 0.5 };
+MapEffects.registerAction('rotateAround', _rotateAround);
