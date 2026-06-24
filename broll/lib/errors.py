@@ -27,3 +27,18 @@ class NoCandidatesError(BrollError):
 
 class VerificationError(BrollError):
     """Verification subsystem rejected all candidates."""
+
+
+class AwaitingBrainError(BrollError):
+    """Human / Claude Code review required before the shot can complete."""
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        contact_sheet: str | None = None,
+        candidates_json: str | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.contact_sheet = contact_sheet
+        self.candidates_json = candidates_json
