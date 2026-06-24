@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import difflib
 import json
 import logging
 import re
@@ -11,7 +12,14 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
-from map_renderer.data_prep.catalogs import load_manifest
+from map_renderer.data_prep.catalogs import (
+    find_dataset_across_catalogs,
+    get_catalog,
+    load_manifest,
+    merge_manifest_entry,
+)
+from map_renderer.data_prep.errors import MapVersionNotFoundError
+from map_renderer.data_prep.prepare_maps import process_version
 
 ROOT = Path(__file__).resolve().parent.parent
 MAPS_DIR = ROOT / "data" / "maps"
@@ -84,17 +92,73 @@ def _resolve_year_string(version: str, manifest: dict[str, dict]) -> str | None:
     return best_key
 
 
-def _ensure_version_available(version: str) -> str:
-    resolved = _resolve_version_alias(version)
+def _nearest_version_suggestions(query: str, manifest: dict[str, dict], n: int = 5) -> list[str]:
+    keys = list(manifest.keys())
+    if not keys:
+        return []
+
+    def _score(key: str) -> float:
+        ratio = difflib.SequenceMatcher(None, query.lower(), key.lower()).ratio()
+        year_bonus = 0.0
+        if re.fullmatch(r"\d{4}", query):
+            match = re.fullmatch(r"world_(\d{4})", key)
+            if match:
+                diff = abs(int(query) - int(match.group(1)))
+                year_bonus = max(0.0, 1.0 - diff / 2000.0)
+        return ratio + year_bonus
+
+    ranked = sorted(keys, key=_score, reverse=True)
+    return ranked[:n]
+
+
+def _try_discovery_auto_add(version: str) -> str | None:
+    """Search registered catalogs for an exact dataset_id match and auto-add."""
+    hit = find_dataset_across_catalogs(version)
+    if not hit:
+        return None
+    catalog_name, info = hit
+    catalog = get_catalog(catalog_name)
+    entry = dict(catalog.manifest_entry(info.dataset_id))
+    entry.setdefault("added_by", "discover")
+    merge_manifest_entry(VERSIONS_MANIFEST_PATH, version, entry)
+    log.info(
+        "Auto-discovered map version '%s' from catalog %s — downloading.",
+        version,
+        catalog_name,
+    )
+    process_version(VERSIONS_MANIFEST_PATH, version, quiet=True)
+    return version
+
+
+def _resolve_map_version(version: str) -> str:
+    """Full version resolution: alias → year → manifest → discovery → miss."""
+    raw = (version or "latest").strip() or "latest"
+    resolved = _resolve_version_alias(raw)
     manifest = load_manifest(VERSIONS_MANIFEST_PATH)
+
     year_match = _resolve_year_string(resolved, manifest)
     if year_match:
         resolved = year_match
-    if _version_file(resolved).exists():
-        _warn_non_commercial(resolved)
+
+    if resolved in manifest:
         return resolved
-    if not VERSIONS_MANIFEST_PATH.exists():
-        return resolved
+
+    discovered = _try_discovery_auto_add(resolved)
+    if discovered:
+        return discovered
+
+    suggestions = _nearest_version_suggestions(resolved, manifest, n=5)
+    raise MapVersionNotFoundError(resolved, suggestions)
+
+
+def _ensure_version_provisioned(version: str) -> str:
+    """Download/process a manifest version if missing on disk."""
+    if _version_file(version).exists():
+        _warn_non_commercial(version)
+        return version
+    manifest = load_manifest(VERSIONS_MANIFEST_PATH)
+    if version not in manifest:
+        return version
     cmd = [
         sys.executable,
         str(ROOT / "config" / "prepare_maps.py"),
@@ -102,17 +166,24 @@ def _ensure_version_available(version: str) -> str:
         "--manifest",
         str(VERSIONS_MANIFEST_PATH),
         "--version",
-        resolved,
+        version,
     ]
-    log.info("Auto-provisioning map version '%s' via manifest.", resolved)
+    log.info("Auto-provisioning map version '%s' via manifest.", version)
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         log.warning(
             "Auto-provision failed for version '%s': %s",
-            resolved,
+            version,
             result.stderr[-500:],
         )
-    return resolved
+    if _version_file(version).exists():
+        _warn_non_commercial(version)
+    return version
+
+
+def _ensure_version_available(version: str) -> str:
+    resolved = _resolve_map_version(version)
+    return _ensure_version_provisioned(resolved)
 
 
 def _normalize_bool(value, default: bool) -> bool:
@@ -167,20 +238,31 @@ def _maybe_filter_islands(feature: dict, include_islands: bool) -> dict:
 
 @lru_cache(maxsize=16)
 def _load_country_lookup(version: str) -> tuple[dict[str, dict], str]:
-    """Load lookup for requested version, fallback to latest if missing."""
-    requested = _ensure_version_available((version or "latest").strip() or "latest")
+    """Load lookup for requested version; fallback to latest only for known manifest keys."""
+    raw = (version or "latest").strip() or "latest"
+    requested = _resolve_map_version(raw)
+    _ensure_version_provisioned(requested)
     chosen = requested
     path = _version_file(chosen)
+    manifest = load_manifest(VERSIONS_MANIFEST_PATH)
+
     if not path.exists():
-        fallback = _version_file("latest")
-        if not fallback.exists():
-            raise FileNotFoundError(
-                f"Country dataset missing for version '{requested}' and fallback latest at {fallback}. "
-                "Run data/prepare_ne_countries.py first."
+        if chosen in manifest:
+            fallback = _version_file("latest")
+            if not fallback.exists():
+                raise FileNotFoundError(
+                    f"Country dataset missing for version '{requested}' and fallback latest at {fallback}. "
+                    "Run: python config/prepare_maps.py --from-manifest --version latest"
+                )
+            log.warning(
+                "Map version '%s' provision failed, falling back to 'latest'.",
+                requested,
             )
-        log.warning("Map version '%s' not found, falling back to 'latest'.", requested)
-        chosen = "latest"
-        path = fallback
+            chosen = "latest"
+            path = fallback
+        else:
+            suggestions = _nearest_version_suggestions(requested, manifest, n=5)
+            raise MapVersionNotFoundError(requested, suggestions)
 
     _LOOKUP_KEYS = ("ADMIN", "NAME", "SOVEREIGNT", "ISO_A3", "ADM0_A3",
                     "shapeName", "boundaryName", "name")
