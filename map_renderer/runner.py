@@ -20,7 +20,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 from playwright.async_api import async_playwright, TimeoutError as PWTimeout
 
-from map_renderer.resolver import _resolve_scene_countries
+from map_renderer.resolver import (
+    _resolve_scene_countries,
+    _load_country_lookup,
+    _maybe_filter_islands,
+    _normalize_bool,
+)
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parent.parent
@@ -184,6 +189,58 @@ def _latest_webm(directory: Path) -> Path | None:
     return files[-1] if files else None
 
 
+def _resolve_extrude_bars(scene: dict) -> dict:
+    """
+    Expand `extrudeBars` actions' per-bar country references to geojson (W13.T2).
+
+    The shared resolver (`_resolve_scene_countries`) only walks applyFill/
+    applyBorder and lives in W14's file, so this lane resolves the nested
+    `params.data[].country` here, reusing the resolver's lookup helpers
+    read-only. Existing `geojson` entries are left untouched.
+    """
+    timeline = scene.get("timeline", [])
+    if not isinstance(timeline, list):
+        return scene
+
+    scene_version = str(scene.get("_map_version", "latest"))
+    scene_include_islands = _normalize_bool(scene.get("_include_islands", False), default=False)
+    unresolved: list[str] = []
+
+    for i, entry in enumerate(timeline):
+        if not isinstance(entry, dict) or entry.get("action") != "extrudeBars":
+            continue
+        params = entry.get("params")
+        if not isinstance(params, dict):
+            continue
+        data = params.get("data")
+        if not isinstance(data, list):
+            continue
+        for d in data:
+            if not isinstance(d, dict) or d.get("geojson"):
+                continue
+            country = d.get("country")
+            if not isinstance(country, str) or not country.strip():
+                continue
+            version = str(d.get("version", scene_version))
+            include_islands = _normalize_bool(
+                d.get("include_islands", scene_include_islands), default=scene_include_islands
+            )
+            lookup, _chosen = _load_country_lookup(version)
+            feat = lookup.get(country.strip().lower())
+            if not feat:
+                unresolved.append(
+                    f"timeline[{i}] extrudeBars country={country!r} version={version!r}"
+                )
+                continue
+            d["geojson"] = _maybe_filter_islands(feat, include_islands)
+
+    if unresolved:
+        raise ValueError(
+            "Unresolved extrudeBars country references:\n- " + "\n- ".join(unresolved)
+        )
+    return scene
+
+
 # ── Core render function ───────────────────────────────────────────────────
 
 async def render_scene(scene: dict, clip_name: str) -> Path:
@@ -200,6 +257,7 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
         )
 
     scene = _resolve_scene_countries(scene)
+    scene = _resolve_extrude_bars(scene)
     duration = scene.get("duration", 10)
     fps = int(scene.get("_fps", 60))
     nvenc_qp = int(scene.get("_nvenc_qp", 16))

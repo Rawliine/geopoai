@@ -1,1 +1,58 @@
-/* W00 stub — atmosphere / post-process CSS hooks for future lanes. */
+/* ============================================================
+   W13.T2 — CSS polish overlay stack.
+   #polish-layer sits above the WebGL canvas and below #overlay
+   (labels). All colors come from generated token CSS vars
+   (tokens.css); opacities come from the grading tokens.
+   Sublayer dimensions are sized with the frame by setFrameFormat
+   in map.html (default 1920×1080 here for the unloaded state).
+   ============================================================ */
+
+#polish-layer {
+  position: absolute;
+  inset: 0;
+  width: 1920px;
+  height: 1080px;
+  pointer-events: none;
+  z-index: 5;            /* above #map canvas, below #overlay (z-index 10) */
+  overflow: hidden;
+}
+
+#polish-layer > div {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* Vignette — darken toward the brand background color at the edges. */
+#polish-vignette {
+  background: radial-gradient(
+    ellipse at center,
+    transparent 55%,
+    var(--palette-background, #0e1116) 130%
+  );
+  opacity: var(--grading-vignette-opacity, 0.25);
+}
+
+/* Film grain — tileable grayscale fractal noise, shimmered 8 steps by JS. */
+#polish-grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 160px 160px;
+  opacity: var(--grading-grain-opacity, 0.06);
+  mix-blend-mode: overlay;
+}
+
+/* Optional drifting haze — large soft blobs in the surface tint, panned by JS. */
+#polish-haze {
+  display: none;          /* off by default; applyPolish() toggles */
+  width: 140%;
+  left: -20%;
+  background:
+    radial-gradient(40% 50% at 25% 35%,
+      var(--palette-surface, #1a1f2e) 0%, transparent 70%),
+    radial-gradient(45% 55% at 75% 65%,
+      var(--palette-surface, #1a1f2e) 0%, transparent 70%);
+  opacity: 0.35;
+  filter: blur(40px);
+}

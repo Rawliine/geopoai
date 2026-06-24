@@ -116,6 +116,13 @@
   <!-- Map canvas -->
   <div id="map"></div>
 
+  <!-- Polish stack (vignette / grain / haze) — above canvas, below labels -->
+  <div id="polish-layer">
+    <div id="polish-haze"></div>
+    <div id="polish-vignette"></div>
+    <div id="polish-grain"></div>
+  </div>
+
   <!-- Overlay: arrows + labels float above map -->
   <div id="overlay">
     <svg  id="arrows-layer" xmlns="http://www.w3.org/2000/svg"></svg>
@@ -522,6 +529,16 @@
     realtimeRafId = null;
   }
 
+  /* Apply scene-level environment after the style is ready + cleared (W13.T2/T4):
+     fog, terrain, the CSS polish stack, and base-label hiding. */
+  function applySceneEnvironment(scene) {
+    var M = window.MapEffects || {};
+    if (M.applyAtmosphere) M.applyAtmosphere(map, scene);
+    if (M.applyTerrain) M.applyTerrain(map, scene);
+    if (M.applyPolish) M.applyPolish(scene);
+    if (M.updatePolish) M.updatePolish(0);
+  }
+
   /* ============================================================
      window.playScene(scene)
      ─────────────────────────────────────────────────────────────
@@ -564,6 +581,9 @@
     /* 2. Clear previous scene leftovers */
     clearSceneState();
 
+    /* 2b. Apply scene environment (fog / terrain / polish / base labels) */
+    applySceneEnvironment(scene);
+
     /* 3. Apply opening camera (concurrently with timeline) */
     var cameraPromise = Promise.resolve();
     if (scene.camera) {
@@ -591,6 +611,7 @@
       await changeStyle(style);
     }
     clearSceneState();
+    applySceneEnvironment(scene);
     deterministicCameraPlan = buildDeterministicCameraPlan(scene);
     deterministicRuntime = window.MapEffects.createDeterministicRuntime(
       map,
@@ -635,7 +656,9 @@
     camera.zoom += drift.zoom;
     camera.bearing += drift.bearing;
     map.jumpTo(camera);
+    if (window.MapEffects) MapEffects._currentT = t;
     deterministicRuntime.stepTo(t);
+    if (window.MapEffects && MapEffects.updatePolish) MapEffects.updatePolish(t);
     lastDeterministicTime = t;
     await new Promise(function (resolve) { requestAnimationFrame(function () { resolve(); }); });
     return Object.assign({}, deterministicRuntime.getState(), {
