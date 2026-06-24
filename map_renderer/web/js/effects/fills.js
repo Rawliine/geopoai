@@ -337,6 +337,7 @@ function removeFront(map, overlayEl, spec, sceneT) {
 
 /* ============================================================
    W11 — morphTerritory (flubber)
+   Multipolygon: largest outer ring heuristic only (see W11.md).
    ============================================================ */
 function _ensureMorphSvg(map, overlayEl, spec) {
   const svgNS = 'http://www.w3.org/2000/svg';
