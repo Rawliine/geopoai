@@ -100,7 +100,7 @@ def http_get_json(
 
     Retries
     -------
-    Some upstreams (NARA's CloudFront in particular) intermittently serve an
+    Some upstreams intermittently serve an
     HTML SPA shell with a 200 status instead of routing to the JSON backend.
     When the response body doesn't look like JSON we retry up to ``retries``
     times with a small backoff and a cache-busting query param.

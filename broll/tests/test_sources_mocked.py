@@ -9,7 +9,7 @@ import pytest
 
 from broll.lib import rate_limit
 from broll.lib.errors import SourceAuthError
-from broll.sources import archive_org, loc, nara, pexels, pixabay, wikimedia
+from broll.sources import archive_org, loc, pexels, pixabay, wikimedia
 
 
 @pytest.fixture(autouse=True)
@@ -115,53 +115,6 @@ def test_loc_search_picks_mp4(monkeypatch) -> None:
     assert r.source_name == "loc"
     assert r.license["type"] == "pd"
     assert r.download_url.endswith(".mp4")
-
-
-# ── NARA ────────────────────────────────────────────────────────────────────
-_NARA_PAYLOAD = {
-    "body": {"hits": {"hits": [
-        {
-            "_source": {"record": {
-                "naId": "12001",
-                "title": "WWII training film",
-                "scopeAndContentNote": "Description...",
-                "digitalObjects": [
-                    {"objectUrl": "https://catalog.archives.gov/.../12001.mp4", "objectType": "Moving Image"},
-                    {"objectUrl": "https://catalog.archives.gov/.../12001-thumb.jpg", "objectType": "Image"},
-                ],
-            }}
-        }
-    ]}}
-}
-
-
-def test_nara_search_picks_video_url(monkeypatch) -> None:
-    monkeypatch.setenv("NARA_API_KEY", "test")
-    monkeypatch.setattr(nara, "http_get_json", lambda *a, **k: _NARA_PAYLOAD)
-    results = nara.search("training film")
-    assert len(results) == 1
-    r = results[0]
-    assert r.source_name == "nara"
-    assert r.license["type"] == "pd"
-    assert r.download_url.endswith(".mp4")
-    assert r.thumbnail_url.endswith(".jpg")
-
-
-def test_nara_skips_records_without_video(monkeypatch) -> None:
-    monkeypatch.setenv("NARA_API_KEY", "test")
-    payload = {"body": {"hits": {"hits": [
-        {"_source": {"record": {"naId": "1", "title": "X", "digitalObjects": [
-            {"objectUrl": "https://example.com/x.pdf", "objectType": "Document"},
-        ]}}}
-    ]}}}
-    monkeypatch.setattr(nara, "http_get_json", lambda *a, **k: payload)
-    assert nara.search("anything") == []
-
-
-def test_nara_requires_key(monkeypatch) -> None:
-    monkeypatch.delenv("NARA_API_KEY", raising=False)
-    with pytest.raises(SourceAuthError):
-        nara.search("anything")
 
 
 # ── Archive.org ─────────────────────────────────────────────────────────────

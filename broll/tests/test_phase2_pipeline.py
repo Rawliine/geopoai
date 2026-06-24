@@ -125,7 +125,7 @@ def test_ai_first_falls_back_to_stock_on_failure(monkeypatch, tmp_path) -> None:
     # download to avoid hitting the network for the real CDN URL.
     cand = _stock_candidate()
     monkeypatch.setattr(SOURCES["wikimedia"], "search", lambda *a, **k: [cand, cand, cand])
-    for s in ("loc", "nara", "archive_org", "pexels", "pixabay"):
+    for s in ("loc", "archive_org", "pexels", "pixabay"):
         monkeypatch.setattr(SOURCES[s], "search", lambda *a, **k: [])
     _stub_ai_failure(monkeypatch)
 
@@ -175,7 +175,7 @@ def test_stock_first_no_ai_allowed_raises(monkeypatch) -> None:
 def test_stock_only_does_not_call_ai(monkeypatch, tmp_path) -> None:
     cand = _stock_candidate()
     monkeypatch.setattr(SOURCES["wikimedia"], "search", lambda *a, **k: [cand, cand, cand])
-    for s in ("loc", "nara", "archive_org", "pexels", "pixabay"):
+    for s in ("loc", "archive_org", "pexels", "pixabay"):
         monkeypatch.setattr(SOURCES[s], "search", lambda *a, **k: [])
     ai_calls = _stub_ai_success(monkeypatch)
 

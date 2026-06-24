@@ -80,12 +80,11 @@ def _tokens(s: str) -> list[str]:
 
 
 # Per-source priors. Small (+0.05 to +0.15) so they nudge, not dominate.
-# Aligns with recap(1).md §2 — Wikimedia/LoC/NARA preferred for archival and
+# Aligns with recap(1).md §2 — Wikimedia/LoC preferred for archival and
 # named content; Pexels/Pixabay for generic modern.
 _SOURCE_PRIOR_NAMED = {
     "wikimedia":   0.15,
     "loc":         0.12,
-    "nara":        0.10,
     "archive_org": 0.05,
     "pexels":      0.00,
     "pixabay":     -0.02,
@@ -93,7 +92,6 @@ _SOURCE_PRIOR_NAMED = {
 _SOURCE_PRIOR_GENERIC = {
     "wikimedia":   0.00,
     "loc":         0.00,
-    "nara":        0.00,
     "archive_org": 0.00,
     "pexels":      0.10,
     "pixabay":     0.08,

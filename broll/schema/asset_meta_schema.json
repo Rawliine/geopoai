@@ -30,7 +30,7 @@
         "name": {
           "type": "string",
           "minLength": 1,
-          "description": "Source identifier (wikimedia, loc, nara, archive_org, pexels, pixabay, ltx-2.3, wan-2.2, ...)."
+          "description": "Source identifier (wikimedia, loc, archive_org, pexels, pixabay, ltx-2.3, wan-2.2, ...)."
         },
         "version": {
           "type": ["string", "null"],

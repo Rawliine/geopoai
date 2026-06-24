@@ -4,7 +4,7 @@ Public surface
 --------------
 * ``SOURCES``: name → module mapping for the cascade walker.
 * ``CASCADE_ORDER``: stable ordering used by ``broll.lib.cascade``. The order
-  is from recap(1).md §2 — Wikimedia/LoC/NARA/Archive favour archival and
+  is from recap(1).md §2 — Wikimedia/LoC/Archive favour archival and
   named content; Pexels/Pixabay are last because they're generic-modern.
 * ``SearchResult``: re-exported normalized candidate type.
 
@@ -22,7 +22,6 @@ from . import (
     loc,
     ltx_video,
     nasa,
-    nara,
     pexels,
     pixabay,
     reference,
@@ -35,7 +34,6 @@ from ._base import SearchResult
 SOURCES = {
     "wikimedia":   wikimedia,
     "loc":         loc,
-    "nara":        nara,
     "dvids":       dvids,
     "nasa":        nasa,
     "archive_org": archive_org,
@@ -55,6 +53,6 @@ AI_SOURCES = {
     "flux-2.2": flux_image,
 }
 
-CASCADE_ORDER = ("wikimedia", "loc", "nara", "dvids", "nasa", "archive_org", "pexels", "pixabay")
+CASCADE_ORDER = ("wikimedia", "loc", "dvids", "nasa", "archive_org", "pexels", "pixabay")
 
 __all__ = ["SOURCES", "AI_SOURCES", "CASCADE_ORDER", "SearchResult", "REFERENCE_SOURCE"]

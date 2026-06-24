@@ -25,11 +25,11 @@ def _no_rate_limit(monkeypatch) -> None:
 
 
 # ── Cascade order ───────────────────────────────────────────────────────────
-def test_cascade_order_includes_dvids_nasa_after_nara() -> None:
-    nara_i = CASCADE_ORDER.index("nara")
+def test_cascade_order_includes_dvids_nasa_after_loc() -> None:
+    loc_i = CASCADE_ORDER.index("loc")
     dvids_i = CASCADE_ORDER.index("dvids")
     nasa_i = CASCADE_ORDER.index("nasa")
-    assert nara_i < dvids_i < nasa_i
+    assert loc_i < dvids_i < nasa_i
 
 
 def test_reference_urls_route_first(monkeypatch) -> None:
@@ -266,13 +266,12 @@ def test_claude_cli_verifier_mocked(monkeypatch) -> None:
 
 def test_cascade_skips_dvids_without_key(monkeypatch) -> None:
     monkeypatch.delenv("DVIDS_API_KEY", raising=False)
-    monkeypatch.delenv("NARA_API_KEY", raising=False)
     monkeypatch.delenv("PEXELS_API_KEY", raising=False)
     monkeypatch.delenv("PIXABAY_API_KEY", raising=False)
 
     for name in CASCADE_ORDER:
         mod = __import__(f"broll.sources.{name}", fromlist=[name])
-        if name in ("wikimedia", "loc", "nara", "archive_org", "dvids", "pexels", "pixabay", "nasa"):
+        if name in ("wikimedia", "loc", "archive_org", "dvids", "pexels", "pixabay", "nasa"):
             if name == "nasa":
                 monkeypatch.setattr(mod, "search", lambda *a, **k: [])
             elif name in ("wikimedia", "loc", "archive_org"):

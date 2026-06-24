@@ -85,7 +85,7 @@ def test_hermetic_full_pipeline(monkeypatch, tmp_path, fake_cdn) -> None:
         _candidate(fake_cdn, "random kittens",                source="pexels",    id_="px1"),
     ]
     monkeypatch.setattr(SOURCES["wikimedia"], "search", lambda q, limit, **k: [candidates[0]])
-    for s in ("loc", "nara", "archive_org", "pixabay"):
+    for s in ("loc", "archive_org", "pixabay"):
         monkeypatch.setattr(SOURCES[s], "search", lambda *a, **k: [])
     monkeypatch.setattr(SOURCES["pexels"], "search", lambda q, limit, **k: [candidates[1]])
 
@@ -136,7 +136,7 @@ def test_hermetic_reject_all_writes_log(monkeypatch, tmp_path) -> None:
         source_metadata={"page_url": "p"},
     )
     monkeypatch.setattr(SOURCES["pexels"], "search", lambda *a, **k: [cand])
-    for s in ("wikimedia", "loc", "nara", "archive_org", "pixabay"):
+    for s in ("wikimedia", "loc", "archive_org", "pixabay"):
         monkeypatch.setattr(SOURCES[s], "search", lambda *a, **k: [])
 
     monkeypatch.setattr(vision_verifier, "load_backend",
@@ -174,7 +174,6 @@ pytestmark_network = pytest.mark.network
     [
         ("wikimedia",   "Suez Canal",          None),
         ("loc",         "earth from space",    None),
-        ("nara",        "moon landing",        "NARA_API_KEY"),
         ("archive_org", "1940 newsreel",       None),
         ("pexels",      "container ship",      "PEXELS_API_KEY"),
         ("pixabay",     "ocean drone",         "PIXABAY_API_KEY"),

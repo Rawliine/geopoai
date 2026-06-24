@@ -50,7 +50,7 @@ def test_walk_stops_after_min_candidates(monkeypatch) -> None:
     monkeypatch.setattr(SOURCES["loc"], "search", make("loc", [_result("loc", "999")]))
 
     # Other sources: empty (still get called if min not reached).
-    for s in ("nara", "archive_org", "pexels", "pixabay"):
+    for s in ("dvids", "nasa", "archive_org", "pexels", "pixabay"):
         monkeypatch.setattr(SOURCES[s], "search", make(s, []))
 
     report = cascade.walk(_spec(), min_candidates=3, max_candidates=10)
@@ -63,18 +63,18 @@ def test_walk_stops_after_min_candidates(monkeypatch) -> None:
 def test_walk_continues_when_source_empty(monkeypatch) -> None:
     monkeypatch.setattr(SOURCES["wikimedia"], "search", lambda *a, **k: [])
     monkeypatch.setattr(SOURCES["loc"], "search", lambda *a, **k: [])
-    monkeypatch.setattr(SOURCES["nara"], "search", lambda *a, **k: [_result("nara", "1"), _result("nara", "2"), _result("nara", "3")])
+    monkeypatch.setattr(SOURCES["dvids"], "search", lambda *a, **k: [_result("dvids", "1"), _result("dvids", "2"), _result("dvids", "3")])
     for s in ("archive_org", "pexels", "pixabay"):
         monkeypatch.setattr(SOURCES[s], "search", lambda *a, **k: [])
     report = cascade.walk(_spec(), min_candidates=3)
     assert report.total() == 3
-    assert all(r.source_name == "nara" for r in report.candidates)
+    assert all(r.source_name == "dvids" for r in report.candidates)
 
 
 def test_walk_dedups_by_source_and_id(monkeypatch) -> None:
     dup = [_result("wikimedia", "X"), _result("wikimedia", "X"), _result("wikimedia", "Y")]
     monkeypatch.setattr(SOURCES["wikimedia"], "search", lambda *a, **k: dup)
-    for s in ("loc", "nara", "archive_org", "pexels", "pixabay"):
+    for s in ("loc", "dvids", "nasa", "archive_org", "pexels", "pixabay"):
         monkeypatch.setattr(SOURCES[s], "search", lambda *a, **k: [])
     report = cascade.walk(_spec(), min_candidates=10)
     assert report.total() == 2
@@ -86,7 +86,7 @@ def test_walk_records_auth_skip(monkeypatch) -> None:
         raise SourceAuthError("no key")
     monkeypatch.setattr(SOURCES["wikimedia"], "search", raise_auth)
     monkeypatch.setattr(SOURCES["loc"], "search", lambda *a, **k: [_result("loc", "1")])
-    for s in ("nara", "archive_org", "pexels", "pixabay"):
+    for s in ("dvids", "nasa", "archive_org", "pexels", "pixabay"):
         monkeypatch.setattr(SOURCES[s], "search", lambda *a, **k: [])
     report = cascade.walk(_spec(), min_candidates=1)
     assert "wikimedia" in report.skipped
@@ -99,7 +99,7 @@ def test_walk_records_query_errors(monkeypatch) -> None:
             raise SourceError("transient")
         return [_result("wikimedia", "ok")]
     monkeypatch.setattr(SOURCES["wikimedia"], "search", raise_src)
-    for s in ("loc", "nara", "archive_org", "pexels", "pixabay"):
+    for s in ("loc", "dvids", "nasa", "archive_org", "pexels", "pixabay"):
         monkeypatch.setattr(SOURCES[s], "search", lambda *a, **k: [])
     report = cascade.walk(_spec(), min_candidates=1)
     assert "wikimedia" in report.errors

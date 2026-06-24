@@ -42,6 +42,6 @@ def test_phase0_smoke(tmp_path, monkeypatch) -> None:
     # proves "a real source satisfied the shot", not Pexels specifically — Pexels
     # has dedicated live coverage in test_phase1_smoke::test_live_source_returns_results.
     assert meta["source"]["name"] in {
-        "wikimedia", "loc", "nara", "archive_org", "pexels", "pixabay",
+        "wikimedia", "loc", "archive_org", "pexels", "pixabay",
     }
     assert meta["license"]["commercial_use_ok"] is True

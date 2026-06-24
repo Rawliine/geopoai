@@ -32,7 +32,6 @@ GeoPoAI/
 │   ├── sources/
 │   │   ├── wikimedia.py
 │   │   ├── loc.py
-│   │   ├── nara.py
 │   │   ├── archive_org.py
 │   │   ├── pexels.py
 │   │   ├── pixabay.py
@@ -159,7 +158,7 @@ The matrix is data, not code branches. Update `broll/lib/decision.py:DECISION_TA
   "kind": "stock_video|ai_video|ai_image",
 
   "source": {
-    "name": "wikimedia|loc|nara|archive_org|pexels|pixabay|ltx-2.3|wan-2.2",
+    "name": "wikimedia|loc|archive_org|pexels|pixabay|ltx-2.3|wan-2.2",
     "version": "2.3" or null,
     "url": "https://...",
     "fetched_at": "2026-05-20T14:32:00Z"
