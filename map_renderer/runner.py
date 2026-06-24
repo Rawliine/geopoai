@@ -378,6 +378,10 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
                         state.get("hash"),
                         state.get("monotonic"),
                     )
+            # Advance to exactly the scene duration (no screenshot) so any tail
+            # event landing in the final partial-frame interval — e.g. a camera
+            # move ending just before the clip end — gets flushed (W13.T5).
+            await page.evaluate("t => window.stepTo(t)", duration)
         else:
             log.info("Starting scene (%.1fs)…", duration)
             camera_duration = scene.get("camera", {}).get("duration", 2.0) if isinstance(scene.get("camera"), dict) else 2.0
