@@ -79,7 +79,7 @@ function applyTerrain(map, scene) {
    ============================================================ */
 var _extrudeSpecs = Object.create(null);
 
-function _easeOutCubic(p) { return 1 - Math.pow(1 - Math.max(0, Math.min(1, p)), 3); }
+function _clamp01(p) { return Math.max(0, Math.min(1, p)); }
 
 function _setExtrudeProgress(map, layerId, progress) {
   if (!map.getLayer(layerId)) return;
@@ -135,6 +135,7 @@ function extrudeBars(map, overlayEl, entry, ctx) {
     sourceId: sourceId,
     at: Number(entry.at ?? 0),
     duration: Math.max(0.001, Number(params.duration ?? 1.0)),
+    easing: params.easing || 'easeInOut',   // smooth start+settle by default
     removeAt: null,
     exitDuration: 1.0,
   };
@@ -161,22 +162,24 @@ MapEffects.registerAction('removeExtrudeBars', removeExtrudeBars);
 /* Drive extrude grow-in / shrink-out from runtime t (deterministic). */
 function updateExtrudeBars(map, t) {
   t = Math.max(0, Number(t) || 0);
+  var getEase = (MapEffects.getEasing || function () { return function (p) { return p; }; });
   Object.keys(_extrudeSpecs).forEach(function (id) {
     var spec = _extrudeSpecs[id];
     if (!map.getLayer(spec.layerId)) { delete _extrudeSpecs[id]; return; }
+    var ease = getEase(spec.easing);   // smooth start + settle (easeInOut by default)
     if (spec.removeAt != null && t >= spec.removeAt) {
-      var pOut = (t - spec.removeAt) / spec.exitDuration;
+      var pOut = _clamp01((t - spec.removeAt) / spec.exitDuration);
       if (pOut >= 1) {
         try { map.removeLayer(spec.layerId); } catch (e) {}
         try { map.removeSource(spec.sourceId); } catch (e) {}
         delete _extrudeSpecs[id];
         return;
       }
-      _setExtrudeProgress(map, spec.layerId, 1 - _easeOutCubic(pOut));
+      _setExtrudeProgress(map, spec.layerId, 1 - ease(pOut));
       return;
     }
-    var pIn = (t - spec.at) / spec.duration;
-    _setExtrudeProgress(map, spec.layerId, _easeOutCubic(pIn));
+    var pIn = _clamp01((t - spec.at) / spec.duration);
+    _setExtrudeProgress(map, spec.layerId, ease(pIn));
   });
 }
 
