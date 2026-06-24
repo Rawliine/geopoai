@@ -1,0 +1,201 @@
+{
+  "duration": 25,
+  "_deterministic": true,
+  "_fps": 30,
+  "format": "horizontal",
+  "map_style": "dark",
+  "camera": {
+    "center": [10, 35],
+    "zoom": 3.2,
+    "pitch": 25,
+    "bearing": 0,
+    "duration": 0
+  },
+  "timeline": [
+    {
+      "at": 0,
+      "action": "applyFill",
+      "params": {
+        "id": "inv1-geo",
+        "country": "Ukraine",
+        "opacity": 0,
+        "effect": "fill-fade",
+        "duration": 0.01
+      }
+    },
+    {
+      "at": 0,
+      "action": "applyFill",
+      "params": {
+        "id": "mor-morph-from",
+        "country": "Morocco",
+        "version": "latest",
+        "opacity": 0,
+        "effect": "fill-fade",
+        "duration": 0.01
+      }
+    },
+    {
+      "at": 0,
+      "action": "applyFill",
+      "params": {
+        "id": "mor-morph-to",
+        "country": "Morocco",
+        "version": "ceasefire",
+        "opacity": 0,
+        "effect": "fill-fade",
+        "duration": 0.01
+      }
+    },
+    {
+      "at": 0,
+      "action": "applyFill",
+      "params": {
+        "id": "alg-mask-geo",
+        "country": "Algeria",
+        "opacity": 0,
+        "effect": "fill-fade",
+        "duration": 0.01
+      }
+    },
+    {
+      "at": 0.5,
+      "action": "applyBorder",
+      "params": {
+        "id": "morocco-neon",
+        "country": "Morocco",
+        "role": "highlight",
+        "effect": "border-neon",
+        "fadeIn": 0.35
+      }
+    },
+    {
+      "at": 1.0,
+      "action": "flyTo",
+      "params": {
+        "center": [31.5, 49.0],
+        "zoom": 4.8,
+        "pitch": 35,
+        "bearing": 0,
+        "duration": 1.5,
+        "easing": "easeInOut"
+      }
+    },
+    {
+      "at": 2.0,
+      "action": "advanceFront",
+      "params": {
+        "id": "inv1",
+        "country": "Ukraine",
+        "geojsonSource": "inv1-geo",
+        "from": [37.5, 47.9],
+        "progress": [
+          { "t": 0, "v": 0 },
+          { "t": 4, "v": 0.45 },
+          { "t": 7, "v": 0.6 }
+        ],
+        "role": "threat",
+        "front": { "softness_px": 14, "glow": true },
+        "easing": "easeInOut"
+      }
+    },
+    {
+      "at": 5.0,
+      "action": "flyTo",
+      "params": {
+        "center": [-5.0, 28.5],
+        "zoom": 4.2,
+        "pitch": 30,
+        "bearing": -10,
+        "duration": 1.8,
+        "easing": "swoop"
+      }
+    },
+    {
+      "at": 6.0,
+      "action": "applyFill",
+      "params": {
+        "id": "wsahara-hatch",
+        "country": "W. Sahara",
+        "role": "contested",
+        "pattern": "hatch",
+        "opacity": 0.7,
+        "effect": "fill-fade",
+        "duration": 1.0
+      }
+    },
+    {
+      "at": 8.0,
+      "action": "morphTerritory",
+      "params": {
+        "id": "morocco-morph",
+        "country": "Morocco",
+        "fromSource": "mor-morph-from",
+        "toSource": "mor-morph-to",
+        "version_from": "latest",
+        "version_to": "ceasefire",
+        "duration": 4.0,
+        "role": "contested",
+        "easing": "easeInOut"
+      }
+    },
+    {
+      "at": 10.0,
+      "action": "maskImage",
+      "params": {
+        "id": "algeria-flag",
+        "country": "Algeria",
+        "geojsonSource": "alg-mask-geo",
+        "image": "../../assets/icons/circle-flags/dz.svg",
+        "fit": "cover",
+        "opacity": 0.85,
+        "pan": { "duration": 10, "dx": 0.12, "dy": 0.06 }
+      }
+    },
+    {
+      "at": 12.0,
+      "action": "flyTo",
+      "params": {
+        "center": [2.5, 28.0],
+        "zoom": 4.6,
+        "pitch": 40,
+        "bearing": 15,
+        "duration": 2.0,
+        "easing": "ramp"
+      }
+    },
+    {
+      "at": 14.0,
+      "action": "updateFront",
+      "params": {
+        "id": "inv1",
+        "progress": [{ "t": 7, "v": 0.6 }, { "t": 11, "v": 0.72 }]
+      }
+    },
+    {
+      "at": 22.0,
+      "action": "removeFront",
+      "params": { "id": "inv1", "exitDuration": 0.8 }
+    },
+    {
+      "at": 22.2,
+      "action": "removeBorder",
+      "params": { "id": "morocco-neon", "exitDuration": 0.6 }
+    },
+    {
+      "at": 22.4,
+      "action": "removeMorphTerritory",
+      "params": { "id": "morocco-morph", "exitDuration": 0.6 }
+    },
+    {
+      "at": 22.6,
+      "action": "removeMaskImage",
+      "params": { "id": "algeria-flag", "exitDuration": 0.6 }
+    },
+    {
+      "at": 22.8,
+      "action": "removeLayer",
+      "params": { "id": "wsahara-hatch", "exitDuration": 0.6 }
+    }
+  ]
+}
