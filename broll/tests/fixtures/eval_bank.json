@@ -1,0 +1,68 @@
+[
+  {
+    "shot_id": "eval_conceptual_01",
+    "intent": "abstract network nodes pulsing with data traffic, dark background",
+    "kind": "conceptual",
+    "duration_seconds": 4,
+    "tone": "calm, observational"
+  },
+  {
+    "shot_id": "eval_establishing_02",
+    "intent": "wide aerial view of a container port at dawn, cranes and ships",
+    "kind": "establishing",
+    "duration_seconds": 5,
+    "format": "horizontal"
+  },
+  {
+    "shot_id": "eval_atmospheric_03",
+    "intent": "rain on a window at night, city lights blurred outside",
+    "kind": "filler",
+    "duration_seconds": 3,
+    "tone": "calm, observational"
+  },
+  {
+    "shot_id": "eval_face_04",
+    "intent": "close-up of a diplomat speaking at a press podium, neutral expression",
+    "kind": "real_named_person",
+    "duration_seconds": 4,
+    "format": "horizontal"
+  },
+  {
+    "shot_id": "eval_conceptual_05",
+    "intent": "chess pieces on a board, king under pressure from surrounding pawns",
+    "kind": "conceptual",
+    "duration_seconds": 4
+  },
+  {
+    "shot_id": "eval_establishing_06",
+    "intent": "satellite view of Earth at night, city lights along a coastline",
+    "kind": "establishing",
+    "duration_seconds": 6,
+    "format": "horizontal"
+  },
+  {
+    "shot_id": "eval_atmospheric_07",
+    "intent": "desert heat shimmer over empty highway, mirage effect",
+    "kind": "filler",
+    "duration_seconds": 4
+  },
+  {
+    "shot_id": "eval_face_08",
+    "intent": "military officer briefing room, medium shot, maps on wall behind",
+    "kind": "real_named_event",
+    "duration_seconds": 5
+  },
+  {
+    "shot_id": "eval_conceptual_09",
+    "intent": "supply chain diagram animating from factory to port to consumer",
+    "kind": "conceptual",
+    "duration_seconds": 4
+  },
+  {
+    "shot_id": "eval_establishing_10",
+    "intent": "Suez Canal aerial, container ships queued in both directions",
+    "kind": "recognizable_place",
+    "duration_seconds": 5,
+    "format": "horizontal"
+  }
+]
