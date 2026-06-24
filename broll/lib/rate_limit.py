@@ -81,6 +81,10 @@ DEFAULT_LIMITS: dict[str, RateLimit] = {
     "nara":        RateLimit(capacity=3,  refill_per_sec=1),
     # Archive.org: no published limit. Be courteous.
     "archive_org": RateLimit(capacity=5,  refill_per_sec=2),
+    # DVIDS: courteous; asset detail calls follow search.
+    "dvids":       RateLimit(capacity=5,  refill_per_sec=2),
+    # NASA Image Library: no key; stay polite.
+    "nasa":        RateLimit(capacity=5,  refill_per_sec=3),
     # Anthropic Messages API: depends on tier. We use a soft 1/sec.
     "anthropic":   RateLimit(capacity=3,  refill_per_sec=1),
 }
