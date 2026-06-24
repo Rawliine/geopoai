@@ -5,7 +5,8 @@ alwaysApply: true
 
 # Agent discipline (applies to every session)
 
-You are executing ONE lane file from `plans/`. Rules:
+You are executing ONE lane file from `plans/`. The executor may be Cursor
+Composer or Claude Code — these rules apply to either. Rules:
 
 1. **Read your assigned `plans/W*.md` file first, fully.** It is the contract.
    Also skim `plans/PLAN.md` and the sibling lanes named in your "Depends on"
@@ -25,9 +26,11 @@ You are executing ONE lane file from `plans/`. Rules:
    **NEVER use `W<lane>.T<item>` as the prefix** — the prefix is always the
    conventional type. Plain `git commit -m` only. NEVER add `Co-authored-by:`
    or any attribution trailer, never modify git user.name/user.email.
-5. **You never touch GitHub.** No `git push`, no PRs, no remotes. Commit
-   locally; the operator reviews, merges, and pushes. Ending your session with
-   unpushed local commits on your branch is the CORRECT final state.
+5. **You never touch GitHub (executor role).** No `git push`, no PRs, no
+   remotes. Commit locally; the operator reviews, merges, and pushes. Ending
+   your session with unpushed local commits on your branch is the CORRECT final
+   state. (Exception: if you ARE the lead — the user explicitly directs you to
+   merge/push — that is a lead action, not an executor one.)
 6. **Run the acceptance command(s) before declaring an item done.** Paste the
    output (or describe the rendered artifact) in your report. If a render or
    test needs secrets and `.env` is missing here, link it:
@@ -51,4 +54,10 @@ You are executing ONE lane file from `plans/`. Rules:
 13. New user-facing surface (actions, effects, params, CLI flags) gets
     documented in your layer's `docs/fragments/<lane>.md` — never edit
     SKILL.md directly; the lead merges fragments at integration.
-14. Final report format: per item — what changed, how verified, open concerns.
+14. **Effects animate in AND out.** Every visual effect gets a deliberate,
+    token-timed entrance and exit (use `timing` tokens incl. `exit_ratio`) —
+    never an instant pop unless the scene explicitly asks for a cut. Any effect
+    that can persist on screen ships a `remove*`/`hide*` action so it can leave
+    cleanly. "Static/instant" is not a substitute for a designed entrance; if a
+    lane file omits the in/out behavior, implement a deliberate one and flag it.
+15. Final report format: per item — what changed, how verified, open concerns.

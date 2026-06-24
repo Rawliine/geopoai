@@ -1,8 +1,10 @@
 # GeoPoAI — Pre-Launch Master Plan
 
-Team-lead model: Claude Code authored this plan and reviews/merges; Cursor
-Composer agents execute lanes. One lane = one spec file = one git worktree =
-one branch = one PR-sized diff. Commit-per-checklist-item.
+Team-lead model: Claude Code authored this plan and reviews/merges; lanes are
+executed by an agent — Cursor Composer **or Claude Code** (e.g. W13 was executed
+by Claude Code directly in-repo on its `agents/` branch). One lane = one spec
+file = one git worktree (or in-repo branch) = one branch = one PR-sized diff.
+Commit-per-checklist-item.
 
 ## Goal
 
@@ -86,6 +88,12 @@ tag so Wave-1 map lanes never edit shared files.
 - `docs/contracts/` and `config/design_tokens.json` are frozen — changes only
   via the lead (Claude Code), never inside a lane.
 - No hardcoded colors/fonts/timing anywhere: tokens only.
+- Effects animate **in and out**: every visual effect has a deliberate,
+  token-timed entrance and exit (use `timing` tokens incl. `exit_ratio`); never
+  an instant pop unless the scene explicitly asks for a cut. Any effect that can
+  persist on screen ships a `remove*`/`hide*` action so it can leave cleanly.
+  "Static/instant" is not a substitute for a designed entrance — spell out the
+  in/out behavior in the lane file so it can't be skipped.
 - Assets only via `tools/prepare_assets.py` + `assets/manifest.json` (license
   field mandatory).
 - Out-of-scope refactors forbidden.
@@ -104,6 +112,12 @@ cursor ../geopoai-w11
 #   Read plans/W11-map-territory.md and execute it exactly, checklist items
 #   in order. One commit per item.
 ```
+
+A lane may instead be executed by **Claude Code** directly (its own
+`agents/<lane-id>` branch in the repo, same prompt and discipline) — as W13 was.
+When Claude Code is the executor and you (the user) are the lead, you may have it
+merge/push at the end; the "executor never touches GitHub" rule below applies to
+the *executor role*, not to lead-directed merges.
 
 Review: run the lane's acceptance yourself, read commits one by one, then
 have Claude Code `/code-review` the branch. Merge serially:
