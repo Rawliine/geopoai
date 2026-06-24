@@ -435,6 +435,7 @@ function removeMorphTerritory(map, overlayEl, spec, sceneT) {
 
 /* ============================================================
    W11 — maskImage (clipPath + optional Ken Burns pan)
+   Image+clip reproject on every camera move via _reprojectTerritoryEffects.
    ============================================================ */
 function _ensureMaskSvg(map, overlayEl, spec) {
   const svgNS = 'http://www.w3.org/2000/svg';
@@ -1055,7 +1056,7 @@ const _maskImageAction = function (map, overlayEl, entry, ctx) {
 _maskImageAction.eventMeta = { type: 'image', intensity: 0.6 };
 MapEffects.registerAction('maskImage', _maskImageAction);
 
-MapEffects.registerAction('removeMaskImage', function (map, overlayEl, entry, ctx) {
+  MapEffects.registerAction('removeMaskImage', function (map, overlayEl, entry, ctx) {
   removeMaskImage(map, overlayEl, entry.params ?? {}, Number(entry.at ?? 0));
   const tag = document.getElementById(`${entry.params?.id}-mask-tag`);
   if (tag) tag.remove();
