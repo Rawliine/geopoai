@@ -555,6 +555,7 @@
      fog, terrain, the CSS polish stack, and base-label hiding. */
   function applySceneEnvironment(scene) {
     var M = window.MapEffects || {};
+    if (M.hideBaseLabels) M.hideBaseLabels(map);   // hide base symbol layers by default (T4)
     if (M.applyAtmosphere) M.applyAtmosphere(map, scene);
     if (M.applyTerrain) M.applyTerrain(map, scene);
     if (M.applyPolish) M.applyPolish(scene);

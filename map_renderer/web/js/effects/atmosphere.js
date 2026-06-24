@@ -165,7 +165,65 @@ function updatePolish(t) {
   }
 }
 
+/* ============================================================
+   BASE-MAP LABEL CONTROL (W13.T4)
+   Default: hide every base-style symbol layer (text + icons) on
+   style load. showPlaceLabels re-enables selected base layers.
+   Own overlay labels (#labels-layer) are unaffected.
+   ============================================================ */
+var _hiddenBaseSymbolLayers = [];
+
+function hideBaseLabels(map) {
+  _hiddenBaseSymbolLayers = [];
+  var style;
+  try { style = map.getStyle(); } catch (e) { return; }
+  if (!style || !style.layers) return;
+  style.layers.forEach(function (layer) {
+    if (layer.type !== 'symbol') return;
+    try {
+      map.setLayoutProperty(layer.id, 'visibility', 'none');
+      _hiddenBaseSymbolLayers.push(layer.id);
+    } catch (e) {}
+  });
+}
+
+var _PLACE_TYPE_PATTERNS = {
+  country: [/country.*label/i, /admin.*label/i],
+  state: [/state.*label/i],
+  city: [/settlement/i, /place/i, /city/i, /town/i, /village/i],
+  water: [/water.*label/i, /marine.*label/i, /natural.*label/i],
+};
+
+function _bboxPolygon(bbox) {
+  var w = bbox[0], s = bbox[1], e = bbox[2], n = bbox[3];
+  return { type: 'Polygon', coordinates: [[[w, s], [e, s], [e, n], [w, n], [w, s]]] };
+}
+
+function showPlaceLabels(map, overlayEl, entry, ctx) {
+  var params = entry.params ?? {};
+  var show = params.show !== false;
+  var types = Array.isArray(params.types) ? params.types : ['country'];
+  var patterns = [];
+  types.forEach(function (t) {
+    (_PLACE_TYPE_PATTERNS[t] || []).forEach(function (re) { patterns.push(re); });
+  });
+  // Optional geographic restriction. Note: this replaces the layer's own
+  // filter (documented limitation) — sufficient for scoping a reveal to a region.
+  var within = Array.isArray(params.within) ? _bboxPolygon(params.within) : null;
+
+  _hiddenBaseSymbolLayers.forEach(function (id) {
+    if (!patterns.some(function (re) { return re.test(id); })) return;
+    try {
+      map.setLayoutProperty(id, 'visibility', show ? 'visible' : 'none');
+      if (within && show) map.setFilter(id, ['within', within]);
+    } catch (e) {}
+  });
+}
+showPlaceLabels.eventMeta = { type: 'label', intensity: 0.4 };
+MapEffects.registerAction('showPlaceLabels', showPlaceLabels);
+
 MapEffects.applyAtmosphere = applyAtmosphere;
 MapEffects.applyTerrain = applyTerrain;
 MapEffects.applyPolish = applyPolish;
 MapEffects.updatePolish = updatePolish;
+MapEffects.hideBaseLabels = hideBaseLabels;
