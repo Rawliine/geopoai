@@ -374,25 +374,25 @@ function morphTerritory(map, overlayEl, spec) {
   let geoTo = spec.geojson_to || spec.geojsonTo;
   if (!geoFrom) geoFrom = _geojsonFromMapSource(map, spec.fromSource || `${id}-from`);
   if (!geoTo) geoTo = _geojsonFromMapSource(map, spec.toSource || `${id}-to`);
-  const ringFrom = _largestOuterRing(geoFrom);
-  const ringTo = _largestOuterRing(geoTo);
-  if (!id || !ringFrom.length || !ringTo.length || typeof flubber === 'undefined') {
-    console.warn('[fills.js] morphTerritory: missing rings, id, or flubber');
+  if (!id || !geoFrom || !geoTo || typeof flubber === 'undefined') {
+    console.warn('[fills.js] morphTerritory: missing geometries, id, or flubber');
     return null;
   }
-  const interp = flubber.interpolate(
-    ringFrom.map(c => [c[0], c[1]]),
-    ringTo.map(c => [c[0], c[1]]),
-    { maxSegmentLength: 0.25 }
-  );
   MapEffects._territoryState._map = map;
   MapEffects._territoryState._overlayEl = overlayEl;
   MapEffects._territoryState.morphs[id] = {
-    id, interp, role, duration, easing, startAt, exiting: false,
+    id, geoFrom, geoTo, role, duration, easing, startAt, exiting: false,
   };
   _ensureMorphSvg(map, overlayEl, { id });
   _ensureTerritoryTickLoop();
   return id;
+}
+
+function _projectedRing(map, geojson) {
+  return _largestOuterRing(geojson)
+    .map(([lng, lat]) => toPixel(map, [lng, lat]))
+    .filter(Boolean)
+    .map(p => [p.x, p.y]);
 }
 
 function _updateMorphTerritory(map, overlayEl, morph, t) {
@@ -412,8 +412,11 @@ function _updateMorphTerritory(map, overlayEl, morph, t) {
     ? MapEffects.getEasing(morph.easing)
     : (x => x);
   p = ease(p);
-  const ring = morph.interp(p);
-  const d = _ringToPathD(map, ring);
+  const fromPx = _projectedRing(map, morph.geoFrom);
+  const toPx = _projectedRing(map, morph.geoTo);
+  if (fromPx.length < 3 || toPx.length < 3) return;
+  const interp = flubber.interpolate(fromPx, toPx, { maxSegmentLength: 2 });
+  const d = interp(p);
   const svg = _ensureMorphSvg(map, overlayEl, morph);
   const path = svg.querySelector('.morph-territory-path');
   const rc = _roleColors(morph.role || 'contested');
