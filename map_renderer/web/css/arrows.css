@@ -144,4 +144,53 @@
       opacity: 1.0;
     }
   }
-  
+
+  /* ── W12: tapered military advance arrow ───────────────────── */
+  .taper-fill {
+    filter: drop-shadow(0 0 var(--glow-halo-px, 6px) var(--glow-color))
+            drop-shadow(0 0 calc(var(--glow-halo-px, 6px) * 1.5) var(--glow-color));
+    opacity: 0.95;
+  }
+
+  .taper-centerline {
+    visibility: hidden;
+  }
+
+  .taper-exit {
+    animation: taper-fade-exit var(--exit-duration, 0.6s) ease-in forwards;
+  }
+
+  @keyframes taper-fade-exit {
+    0%   { opacity: 0.95; }
+    100% { opacity: 0; }
+  }
+
+  /* ── W12: great-circle arc stroke ──────────────────────────── */
+  .arrow-arc {
+    filter: drop-shadow(0 0 var(--glow-core-px, 2px) var(--glow-color));
+  }
+
+  /* ── W12: supply line flowing dashes ───────────────────────── */
+  .supply-path {
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    opacity: 0.85;
+  }
+
+  .supply-dashed {
+    stroke-dasharray: 12 12;
+  }
+
+  .supply-dotted {
+    stroke-dasharray: 4 8;
+  }
+
+  .supply-flow {
+    animation: supply-dash-flow 1.2s linear infinite;
+  }
+
+  @keyframes supply-dash-flow {
+    0%   { stroke-dashoffset: 0; }
+    100% { stroke-dashoffset: calc(-1 * var(--flow-speed, 60px)); }
+  }
+
