@@ -617,7 +617,7 @@ function _installTerritoryHooks() {
 setTimeout(_installTerritoryHooks, 0);
 
 /* ============================================================
-   Pattern fills + existing fill effects
+   Pattern fills (W11.T4): hatch | gradient-radial | gradient-linear
    ============================================================ */
 function _ensurePatternDef(svg, patternId, patternType, color, opacity) {
   const svgNS = 'http://www.w3.org/2000/svg';
