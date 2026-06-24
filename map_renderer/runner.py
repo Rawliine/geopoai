@@ -412,6 +412,13 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
         except Exception as exc:  # noqa: BLE001 — emission is best-effort
             log.warning("Could not read emitted events: %s", exc)
             emitted_events = []
+        try:
+            layout_frames = await page.evaluate(
+                "() => (window.getLayoutFrames ? window.getLayoutFrames() : [])"
+            )
+        except Exception as exc:  # noqa: BLE001 — emission is best-effort
+            log.warning("Could not read layout frames: %s", exc)
+            layout_frames = []
 
         await context.close()
         await browser.close()
@@ -428,6 +435,24 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
         encoding="utf-8",
     )
     log.info("Wrote %d events → %s", len(emitted_events), events_path.name)
+
+    # ── Sidecar: layout.json (schema docs/contracts/layout.schema.json) ──
+    if isinstance(layout_frames, list):
+        layout_frames.sort(key=lambda fr: float(fr.get("t", 0)))
+    layout_path = OUTPUT_DIR / f"{clip_name}.layout.json"
+    layout_path.write_text(
+        json.dumps(
+            {
+                "clip_id": clip_name,
+                "format": scene_format,
+                "sample_hz": 2,
+                "frames": layout_frames,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    log.info("Wrote %d layout frames → %s", len(layout_frames), layout_path.name)
 
     output_path = OUTPUT_DIR / f"{clip_name}.mp4"
     if deterministic:

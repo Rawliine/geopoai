@@ -209,3 +209,50 @@ MapEffects.layoutHints = {
     return pos;
   },
 };
+
+/* ============================================================
+   layout.json emission state + helpers (W13.T6)
+   reproject.js snapshots overlay box occupancy at 2 Hz of the
+   runtime clock (MapEffects._currentT); runner.py writes the
+   sidecar. createOverlayEl tags elements with data-kind so W11/W12
+   overlays land in the right layout `kind`; _kindFromEl is the
+   class-name fallback for elements that didn't use the helper.
+   ============================================================ */
+MapEffects._currentT = MapEffects._currentT || 0;
+MapEffects._layoutFrames = MapEffects._layoutFrames || [];
+MapEffects._lastLayoutT = -Infinity;
+MapEffects.LAYOUT_SAMPLE_HZ = 2;
+
+MapEffects.resetLayout = function resetLayout() {
+  MapEffects._layoutFrames = [];
+  MapEffects._lastLayoutT = -Infinity;
+  MapEffects._currentT = 0;
+};
+MapEffects.getLayoutFrames = function getLayoutFrames() {
+  return MapEffects._layoutFrames.slice();
+};
+
+// Create an overlay element pre-tagged with its layout kind (W11/W12 opt-in).
+MapEffects.createOverlayEl = function createOverlayEl(tag, kind, opts) {
+  var el = document.createElement(tag || 'div');
+  if (kind) el.setAttribute('data-kind', kind);
+  if (opts && opts.id) el.id = opts.id;
+  if (opts && opts.className) el.className = opts.className;
+  return el;
+};
+
+var LAYOUT_KINDS = { callout: 1, label: 1, chart: 1, matrix: 1, caption: 1, image: 1, other: 1 };
+MapEffects._kindFromEl = function _kindFromEl(el) {
+  var k = el.getAttribute && el.getAttribute('data-kind');
+  if (k && LAYOUT_KINDS[k]) return k;
+  var cls = '';
+  if (el.className) cls = (el.className.baseVal !== undefined) ? el.className.baseVal : el.className;
+  cls = String(cls || '');
+  if (/title-?card/i.test(cls) || /callout/i.test(cls)) return 'callout';
+  if (/stat-?box|chart/i.test(cls)) return 'chart';
+  if (/matrix/i.test(cls)) return 'matrix';
+  if (/caption/i.test(cls)) return 'caption';
+  if (/mask|image|flag/i.test(cls)) return 'image';
+  if (/label/i.test(cls)) return 'label';
+  return 'other';
+};

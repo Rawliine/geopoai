@@ -595,6 +595,7 @@
 
     setFrameFormat(scene.format);
     if (window.MapEffects && MapEffects.resetEvents) MapEffects.resetEvents();
+    if (window.MapEffects && MapEffects.resetLayout) MapEffects.resetLayout();
 
     var style = scene.map_style || 'dark';
     var requestedStyleKey = normalizeStyleKey(style);
@@ -633,6 +634,7 @@
     deterministicSeed = Number(scene._seed ?? 1);
     setFrameFormat(scene.format);
     if (window.MapEffects && MapEffects.resetEvents) MapEffects.resetEvents();
+    if (window.MapEffects && MapEffects.resetLayout) MapEffects.resetLayout();
     var style = scene.map_style || 'dark';
     var requestedStyleKey = normalizeStyleKey(style);
     if (requestedStyleKey !== activeStyleKey) {
@@ -751,6 +753,11 @@
   window.getEmittedEvents = function () {
     return (window.MapEffects && MapEffects.getEmittedEvents)
       ? MapEffects.getEmittedEvents() : [];
+  };
+
+  window.getLayoutFrames = function () {
+    return (window.MapEffects && MapEffects.getLayoutFrames)
+      ? MapEffects.getLayoutFrames() : [];
   };
 
   /* ============================================================
