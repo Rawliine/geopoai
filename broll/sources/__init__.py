@@ -16,13 +16,16 @@ Each source module exposes:
 
 from . import (
     archive_org,
+    dvids,
     flux_image,
     flux_ltx_video,
     loc,
     ltx_video,
+    nasa,
     nara,
     pexels,
     pixabay,
+    reference,
     wan_video,
     wikimedia,
 )
@@ -33,10 +36,15 @@ SOURCES = {
     "wikimedia":   wikimedia,
     "loc":         loc,
     "nara":        nara,
+    "dvids":       dvids,
+    "nasa":        nasa,
     "archive_org": archive_org,
     "pexels":      pexels,
     "pixabay":     pixabay,
 }
+
+# Reference ingest is not part of the stock cascade walker.
+REFERENCE_SOURCE = reference
 
 # AI sources — invoked directly by the pipeline via ai_router. Not part of
 # the cascade. Keys match the strings returned by ``broll.lib.ai_router``.
@@ -47,6 +55,6 @@ AI_SOURCES = {
     "flux-2.2": flux_image,
 }
 
-CASCADE_ORDER = ("wikimedia", "loc", "nara", "archive_org", "pexels", "pixabay")
+CASCADE_ORDER = ("wikimedia", "loc", "nara", "dvids", "nasa", "archive_org", "pexels", "pixabay")
 
-__all__ = ["SOURCES", "AI_SOURCES", "CASCADE_ORDER", "SearchResult"]
+__all__ = ["SOURCES", "AI_SOURCES", "CASCADE_ORDER", "SearchResult", "REFERENCE_SOURCE"]

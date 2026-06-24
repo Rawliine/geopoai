@@ -39,6 +39,7 @@ from broll.lib import cascade as _cascade  # noqa: E402
 from broll.lib import verify as _verify  # noqa: E402
 from broll.lib.decision import decide  # noqa: E402
 from broll.lib.errors import (  # noqa: E402
+    AwaitingBrainError,
     BrollError,
     NoCandidatesError,
     SchemaValidationError,
@@ -47,6 +48,7 @@ from broll.lib.errors import (  # noqa: E402
     VerificationError,
 )
 from broll.sources import AI_SOURCES  # noqa: E402
+from broll.sources import reference as reference_source  # noqa: E402
 from broll.sources._ai_base import AIGenerationError  # noqa: E402
 from broll.sources._base import fetch_to_wrapper  # noqa: E402
 
@@ -59,6 +61,7 @@ log = logging.getLogger("pipeline.broll")
 
 _SHOT_SCHEMA_PATH = _REPO_ROOT / "broll" / "schema" / "shot_spec_schema.json"
 _OUTPUT_DIR = _REPO_ROOT / "output" / "broll"
+EXIT_AWAITING_BRAIN = 7
 
 
 def _load_shot_schema() -> Draft202012Validator:
@@ -94,6 +97,31 @@ def _write_log(shot_id: str, payload: dict[str, Any]) -> None:
     tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     tmp.replace(path)
+
+
+# ── Reference ingest path ────────────────────────────────────────────────────
+def _run_reference(
+    spec: dict[str, Any],
+    log_payload: dict[str, Any],
+    *,
+    ask: bool = False,
+    pick: str | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Ingest user-supplied reference URLs before the stock cascade."""
+    urls = spec.get("reference_urls") or []
+    log_payload["reference"] = {"urls": urls, "ask": ask, "pick": pick}
+    if dry_run:
+        log_payload["reference"]["outcome"] = "dry_run"
+        return {"dry_run": True, "reference_urls": urls}
+
+    target = _target_path(spec["shot_id"])
+    meta = reference_source.ingest_reference_urls(
+        spec, target, ask=ask, pick=pick, output_dir=_OUTPUT_DIR,
+    )
+    log_payload["reference"]["outcome"] = "ingested"
+    log_payload["asset_path"] = meta["asset_path"]
+    return meta
 
 
 # ── Stock path ───────────────────────────────────────────────────────────────
@@ -192,7 +220,13 @@ def _run_ai(spec: dict[str, Any], log_payload: dict[str, Any], *, dry_run: bool)
 
 
 # ── Strategy router ──────────────────────────────────────────────────────────
-def run_shot(spec: dict[str, Any], *, dry_run: bool = False) -> dict[str, Any]:
+def run_shot(
+    spec: dict[str, Any],
+    *,
+    dry_run: bool = False,
+    ask: bool = False,
+    pick: str | None = None,
+) -> dict[str, Any]:
     """End-to-end Phase 2 flow for a single shot spec."""
     load_dotenv(_REPO_ROOT / ".env")
     validate_shot_spec(spec)
@@ -212,7 +246,11 @@ def run_shot(spec: dict[str, Any], *, dry_run: bool = False) -> dict[str, Any]:
     ai_allowed = decision["ai_allowed"]
 
     try:
-        if strategy == "ai_only":
+        # Reference URLs take precedence over stock cascade / AI routing.
+        if spec.get("reference_urls"):
+            meta = _run_reference(spec, log_payload, ask=ask, pick=pick, dry_run=dry_run)
+            log_payload["outcome"] = "reference"
+        elif strategy == "ai_only":
             meta = _run_ai(spec, log_payload, dry_run=dry_run)
             log_payload["outcome"] = "ai_only"
 
@@ -284,6 +322,10 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("spec_path", help="Path to a shot_spec JSON file.")
     p.add_argument("--print-meta", action="store_true", help="Print the .meta.json on success.")
     p.add_argument("--dry-run", action="store_true", help="Don't fetch/generate; walk + verify + log only.")
+    p.add_argument("--ask", action="store_true",
+                   help="Reference ingest: write contact sheet + candidates.json and exit awaiting brain.")
+    p.add_argument("--pick", metavar="SEGMENT_ID",
+                   help="Reference ingest: complete shot using the chosen segment id from a prior --ask run.")
     return p
 
 
@@ -297,7 +339,7 @@ def main(argv: list[str] | None = None) -> int:
         spec = json.load(fp)
 
     try:
-        meta = run_shot(spec, dry_run=args.dry_run)
+        meta = run_shot(spec, dry_run=args.dry_run, ask=args.ask, pick=args.pick)
     except SchemaValidationError as exc:
         log.error("invalid shot spec: %s", exc)
         return 2
@@ -313,6 +355,13 @@ def main(argv: list[str] | None = None) -> int:
     except AIGenerationError as exc:
         log.error("AI generation failed: %s", exc)
         return 6
+    except AwaitingBrainError as exc:
+        log.info("awaiting brain: %s", exc)
+        if exc.contact_sheet:
+            log.info("contact sheet: %s", exc.contact_sheet)
+        if exc.candidates_json:
+            log.info("candidates: %s", exc.candidates_json)
+        return EXIT_AWAITING_BRAIN
     except BrollError as exc:
         log.error("broll error: %s", exc)
         return 1

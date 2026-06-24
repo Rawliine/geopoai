@@ -12,9 +12,12 @@ Composer or Claude Code — these rules apply to either. Rules:
    Also skim `plans/PLAN.md` and the sibling lanes named in your "Depends on"
    so you build against the right contracts.
 2. **Work on a branch named `agents/<lane-id>`** (e.g. `agents/w11-territory`).
-   Create it as your first action: `git checkout -b agents/<lane-id>`. If the
-   worktree gave you an auto-generated branch name, rename it:
-   `git branch -m agents/<lane-id>`. Never work directly on `main`.
+   The lane prompt names the exact target branch. First action: run that prompt's
+   `Branch (first action)` block — typically `git branch --show-current`, then
+   rename with `git branch -m agents/<lane-id>` if you are on `cursor/*` or any
+   wrong feature branch. Use `git checkout -b agents/<lane-id>` **only** on
+   `main`. Never `checkout -b` on an existing feature branch (orphans
+   `cursor/<hash>`). Never run `git worktree`. Never commit on `main`.
 3. **Touch only files in your lane's allowlist.** If a fix seems to require
    editing a file outside it, STOP and report — do not improvise.
 4. **One commit per checklist item, in THREE parts:**

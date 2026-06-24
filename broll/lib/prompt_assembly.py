@@ -25,6 +25,9 @@ from typing import Any
 
 log = logging.getLogger("broll.prompt_assembly")
 
+# Bump when style_tokens.md or assembly logic changes (eval harness tracks this).
+TEMPLATE_VERSION = "2025.06-w18"
+
 _PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
 _STYLE_TOKENS_PATH = _PROMPTS_DIR / "style_tokens.md"
 _LORA_STACK_PATH = _PROMPTS_DIR / "lora_stack.json"
@@ -52,6 +55,7 @@ class AssembledPrompt:
             "prompt": self.positive,
             "negative_prompt": self.negative or None,
             "lora_stack": list(self.lora_stack),
+            "template_version": TEMPLATE_VERSION,
         }
 
 
