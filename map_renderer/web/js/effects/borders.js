@@ -128,6 +128,7 @@ MapEffects.registerAction('applyBorder', function (map, overlayEl, entry, ctx) {
   }));
   if (ctx.runtime && border?.id) ctx.runtime.createdBorderIds.add(border.id);
 });
+MapEffects.getAction('applyBorder').eventMeta = { type: 'border', intensity: 0.5 };
 
 MapEffects.registerAction('removeBorder', function (map, overlayEl, entry, ctx) {
   const params = entry.params ?? {};
