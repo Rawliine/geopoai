@@ -81,11 +81,19 @@ var _extrudeSpecs = Object.create(null);
 
 function _clamp01(p) { return Math.max(0, Math.min(1, p)); }
 
-function _setExtrudeProgress(map, layerId, progress) {
+// Opacity reaches full this early into the grow (and starts fading this late
+// into the shrink). Front-loaded so partial opacity only ever coincides with
+// near-flat bars — avoids Mapbox's see-through fill-extrusion artifact on tall
+// geometry.
+var EXTRUDE_FADE_FRACTION = 0.25;
+
+function _setExtrudeProgress(map, layerId, heightProgress, opacity) {
   if (!map.getLayer(layerId)) return;
-  // Scale every feature's data-driven height by a shared 0..1 progress.
+  // Scale every feature's data-driven height by a shared 0..1 progress…
   map.setPaintProperty(layerId, 'fill-extrusion-height',
-    ['*', ['get', '_height'], progress]);
+    ['*', ['get', '_height'], heightProgress]);
+  // …and fade the whole layer's opacity (per-layer; bars appear together).
+  map.setPaintProperty(layerId, 'fill-extrusion-opacity', opacity);
 }
 
 function extrudeBars(map, overlayEl, entry, ctx) {
@@ -125,17 +133,26 @@ function extrudeBars(map, overlayEl, entry, ctx) {
       'fill-extrusion-color': _roleColor(role),
       'fill-extrusion-height': ['*', ['get', '_height'], 0],  // start flat; ramped by updateExtrudeBars
       'fill-extrusion-base': 0,
-      'fill-extrusion-opacity': 0.85,
+      'fill-extrusion-opacity': 0,                            // start invisible; faded in by updateExtrudeBars
     },
   });
 
-  // Record the spec so updateExtrudeBars can ramp the height from t.
+  var duration = Math.max(0.001, Number(params.duration ?? 1.0));
+  // fade_in (seconds) is optional; otherwise opacity finishes in the first
+  // EXTRUDE_FADE_FRACTION of the grow.
+  var fadeFraction = params.fade_in != null
+    ? _clamp01(Number(params.fade_in) / duration) || EXTRUDE_FADE_FRACTION
+    : EXTRUDE_FADE_FRACTION;
+
+  // Record the spec so updateExtrudeBars can ramp height + opacity from t.
   _extrudeSpecs[id] = {
     layerId: layerId,
     sourceId: sourceId,
     at: Number(entry.at ?? 0),
-    duration: Math.max(0.001, Number(params.duration ?? 1.0)),
+    duration: duration,
     easing: params.easing || 'easeInOut',   // smooth start+settle by default
+    opacity: Number(params.opacity ?? 0.85),
+    fadeFraction: fadeFraction,
     removeAt: null,
     exitDuration: 1.0,
   };
@@ -167,6 +184,7 @@ function updateExtrudeBars(map, t) {
     var spec = _extrudeSpecs[id];
     if (!map.getLayer(spec.layerId)) { delete _extrudeSpecs[id]; return; }
     var ease = getEase(spec.easing);   // smooth start + settle (easeInOut by default)
+    var ff = spec.fadeFraction || EXTRUDE_FADE_FRACTION;
     if (spec.removeAt != null && t >= spec.removeAt) {
       var pOut = _clamp01((t - spec.removeAt) / spec.exitDuration);
       if (pOut >= 1) {
@@ -175,11 +193,15 @@ function updateExtrudeBars(map, t) {
         delete _extrudeSpecs[id];
         return;
       }
-      _setExtrudeProgress(map, spec.layerId, 1 - ease(pOut));
+      // Height shrinks the whole way; opacity only fades in the final sliver.
+      _setExtrudeProgress(map, spec.layerId,
+        1 - ease(pOut), _clamp01((1 - pOut) / ff) * spec.opacity);
       return;
     }
     var pIn = _clamp01((t - spec.at) / spec.duration);
-    _setExtrudeProgress(map, spec.layerId, ease(pIn));
+    // Height eases the whole grow; opacity is front-loaded into the first `ff`.
+    _setExtrudeProgress(map, spec.layerId,
+      ease(pIn), _clamp01(pIn / ff) * spec.opacity);
   });
 }
 
