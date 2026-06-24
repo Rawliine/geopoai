@@ -1,0 +1,8 @@
+{
+  "shot_id": "ref_fixture_01",
+  "intent": "solid blue color field test clip for reference ingest",
+  "kind": "establishing",
+  "duration_seconds": 2,
+  "format": "horizontal",
+  "reference_urls": ["file://PLACEHOLDER"]
+}

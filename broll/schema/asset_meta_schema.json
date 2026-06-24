@@ -70,7 +70,8 @@
             "pixabay",
             "non_commercial",
             "unclear",
-            "ai_generated"
+            "ai_generated",
+            "user_provided"
           ]
         },
         "attribution_required": {"type": "boolean"},
@@ -127,7 +128,11 @@
               "maxItems": 2,
               "items": {"type": "integer", "minimum": 1}
             },
-            "duration_seconds": {"type": ["number", "null"], "minimum": 0}
+            "duration_seconds": {"type": ["number", "null"], "minimum": 0},
+            "template_version": {
+              "type": ["string", "null"],
+              "description": "Prompt template version string for eval harness comparisons."
+            }
           }
         }
       ]
