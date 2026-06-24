@@ -133,5 +133,197 @@
   .label-counter.tick {
     transform: scale(1.25);
   }
-  
-  
+
+  /* ── W12: counter digits (mono, no jitter) ─────────────────── */
+  .label-counter-digits {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.02em;
+  }
+
+  /* ── W12: leader-line label connector ──────────────────────── */
+  .label-leader-line {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .leader-connector {
+    stroke: var(--text-secondary);
+    stroke-width: 1;
+    stroke-linecap: round;
+    animation: leader-draw-on var(--effect-duration, 0.6s) ease-out var(--effect-delay, 0s) forwards;
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+  }
+
+  @keyframes leader-draw-on {
+    0%   { stroke-dashoffset: 200; opacity: 0.4; }
+    100% { stroke-dashoffset: 0; opacity: 1; }
+  }
+
+  /* ── W12: title cards ─────────────────────────────────────── */
+  .title-card {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 20;
+  }
+
+  .title-card-inner {
+    text-align: center;
+    z-index: 2;
+  }
+
+  .title-slam .title-card-inner {
+    animation: title-slam-in var(--effect-duration, 0.45s) cubic-bezier(0.175, 0.885, 0.32, 1) forwards;
+    opacity: 0;
+    transform: scale(1.25);
+  }
+
+  @keyframes title-slam-in {
+    0%   { opacity: 0; transform: scale(1.25) translateY(-8px); }
+    20%  { opacity: 1; transform: scale(1) translateY(0); }
+    100% { opacity: 1; transform: scale(1) translateY(0); }
+  }
+
+  .title-cut .title-card-inner {
+    animation: title-cut-in 0.05s step-end forwards;
+    opacity: 0;
+  }
+
+  @keyframes title-cut-in {
+    0%   { opacity: 0; }
+    100% { opacity: 1; }
+  }
+
+  .title-letterbox-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 0;
+    background: var(--palette-surface);
+    z-index: 1;
+    animation: letterbox-sweep var(--effect-duration, 0.7s) cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  .title-letterbox-top { top: 38%; }
+  .title-letterbox-bottom { bottom: 38%; animation-delay: 0.08s; }
+
+  @keyframes letterbox-sweep {
+    0%   { height: 0; opacity: 0.9; }
+    100% { height: 12%; opacity: 1; }
+  }
+
+  .title-letterbox-text {
+    opacity: 0;
+    animation: title-letterbox-text-in 0.4s ease-out 0.35s forwards;
+  }
+
+  @keyframes title-letterbox-text-in {
+    0%   { opacity: 0; transform: scale(0.96); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  .title-exit {
+    animation: title-fade-exit var(--exit-duration, 0.6s) ease-in forwards;
+  }
+
+  @keyframes title-fade-exit {
+    0%   { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ── W12: stat box ────────────────────────────────────────── */
+  .stat-box {
+    position: absolute;
+    min-width: 220px;
+    background: color-mix(in srgb, var(--palette-surface) 92%, transparent);
+    border: 1px solid color-mix(in srgb, var(--text-secondary) 35%, transparent);
+    border-radius: 4px;
+    padding: 0.65em 0.85em;
+    font-family: var(--font-primary);
+    color: var(--text-primary);
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  .stat-box-enter {
+    animation: stat-box-in 0.5s ease-out forwards;
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  @keyframes stat-box-in {
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  .stat-box-title {
+    font-size: var(--font-size-horizontal-label);
+    font-weight: 600;
+    padding-bottom: 0.4em;
+    margin-bottom: 0.35em;
+    border-bottom: 2px solid var(--role-neutral-core);
+  }
+
+  .stat-box-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+    padding: 0.25em 0;
+    opacity: 0;
+  }
+
+  .stat-row-enter {
+    animation: stat-row-in 0.45s ease-out var(--row-delay, 0ms) forwards;
+  }
+
+  @keyframes stat-row-in {
+    0%   { opacity: 0; transform: translateX(-6px); }
+    100% { opacity: 1; transform: translateX(0); }
+  }
+
+  .stat-box-icon,
+  .stat-box-flag {
+    width: 1.25em;
+    height: 1.25em;
+    flex-shrink: 0;
+    object-fit: contain;
+  }
+
+  .stat-box-label {
+    flex: 1;
+    color: var(--text-secondary);
+    font-size: 0.85em;
+  }
+
+  .stat-box-value {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+  }
+
+  /* ── W12: geo-pinned icons ────────────────────────────────── */
+  .map-icon {
+    position: absolute;
+    translate: -50% -50%;
+    pointer-events: none;
+  }
+
+  .map-icon-lift {
+    filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.45));
+  }
+
+  .map-icon-enter {
+    animation: map-icon-in 0.45s ease-out forwards;
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  @keyframes map-icon-in {
+    100% { opacity: 1; transform: scale(1); }
+  }
+
