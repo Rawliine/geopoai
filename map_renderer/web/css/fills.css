@@ -151,4 +151,33 @@
     0%   { fill: var(--effect-color-a, #e74c3c); fill-opacity: var(--fill-opacity, 0.65); }
     100% { fill: var(--effect-color-b, #3498db); fill-opacity: var(--fill-opacity, 0.55); }
   }
-  
+
+
+  /* ── W11 advanceFront ───────────────────────────────────────
+     Soft glowing front edge on clipped invasion fill.            */
+  .advance-front-edge {
+    stroke: var(--role-core);
+    stroke-width: var(--glow-core-px, 2px);
+    filter: blur(var(--front-softness, 14px));
+    opacity: 0.85;
+  }
+
+  .advance-front-edge.advance-front-edge-glow {
+    filter:
+      blur(var(--front-softness, 14px))
+      drop-shadow(0 0 var(--glow-halo-px, 6px) var(--role-glow));
+  }
+
+  .advance-front-fill {
+    transition: fill-opacity 0.15s ease-out;
+  }
+
+  /* ── W11 morphTerritory ───────────────────────────────────── */
+  .morph-territory-path {
+    transition: fill-opacity 0.2s ease-out;
+  }
+
+  /* ── W11 maskImage ────────────────────────────────────────── */
+  .mask-image-el {
+    transition: opacity 0.2s ease-out;
+  }
