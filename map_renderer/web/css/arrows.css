@@ -165,7 +165,7 @@
     100% { opacity: 0; }
   }
 
-  /* ── W12: great-circle arc stroke ──────────────────────────── */
+  /* ── W12: great-circle arc stroke (T2) ───────────────────────── */
   .arrow-arc {
     filter: drop-shadow(0 0 var(--glow-core-px, 2px) var(--glow-color));
   }
