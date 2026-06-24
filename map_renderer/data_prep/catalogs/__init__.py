@@ -138,7 +138,11 @@ def find_dataset_across_catalogs(dataset_id: str) -> tuple[str, DatasetInfo] | N
 
 def _register_builtin_catalogs() -> None:
     """Import built-in catalog plugins (side-effect: register_catalog)."""
-    from map_renderer.data_prep.catalogs import natural_earth  # noqa: F401
+    from map_renderer.data_prep.catalogs import (  # noqa: F401
+        cshapes,
+        historical_basemaps,
+        natural_earth,
+    )
 
 
 _register_builtin_catalogs()

@@ -10,6 +10,8 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
+from map_renderer.data_prep.catalogs import load_manifest
+
 ROOT = Path(__file__).resolve().parent.parent
 MAPS_DIR = ROOT / "data" / "maps"
 _DATA_PREP_DIR = Path(__file__).resolve().parent / "data_prep"
@@ -21,6 +23,25 @@ log = logging.getLogger("render_scene")
 
 def _version_file(version: str) -> Path:
     return MAPS_DIR / version / "countries.featurecollection.geojson"
+
+
+def _warn_non_commercial(version: str) -> None:
+    """Log a prominent warning when loading a non-commercial map version."""
+    manifest = load_manifest(VERSIONS_MANIFEST_PATH)
+    entry = manifest.get(version)
+    if not isinstance(entry, dict):
+        return
+    if entry.get("commercial_ok") is not False:
+        return
+    license_name = entry.get("license", "unknown")
+    license_url = entry.get("license_url", "")
+    log.warning(
+        "NON-COMMERCIAL MAP DATA: version '%s' (license=%s) is not cleared for "
+        "commercial use. See %s",
+        version,
+        license_name,
+        license_url or "(no license_url)",
+    )
 
 
 @lru_cache(maxsize=1)
@@ -45,6 +66,7 @@ def _resolve_version_alias(version: str) -> str:
 def _ensure_version_available(version: str) -> str:
     resolved = _resolve_version_alias(version)
     if _version_file(resolved).exists():
+        _warn_non_commercial(resolved)
         return resolved
     if not VERSIONS_MANIFEST_PATH.exists():
         return resolved
@@ -148,6 +170,7 @@ def _load_country_lookup(version: str) -> tuple[dict[str, dict], str]:
                     lkp[k] = feat
 
     lookup: dict[str, dict] = {}
+    _warn_non_commercial(chosen)
     countries_dir = MAPS_DIR / chosen / "countries"
     if countries_dir.exists() and any(countries_dir.glob("*.geojson")):
         # Fast path: read pre-extracted per-country files (avoids loading full FC)
