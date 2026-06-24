@@ -72,10 +72,22 @@ function applyTerrain(map, scene) {
 
 /* ============================================================
    extrudeBars — per-country extruded columns comparing a metric.
-   { id, data:[{country,value,geojson}], max_height_m, role }
+   { id, data:[{country,value,geojson}], max_height_m, role, duration }
    geojson is resolved by runner.py (_resolve_extrude_bars).
-   Static extrusion → identical in realtime + deterministic.
+   The columns grow in (and shrink out via removeExtrudeBars) by ramping
+   a height multiplier from runtime t, so realtime + deterministic match.
    ============================================================ */
+var _extrudeSpecs = Object.create(null);
+
+function _easeOutCubic(p) { return 1 - Math.pow(1 - Math.max(0, Math.min(1, p)), 3); }
+
+function _setExtrudeProgress(map, layerId, progress) {
+  if (!map.getLayer(layerId)) return;
+  // Scale every feature's data-driven height by a shared 0..1 progress.
+  map.setPaintProperty(layerId, 'fill-extrusion-height',
+    ['*', ['get', '_height'], progress]);
+}
+
 function extrudeBars(map, overlayEl, entry, ctx) {
   var params = entry.params ?? {};
   var id = params.id || 'extrude';
@@ -111,11 +123,21 @@ function extrudeBars(map, overlayEl, entry, ctx) {
     source: sourceId,
     paint: {
       'fill-extrusion-color': _roleColor(role),
-      'fill-extrusion-height': ['get', '_height'],
+      'fill-extrusion-height': ['*', ['get', '_height'], 0],  // start flat; ramped by updateExtrudeBars
       'fill-extrusion-base': 0,
       'fill-extrusion-opacity': 0.85,
     },
   });
+
+  // Record the spec so updateExtrudeBars can ramp the height from t.
+  _extrudeSpecs[id] = {
+    layerId: layerId,
+    sourceId: sourceId,
+    at: Number(entry.at ?? 0),
+    duration: Math.max(0.001, Number(params.duration ?? 1.0)),
+    removeAt: null,
+    exitDuration: 1.0,
+  };
 
   if (ctx && ctx.runtime && ctx.runtime.createdFillIds) {
     ctx.runtime.createdFillIds.add(id);
@@ -123,6 +145,47 @@ function extrudeBars(map, overlayEl, entry, ctx) {
 }
 extrudeBars.eventMeta = { type: 'fill', intensity: 0.7 };
 MapEffects.registerAction('extrudeBars', extrudeBars);
+
+/* removeExtrudeBars — shrink the columns back down, then remove. */
+function removeExtrudeBars(map, overlayEl, entry, ctx) {
+  var params = entry.params ?? {};
+  var id = params.id;
+  var spec = id ? _extrudeSpecs[id] : null;
+  if (!spec) return;
+  spec.removeAt = Number(entry.at ?? 0);
+  spec.exitDuration = Math.max(0.001, Number(params.exitDuration ?? params.duration ?? 1.0));
+}
+removeExtrudeBars.eventMeta = { type: 'remove', intensity: 0.3 };
+MapEffects.registerAction('removeExtrudeBars', removeExtrudeBars);
+
+/* Drive extrude grow-in / shrink-out from runtime t (deterministic). */
+function updateExtrudeBars(map, t) {
+  t = Math.max(0, Number(t) || 0);
+  Object.keys(_extrudeSpecs).forEach(function (id) {
+    var spec = _extrudeSpecs[id];
+    if (!map.getLayer(spec.layerId)) { delete _extrudeSpecs[id]; return; }
+    if (spec.removeAt != null && t >= spec.removeAt) {
+      var pOut = (t - spec.removeAt) / spec.exitDuration;
+      if (pOut >= 1) {
+        try { map.removeLayer(spec.layerId); } catch (e) {}
+        try { map.removeSource(spec.sourceId); } catch (e) {}
+        delete _extrudeSpecs[id];
+        return;
+      }
+      _setExtrudeProgress(map, spec.layerId, 1 - _easeOutCubic(pOut));
+      return;
+    }
+    var pIn = (t - spec.at) / spec.duration;
+    _setExtrudeProgress(map, spec.layerId, _easeOutCubic(pIn));
+  });
+}
+
+function resetExtrudeBars() {
+  _extrudeSpecs = Object.create(null);
+}
+
+MapEffects.updateExtrudeBars = updateExtrudeBars;
+MapEffects.resetExtrudeBars = resetExtrudeBars;
 
 /* ============================================================
    POLISH STACK  (scene.polish = { vignette, grain, haze })

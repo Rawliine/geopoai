@@ -510,8 +510,9 @@
       if (realtimeDrift.bearing_per_s) map.setBearing(map.getBearing() + realtimeDrift.bearing_per_s * dt);
     }
 
-    // T2: t-driven polish (grain step + haze pan).
+    // T2: t-driven polish (grain step + haze pan) + extrude grow/shrink.
     if (window.MapEffects && MapEffects.updatePolish) MapEffects.updatePolish(sceneT);
+    if (window.MapEffects && MapEffects.updateExtrudeBars) MapEffects.updateExtrudeBars(map, sceneT);
 
     realtimeRafId = requestAnimationFrame(realtimeFrame);
   }
@@ -557,6 +558,7 @@
      fog, terrain, the CSS polish stack, and base-label hiding. */
   function applySceneEnvironment(scene) {
     var M = window.MapEffects || {};
+    if (M.resetExtrudeBars) M.resetExtrudeBars();  // clear prior scene's extrude specs
     if (M.hideBaseLabels) M.hideBaseLabels(map);   // hide base symbol layers by default (T4)
     if (M.applyAtmosphere) M.applyAtmosphere(map, scene);
     if (M.applyTerrain) M.applyTerrain(map, scene);
@@ -691,6 +693,7 @@
     if (window.MapEffects) MapEffects._currentT = t;
     deterministicRuntime.stepTo(t);
     if (window.MapEffects && MapEffects.updatePolish) MapEffects.updatePolish(t);
+    if (window.MapEffects && MapEffects.updateExtrudeBars) MapEffects.updateExtrudeBars(map, t);
     lastDeterministicTime = t;
     await new Promise(function (resolve) { requestAnimationFrame(function () { resolve(); }); });
     return Object.assign({}, deterministicRuntime.getState(), {
