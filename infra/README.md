@@ -78,6 +78,28 @@ terraform validate        # requires successful init
 
 Always pass a fresh **`run_id`** per **VM session** so hostnames and OS volume names stay unique. The **models volume name is fixed** (`geopoai-models-persistent`) — only the ephemeral instance/OS disk changes with `run_id`.
 
+### GPU session manager (`pipeline/gpu_session.py`) — recommended
+
+A Python entry point wraps the terraform ceremony below: **up → health → use → auto-down**,
+with a best→worst GPU fallback chain (live Verda availability), an idle/budget **watchdog**, and a
+VM-side **dead-man** cron backstop. Workloads are declared in `infra/sessions.json`; laptop session
+state lives in `infra/.session_state.json` (gitignored). Needs `VERDA_CLIENT_ID` / `VERDA_CLIENT_SECRET`
+in the repo-root `.env`.
+
+```bash
+python pipeline/gpu_session.py gpus --all-locations          # browse live free SKUs
+python pipeline/gpu_session.py interactive comfyui_setup     # wizard: pick GPU/region/spot, deploy
+python pipeline/gpu_session.py up comfyui --verbose          # automated best→worst fallback
+python pipeline/gpu_session.py status comfyui                # state, health, uptime, est. cost
+python pipeline/gpu_session.py watchdog comfyui              # idle/budget auto-down (laptop side)
+python pipeline/gpu_session.py down comfyui                  # destroy INSTANCE only (volume kept)
+python pipeline/gpu_session.py destroy volume                # delete models volume (typed confirm)
+```
+
+`down` / `destroy instance` only ever target `verda_instance.this` — the models volume is unreachable
+from this tool by construction. The legacy `*.sh` scripts below remain valid fallbacks. Full reference:
+**`OPERATOR_RUNBOOK.md` → "Session manager"**.
+
 ### `run_id` naming — what each means
 
 | `run_id` example | When to use | Var-files | Notes |
