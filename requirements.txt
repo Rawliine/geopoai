@@ -5,3 +5,4 @@ python-dotenv>=1.0.0
 manim==0.20.1
 jsonschema>=4.20.0
 Pillow>=10.0.0
+stable-ts==2.19.1
