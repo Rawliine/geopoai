@@ -24,8 +24,8 @@ locals {
   # verda_instance requires description (Verda API / provider ~> 1.0).
   instance_description = "GeoPoAI ${var.workload} — ${local.hostname}"
 
-  user_library  = file("${path.module}/startup_scripts/lib_user.sh")
-  mount_library = file("${path.module}/startup_scripts/lib_mount.sh")
+  user_library        = file("${path.module}/startup_scripts/lib_user.sh")
+  mount_library       = file("${path.module}/startup_scripts/lib_mount.sh")
   apt_comfyui_library = file("${path.module}/startup_scripts/lib_apt_comfyui.sh")
 
   ssh_public_key_line = chomp(file(pathexpand(var.ssh_public_key_path)))
