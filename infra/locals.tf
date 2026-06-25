@@ -34,6 +34,14 @@ locals {
 
   ssh_env_export = "export GEOPOAI_SSH_PUBLIC_KEY_LINE=${jsonencode(local.ssh_public_key_line)}"
 
+  deadman_env_exports = join("\n", compact([
+    "export GEOPOAI_MAX_SESSION_HOURS=${jsonencode(tostring(var.max_session_hours))}",
+    var.verda_client_id != "" ? "export VERDA_CLIENT_ID=${jsonencode(var.verda_client_id)}" : "",
+    var.verda_client_secret != "" ? "export VERDA_CLIENT_SECRET=${jsonencode(var.verda_client_secret)}" : "",
+  ]))
+
+  deadman_library = file("${path.module}/startup_scripts/lib_deadman.sh")
+
   comfyui_env_exports = var.workload == "comfyui" ? join("\n", compact([
     "export GEOPOAI_GIT_REPO=${jsonencode(var.geopoai_git_repo)}",
     "export COMFYUI_LISTEN_PORT=${jsonencode(tostring(var.comfyui_listen_port))}",
@@ -54,7 +62,7 @@ locals {
 
   # Verda startup scripts are immutable — change this suffix to force a new script object.
   # Verda does not allow in-place startup script updates — keep name stable across run_id.
-  startup_script_verda_name = "${var.project_slug}-${var.workload}-bootstrap-v5"
+  startup_script_verda_name = "${var.project_slug}-${var.workload}-bootstrap-v6"
 
   startup_script = join("\n", [
     "#!/usr/bin/env bash",
@@ -68,9 +76,11 @@ locals {
     local.mount_library,
     "geopoai_mount_models_volume",
     local.ssh_env_export,
-    local.comfyui_env_exports,
+    local.deadman_env_exports,
     local.ssh_access_library,
     "geopoai_install_ssh_authorized_key",
+    local.deadman_library,
+    local.comfyui_env_exports,
     local.workload_body,
     "echo \"[geopoai] bootstrap finished OK $(date -Is)\"",
   ])

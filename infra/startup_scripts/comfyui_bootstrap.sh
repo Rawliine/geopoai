@@ -122,3 +122,5 @@ tmux new-session -d -s comfyui "cd /home/ubuntu/ComfyUI && . .venv/bin/activate 
 EOSU2
 
 echo "[geopoai:comfyui] ComfyUI on 0.0.0.0:${COMFYUI_LISTEN_PORT}" >&2
+
+geopoai_install_deadman_cron

@@ -149,9 +149,16 @@ def _load_dotenv_into_environ() -> None:
 
 
 def terraform_base_args(workload: WorkloadSpec, run_id: str) -> list[str]:
-    args = [f"-var=run_id={run_id}"]
-    if os.environ.get("GEOPOAI_PASS_MAX_SESSION_HOURS") == "1":
-        args.append(f"-var=max_session_hours={workload.max_session_hours}")
+    args = [
+        f"-var=run_id={run_id}",
+        f"-var=max_session_hours={workload.max_session_hours}",
+    ]
+    client_id = os.environ.get("VERDA_CLIENT_ID", "")
+    client_secret = os.environ.get("VERDA_CLIENT_SECRET", "")
+    if client_id:
+        args.append(f"-var=verda_client_id={client_id}")
+    if client_secret:
+        args.append(f"-var=verda_client_secret={client_secret}")
     for tfvar in workload.tfvars:
         args.append(f"-var-file={tfvar}")
     return args

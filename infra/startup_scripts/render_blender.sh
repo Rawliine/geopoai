@@ -26,3 +26,5 @@ echo "[geopoai:blender] Blender installed: $(command -v blender)" >&2
 blender --version || true
 
 echo "[geopoai:blender] ready. Sync .blend files in, render to ~/outputs or /mnt/models/output." >&2
+
+geopoai_install_deadman_cron
