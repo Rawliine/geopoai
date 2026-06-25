@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, field
+import re
+import subprocess
+import tempfile
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -400,6 +403,293 @@ def add_bed_and_swells(
     return plan
 
 
+def _db_to_linear(db: float) -> float:
+    return 10.0 ** (db / 20.0)
+
+
+def _run_ffmpeg(args: list[str]) -> subprocess.CompletedProcess[str]:
+    result = subprocess.run(
+        args,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"ffmpeg failed ({result.returncode}): {result.stderr.strip() or result.stdout.strip()}"
+        )
+    return result
+
+
+def _probe_duration(path: Path) -> float:
+    result = subprocess.run(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            str(path),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(result.stderr.strip() or result.stdout.strip())
+    return float(result.stdout.strip())
+
+
+def _episode_duration(vo_wav: Path, plan: CuePlan, pad_s: float = 0.75) -> float:
+    vo_dur = _probe_duration(vo_wav)
+    cue_end = max((c.t for c in plan.placed), default=0.0) + pad_s
+    return max(vo_dur, cue_end, 1.0)
+
+
+def _render_sfx_bus(cues: list[SFXCue], duration_s: float, out_path: Path) -> None:
+    if not cues:
+        _run_ffmpeg(
+            [
+                "ffmpeg",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                f"anullsrc=r=48000:cl=stereo:d={duration_s:.3f}",
+                str(out_path),
+            ]
+        )
+        return
+
+    inputs: list[str] = []
+    filters: list[str] = []
+    labels: list[str] = []
+    for idx, cue in enumerate(cues):
+        inputs.extend(["-i", str(cue.file)])
+        delay_ms = int(round(cue.t * 1000.0))
+        gain = _db_to_linear(cue.gain_db)
+        label = f"c{idx}"
+        filters.append(
+            f"[{idx}:a]aformat=sample_rates=48000:channel_layouts=stereo,"
+            f"asetrate=48000*{cue.pitch_ratio:.6f},aresample=48000,"
+            f"volume={gain:.6f},adelay={delay_ms}|{delay_ms}[{label}]"
+        )
+        labels.append(f"[{label}]")
+    mix_inputs = "".join(labels)
+    filters.append(
+        f"{mix_inputs}amix=inputs={len(cues)}:duration=longest:dropout_transition=0:normalize=0,"
+        f"apad,atrim=0:{duration_s:.3f}[sfx]"
+    )
+    _run_ffmpeg(
+        [
+            "ffmpeg",
+            "-y",
+            *inputs,
+            "-filter_complex",
+            ";".join(filters),
+            "-map",
+            "[sfx]",
+            str(out_path),
+        ]
+    )
+
+
+def _bed_volume_expression(spec: BedSpec, duck_windows: list[tuple[float, float]]) -> str:
+    base = _db_to_linear(spec.gain_db)
+    duck_lin = _db_to_linear(-spec.duck_db)
+    if not duck_windows:
+        return f"{base:.8f}"
+    factors = [
+        f"if(between(t,{start:.3f},{end:.3f}),{duck_lin:.8f},1)" for start, end in duck_windows
+    ]
+    return f"{base:.8f}*{'*'.join(factors)}"
+
+
+def _render_bed(
+    spec: BedSpec,
+    duck_windows: list[tuple[float, float]],
+    duration_s: float,
+    out_path: Path,
+) -> None:
+    fade_out_start = max(0.0, duration_s - spec.fade_s)
+    vol_expr = _bed_volume_expression(spec, duck_windows)
+    _run_ffmpeg(
+        [
+            "ffmpeg",
+            "-y",
+            "-stream_loop",
+            "-1",
+            "-i",
+            str(spec.file),
+            "-t",
+            f"{duration_s:.3f}",
+            "-af",
+            (
+                f"afade=t=in:st=0:d={spec.fade_s:.3f},"
+                f"afade=t=out:st={fade_out_start:.3f}:d={spec.fade_s:.3f},"
+                f"volume='{vol_expr}'"
+            ),
+            str(out_path),
+        ]
+    )
+
+
+def _mix_vo_and_buses(
+    vo_wav: Path,
+    sfx_wav: Path,
+    bed_wav: Path | None,
+    vo_duck_db: float,
+    out_path: Path,
+) -> None:
+    duck_ratio = max(2.0, abs(vo_duck_db) / 2.0)
+    if bed_wav is not None:
+        filter_complex = (
+            "[1:a][2:a]amix=inputs=2:duration=longest:dropout_transition=0:normalize=0[sfxbed];"
+            f"[sfxbed][0:a]sidechaincompress=threshold=0.02:ratio={duck_ratio:.1f}:"
+            "attack=8:release=220:level_sc=1:mix=1[ducked];"
+            "[0:a][ducked]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[out]"
+        )
+        _run_ffmpeg(
+            [
+                "ffmpeg",
+                "-y",
+                "-i",
+                str(vo_wav),
+                "-i",
+                str(sfx_wav),
+                "-i",
+                str(bed_wav),
+                "-filter_complex",
+                filter_complex,
+                "-map",
+                "[out]",
+                str(out_path),
+            ]
+        )
+        return
+
+    filter_complex = (
+        f"[1:a][0:a]sidechaincompress=threshold=0.02:ratio={duck_ratio:.1f}:"
+        "attack=8:release=220:level_sc=1:mix=1[ducked];"
+        "[0:a][ducked]amix=inputs=2:duration=first:dropout_transition=0:normalize=0[out]"
+    )
+    _run_ffmpeg(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(vo_wav),
+            "-i",
+            str(sfx_wav),
+            "-filter_complex",
+            filter_complex,
+            "-map",
+            "[out]",
+            str(out_path),
+        ]
+    )
+
+
+def _parse_loudnorm_json(stderr: str) -> dict[str, Any]:
+    match = re.search(r"\{[^{}]*\"input_i\"[^{}]*\}", stderr, re.DOTALL)
+    if not match:
+        raise RuntimeError(f"loudnorm JSON not found in ffmpeg output: {stderr[-500:]}")
+    return json.loads(match.group(0))
+
+
+def _loudnorm_two_pass(input_wav: Path, target_lufs: float, out_path: Path) -> dict[str, Any]:
+    measure = subprocess.run(
+        [
+            "ffmpeg",
+            "-hide_banner",
+            "-i",
+            str(input_wav),
+            "-af",
+            f"loudnorm=I={target_lufs}:TP=-1.5:LRA=11:print_format=json",
+            "-f",
+            "null",
+            "-",
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if measure.returncode != 0:
+        raise RuntimeError(measure.stderr.strip() or measure.stdout.strip())
+    stats = _parse_loudnorm_json(measure.stderr)
+    _run_ffmpeg(
+        [
+            "ffmpeg",
+            "-y",
+            "-i",
+            str(input_wav),
+            "-af",
+            (
+                f"loudnorm=I={target_lufs}:TP=-1.5:LRA=11:"
+                f"measured_I={stats['input_i']}:"
+                f"measured_TP={stats['input_tp']}:"
+                f"measured_LRA={stats['input_lra']}:"
+                f"measured_thresh={stats['input_thresh']}:"
+                f"offset={stats['target_offset']}:linear=true"
+            ),
+            str(out_path),
+        ]
+    )
+    return stats
+
+
+def _cue_to_dict(cue: SFXCue) -> dict[str, Any]:
+    data = asdict(cue)
+    data["file"] = str(cue.file)
+    return data
+
+
+def write_cues_json(plan: CuePlan, path: Path) -> None:
+    payload = {
+        "placed": [_cue_to_dict(c) for c in plan.placed],
+        "dropped": [asdict(d) for d in plan.dropped],
+        "bed": asdict(plan.bed) if plan.bed else None,
+        "bed_duck_windows": plan.bed_duck_windows,
+    }
+    if payload["bed"]:
+        payload["bed"]["file"] = str(plan.bed.file)  # type: ignore[index]
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+
+
+def mix_episode(
+    vo_wav: Path,
+    plan: CuePlan,
+    palette: dict[str, Any],
+    tokens: dict[str, Any],
+) -> Path:
+    """Render mix.wav (VO + SFX + bed) and mix.cues.json beside the VO."""
+    sound_tokens = tokens.get("sound", tokens)
+    vo_duck_db = float(sound_tokens.get("vo_duck_db", -6))
+    target_lufs = float(sound_tokens.get("target_lufs", -14))
+    vo_wav = Path(vo_wav)
+    out_dir = vo_wav.parent
+    mix_path = out_dir / "mix.wav"
+    cues_path = out_dir / "mix.cues.json"
+    duration_s = _episode_duration(vo_wav, plan)
+
+    with tempfile.TemporaryDirectory(prefix="geopo-sound-") as tmp:
+        tmp_dir = Path(tmp)
+        sfx_path = tmp_dir / "sfx.wav"
+        pre_master = tmp_dir / "pre_master.wav"
+        _render_sfx_bus(plan.placed, duration_s, sfx_path)
+        bed_path: Path | None = None
+        if plan.bed is not None:
+            bed_path = tmp_dir / "bed.wav"
+            _render_bed(plan.bed, plan.bed_duck_windows, duration_s, bed_path)
+        _mix_vo_and_buses(vo_wav, sfx_path, bed_path, vo_duck_db, pre_master)
+        _loudnorm_two_pass(pre_master, target_lufs, mix_path)
+
+    write_cues_json(plan, cues_path)
+    return mix_path
+
+
 def build(
     events_jsons: list[Path],
     offsets: list[float],
@@ -407,4 +697,8 @@ def build(
     tokens: dict[str, Any],
 ) -> Path:
     """Mix SFX cues from clip events into a single episode waveform."""
-    raise NotImplementedError("composition.sound.build is implemented in W16")
+    palette = _load_palette(tokens)
+    events = collect_events(events_jsons, offsets)
+    plan = plan_cues(events, palette)
+    plan = add_bed_and_swells(plan, events, palette)
+    return mix_episode(vo_wav, plan, palette, tokens)
