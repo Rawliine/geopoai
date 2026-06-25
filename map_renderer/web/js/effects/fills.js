@@ -163,6 +163,31 @@ function _radiusForAreaFraction(countryFeat, center, targetV) {
   return hi;
 }
 
+// Precompute v -> radius(km) once (the binary search above is too slow to run
+// every frame). 24 samples; per-frame we linearly interpolate this table.
+function _buildRadiusLUT(countryFeat, center) {
+  const lut = [];
+  for (let i = 0; i <= 24; i += 1) {
+    const v = i / 24;
+    lut.push({ v, km: _radiusForAreaFraction(countryFeat, center, v) });
+  }
+  return lut;
+}
+
+function _radiusFromLUT(lut, v) {
+  if (!lut || !lut.length) return 0;
+  v = Math.max(0, Math.min(1, v));
+  for (let i = 1; i < lut.length; i += 1) {
+    if (v <= lut[i].v) {
+      const a = lut[i - 1];
+      const b = lut[i];
+      const f = (v - a.v) / Math.max(1e-6, b.v - a.v);
+      return a.km + (b.km - a.km) * f;
+    }
+  }
+  return lut[lut.length - 1].km;
+}
+
 function _edgeMaskPolygon(countryFeat, edge, targetV) {
   const bbox = turf.bbox(countryFeat);
   const pad = 20;
@@ -195,8 +220,10 @@ function _clipCountryForFront(countryFeat, spec, targetV) {
   if (spec.edge) {
     mask = _edgeMaskPolygon(countryFeat, spec.edge, targetV);
   } else if (spec.from && Array.isArray(spec.from)) {
-    const km = _radiusForAreaFraction(countryFeat, spec.from, targetV);
-    mask = turf.circle(spec.from, km, { steps: 64, units: 'kilometers' });
+    const km = spec._radiusLUT
+      ? _radiusFromLUT(spec._radiusLUT, targetV)
+      : _radiusForAreaFraction(countryFeat, spec.from, targetV);
+    mask = turf.circle(spec.from, km, { steps: 48, units: 'kilometers' });
   } else {
     return null;
   }
@@ -246,7 +273,17 @@ function _updateAdvanceFront(map, overlayEl, front, t) {
   }
   const localT = Math.max(0, t - front.startAt);
   const v = _interpKeyframes(front.progress, localT, front.easing);
-  const clipped = _clipCountryForFront(front.countryFeat, front, v);
+  // Cache the (geo) clip by quantized progress so plateaued fronts skip turf
+  // entirely; re-projection to pixels still runs each frame (cheap).
+  const vq = Math.round(v * 200) / 200;
+  let clipped;
+  if (front._lastVq === vq && front._clippedGeo !== undefined) {
+    clipped = front._clippedGeo;
+  } else {
+    clipped = _clipCountryForFront(front.countryFeat, front, v);
+    front._lastVq = vq;
+    front._clippedGeo = clipped;
+  }
   const svg = _ensureFrontSvg(map, overlayEl, front);
   const rc = _roleColors(front.role || 'threat');
   const fillPath = svg.querySelector('.advance-front-fill');
@@ -301,6 +338,9 @@ function advanceFront(map, overlayEl, spec) {
   MapEffects._territoryState.fronts[id] = {
     id, from, edge, progress, role, front, easing, startAt,
     countryFeat,
+    // Precompute v->radius once; per-frame uses _radiusFromLUT (cheap).
+    _radiusLUT: (from && Array.isArray(from) && !edge)
+      ? _buildRadiusLUT(countryFeat, from) : null,
   };
   _ensureFrontSvg(map, overlayEl, { id });
   _updateAdvanceFront(map, overlayEl, MapEffects._territoryState.fronts[id], startAt);
@@ -412,11 +452,20 @@ function _updateMorphTerritory(map, overlayEl, morph, t) {
     ? MapEffects.getEasing(morph.easing)
     : (x => x);
   p = ease(p);
-  const fromPx = _projectedRing(map, morph.geoFrom);
-  const toPx = _projectedRing(map, morph.geoTo);
-  if (fromPx.length < 3 || toPx.length < 3) return;
-  const interp = flubber.interpolate(fromPx, toPx, { maxSegmentLength: 2 });
-  const d = interp(p);
+  // Cache the projection + flubber interpolator by camera state; rebuild only
+  // when the camera moves. flubber.interpolate is far too slow to run per frame.
+  const c = map.getCenter();
+  const camKey = `${c.lng.toFixed(4)},${c.lat.toFixed(4)},${map.getZoom().toFixed(3)},${map.getBearing().toFixed(2)},${map.getPitch().toFixed(2)}`;
+  if (morph._camKey !== camKey || !morph._interp) {
+    const fromPx = _projectedRing(map, morph.geoFrom);
+    const toPx = _projectedRing(map, morph.geoTo);
+    morph._interp = (fromPx.length >= 3 && toPx.length >= 3)
+      ? flubber.interpolate(fromPx, toPx, { maxSegmentLength: 8 })
+      : null;
+    morph._camKey = camKey;
+  }
+  if (!morph._interp) return;
+  const d = morph._interp(p);
   const svg = _ensureMorphSvg(map, overlayEl, morph);
   const path = svg.querySelector('.morph-territory-path');
   const rc = _roleColors(morph.role || 'contested');
