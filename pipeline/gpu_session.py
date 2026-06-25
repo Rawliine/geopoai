@@ -91,13 +91,15 @@ def load_registry(path: Path = _SESSIONS_PATH) -> tuple[dict[str, float], dict[s
     return gpu_rates, workloads
 
 
-def load_state(path: Path = _STATE_PATH) -> dict[str, dict[str, Any]]:
+def load_state(path: Path | None = None) -> dict[str, dict[str, Any]]:
+    path = path or _STATE_PATH
     if not path.exists():
         return {}
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def save_state(state: dict[str, dict[str, Any]], path: Path = _STATE_PATH) -> None:
+def save_state(state: dict[str, dict[str, Any]], path: Path | None = None) -> None:
+    path = path or _STATE_PATH
     path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
@@ -105,8 +107,9 @@ def get_session(state: dict[str, dict[str, Any]], workload: str) -> dict[str, An
     return state.get(workload)
 
 
-def record_activity(workload: str, *, path: Path = _STATE_PATH) -> None:
+def record_activity(workload: str, *, path: Path | None = None) -> None:
     """Update last_activity_at for a workload (file-touch fallback for idle watchdog)."""
+    path = path or _STATE_PATH
     state = load_state(path)
     session = state.get(workload)
     if not session:

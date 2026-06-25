@@ -809,3 +809,56 @@ curl -H "Authorization: Bearer $TOKEN" https://api.verda.com/v1/balance
 9. **Hard budget alerts. Tag job runs. Daily check.**
 
 A few hundred dollars goes far when you're disciplined about idle time and use spot for batches. Most of your project work is free (local). Verda is for the moments when you need 32GB+ VRAM, and you pay only for those minutes.
+
+---
+
+## Session manager (`pipeline/gpu_session.py`)
+
+One Python entry point replaces manual terraform ceremony: **up → health → use → auto-down**.
+Generic across workloads (ComfyUI today; blender_render / lora_train; future TTS as config).
+
+### Commands
+
+```bash
+# Prefix Python/tests with conda env; source Verda creds for terraform:
+set -a && source /home/rawline/GeoPoAI/.env && set +a
+
+conda run -n geopo python pipeline/gpu_session.py up comfyui_setup --verbose
+conda run -n geopo python pipeline/gpu_session.py status comfyui_setup
+conda run -n geopo python pipeline/gpu_session.py run comfyui -- python pipeline/broll.py shot.json
+conda run -n geopo python pipeline/gpu_session.py watchdog comfyui
+conda run -n geopo python pipeline/gpu_session.py down comfyui_setup
+```
+
+Workload registry: `infra/sessions.json`. Laptop session state: `infra/.session_state.json` (gitignored).
+
+### Idle + budget insurance (two layers)
+
+| Layer | Where | Behavior |
+|-------|-------|----------|
+| **Primary** | Laptop `watchdog` | Polls ComfyUI `/queue` + `/history`; SSH workloads use `last_activity_at` in session state. `idle_minutes` → `down`. `max_session_hours` → force `down` + loud log. |
+| **Backstop** | VM cron (`lib_deadman.sh`) | `@reboot` sleep `max_session_hours + 30m`, then Verda API `delete` on **instance only** (no `volume_ids` — models volume survives). |
+
+Forgot-the-H100-overnight: laptop watchdog is primary; VM cron fires even if the laptop sleeps.
+
+### Models volume (never destroyed by session manager)
+
+- Dashboard name: `geopoai-models-persistent`
+- Volume ID (setup-001): `a4e5300f-32c3-41f4-9a74-d057fb7d628f`
+- `gpu_session down` runs `terraform destroy -target=verda_instance.this` only — same guard as `destroy_comfyui_instance.sh`.
+
+### Cost estimates
+
+`status` prints `estimated_cost_usd` from `gpu_hourly_usd` in `sessions.json` — **estimates only**; check Verda Billing for truth.
+
+### B-roll activity hook (future)
+
+`from pipeline.gpu_session import record_activity` — call on each shot to refresh `last_activity_at` when not using ComfyUI `/history` idle detection. Not wired in `pipeline/broll.py` yet (W18 lane).
+
+### Background watchdog
+
+```bash
+nohup conda run -n geopo python pipeline/gpu_session.py watchdog comfyui > /tmp/gpu-watchdog.log 2>&1 &
+```
+
+Or a systemd user timer on the laptop (document your unit locally).
