@@ -448,6 +448,39 @@ def write_ass(
     return out_path
 
 
+def write_srt(chunks: list[Chunk], out_path: Path) -> Path:
+    """Plain SRT sidecar — full transcript, no styling."""
+    lines: list[str] = []
+    for idx, chunk in enumerate(chunks, start=1):
+        lines.append(str(idx))
+        lines.append(f"{_srt_time(chunk.start)} --> {_srt_time(chunk.end)}")
+        lines.append(chunk.text)
+        lines.append("")
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text("\n".join(lines), encoding="utf-8")
+    return out_path
+
+
+def _srt_time(seconds: float) -> str:
+    millis = int(round(seconds * 1000))
+    hours, rem = divmod(millis, 3_600_000)
+    minutes, rem = divmod(rem, 60_000)
+    secs, ms = divmod(rem, 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},{ms:03d}"
+
+
+def _policy_burn_ass(caption_policy: dict[str, Any] | None) -> bool:
+    if not caption_policy:
+        return True
+    return str(caption_policy.get("burn_in", "broll_only")) != "never"
+
+
+def _policy_sidecar(caption_policy: dict[str, Any] | None) -> bool:
+    if not caption_policy:
+        return True
+    return bool(caption_policy.get("sidecar", True))
+
+
 def build(
     vo_wav: Path,
     words_json: Path | None,
@@ -493,15 +526,26 @@ def build(
     out_dir = output_dir or vo_wav.parent
     stem = vo_wav.stem
     ass_path = out_dir / f"{stem}.ass"
+    srt_path = out_dir / f"{stem}.srt"
 
     words = load_words(words_json, script_text)
     chunks = chunk_words(words, tokens, script_text=script_text)
     placements = place_chunks(chunks, tokens, fmt, layout_jsons, clip_offsets)
-    return write_ass(
-        chunks,
-        tokens,
-        fmt,
-        ass_path,
-        placements=placements,
-        burn_windows=burn_windows,
-    )
+
+    if _policy_sidecar(caption_policy):
+        write_srt(chunks, srt_path)
+
+    if _policy_burn_ass(caption_policy):
+        write_ass(
+            chunks,
+            tokens,
+            fmt,
+            ass_path,
+            placements=placements,
+            burn_windows=burn_windows,
+        )
+        return ass_path
+
+    if _policy_sidecar(caption_policy):
+        return srt_path
+    raise ValueError("caption_policy disables both burn-in and sidecar output")
