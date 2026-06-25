@@ -416,30 +416,36 @@ function statBox(map, overlayEl, spec) {
     rows = [],
     position = { x: 0.04, y: 0.08, unit: 'frac' },
     role = 'neutral',
+    style = 'broadcast',
     _actionAt = 0,
     _deterministic = false,
   } = spec;
+  const variant = `stat-box--${String(style).toLowerCase()}`;
 
   const pos = MapEffects.layoutHints
     ? MapEffects.layoutHints.resolvePosition(position)
     : position;
 
   const el = MapEffects.createOverlayEl
-    ? MapEffects.createOverlayEl('div', 'chart', { id, className: 'stat-box effect-label' })
+    ? MapEffects.createOverlayEl('div', 'chart', { id, className: `stat-box ${variant} effect-label` })
     : document.createElement('div');
   if (!MapEffects.createOverlayEl) {
     el.id = id;
-    el.classList.add('stat-box', 'effect-label');
+    el.classList.add('stat-box', variant, 'effect-label');
+  } else {
+    el.classList.add(variant);
   }
 
   el.style.left = `${pos.x}px`;
   el.style.top = `${pos.y}px`;
   el.dataset.actionAt = _actionAt;
+  // Role color exposed as --box-accent so each style variant can use it for its
+  // accent bar / underline / leader as it sees fit.
+  el.style.setProperty('--box-accent', _roleColor(role, 'core'));
 
   const head = document.createElement('div');
   head.classList.add('stat-box-title');
   head.textContent = title;
-  head.style.borderBottomColor = _roleColor(role, 'core');
   el.appendChild(head);
 
   const body = document.createElement('div');

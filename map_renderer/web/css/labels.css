@@ -262,95 +262,150 @@
     100% { opacity: 0; }
   }
 
-  /* ── W12: stat box ────────────────────────────────────────── */
+  /* ── W12: stat box ───────────────────────────────────────────
+     `statBox` takes a `style:` param → .stat-box--<style>. Base holds only
+     shared structure; each variant owns the look. --box-accent is the role
+     color (set inline by the JS). Styles: terminal | broadcast | editorial |
+     brutalist | glass | material.                                          */
   .stat-box {
     position: absolute;
     min-width: 232px;
-    background: color-mix(in srgb, var(--palette-background) 88%, transparent);
-    border: 1px solid color-mix(in srgb, var(--text-secondary) 24%, transparent);
-    border-left: 3px solid var(--role-neutral-core);
     font-family: var(--font-primary);
     color: var(--text-primary);
-    backdrop-filter: blur(2px);
   }
-
-  .stat-box-enter {
-    animation: stat-box-in 0.5s ease-out forwards;
-    opacity: 0;
-    transform: translateY(8px);
-  }
-
-  @keyframes stat-box-in {
-    100% { opacity: 1; transform: translateY(0); }
-  }
-
-  .stat-box-title {
-    font-size: calc(var(--font-size-horizontal-label) * 0.72);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.16em;
-    color: var(--text-secondary);
-    padding: 0.55em 0.95em 0.5em;
-    border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 22%, transparent);
-  }
-
+  .stat-box-body { display: flex; flex-direction: column; }
   .stat-box-row {
     display: flex;
     align-items: center;
     gap: 0.65em;
     padding: 0.5em 0.95em;
     opacity: 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 9%, transparent);
   }
-
-  .stat-box-row:last-child { border-bottom: none; }
-
-  .stat-row-enter {
-    animation: stat-row-in 0.45s ease-out var(--row-delay, 0ms) forwards;
-  }
-
-  @keyframes stat-row-in {
-    0%   { opacity: 0; transform: translateX(-6px); }
-    100% { opacity: 1; transform: translateX(0); }
-  }
-
-  .stat-box-icon {
-    width: 1em;
-    height: 1em;
-    flex-shrink: 0;
-    opacity: 0.7;
-    object-fit: contain;
-  }
-
-  .stat-box-flag {
-    width: 1.15em;
-    height: 1.15em;
-    flex-shrink: 0;
-    border-radius: 50%;
-    object-fit: cover;
-    box-shadow: 0 0 0 1px color-mix(in srgb, var(--text-secondary) 30%, transparent);
-  }
-
-  .stat-box-label {
-    flex: 1;
-    color: var(--text-secondary);
-    font-size: 0.8em;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
+  .stat-box-icon { width: 1em; height: 1em; flex-shrink: 0; opacity: 0.7; object-fit: contain; }
+  .stat-box-flag { width: 1.15em; height: 1.15em; flex-shrink: 0; object-fit: cover; }
+  .stat-box-label { flex: 1; color: var(--text-secondary); font-size: 0.82em; }
+  .stat-box-title { font-weight: 700; padding: 0.55em 0.95em; }
   .stat-box-value {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-weight: 600;
-    font-size: 0.95em;
   }
+
+  /* entrance (shared) */
+  .stat-box-enter { animation: stat-box-in 0.5s ease-out forwards; opacity: 0; transform: translateY(8px); }
+  @keyframes stat-box-in { 100% { opacity: 1; transform: translateY(0); } }
+  .stat-row-enter { animation: stat-row-in 0.45s ease-out var(--row-delay, 0ms) forwards; }
+  @keyframes stat-row-in { 0% { opacity: 0; transform: translateX(-6px); } 100% { opacity: 1; transform: translateX(0); } }
+
+  /* 1 — TERMINAL (intel / Bloomberg) — mono, accent border, dot-leader feel */
+  .stat-box--terminal {
+    background: color-mix(in srgb, var(--palette-background) 92%, transparent);
+    border: 1px solid color-mix(in srgb, var(--box-accent) 45%, transparent);
+  }
+  .stat-box--terminal .stat-box-title {
+    font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.18em;
+    font-size: 0.7em; color: var(--box-accent);
+    border-bottom: 1px solid color-mix(in srgb, var(--box-accent) 30%, transparent);
+  }
+  .stat-box--terminal .stat-box-row { font-family: var(--font-mono); }
+  .stat-box--terminal .stat-box-label { text-transform: uppercase; letter-spacing: 0.04em; font-size: 0.76em; }
+  .stat-box--terminal .stat-box-value { color: var(--box-accent); }
+
+  /* 2 — BROADCAST (TV lower-third) — accent bar + tinted title, hairline rows */
+  .stat-box--broadcast {
+    background: color-mix(in srgb, var(--palette-background) 88%, transparent);
+    border: 1px solid color-mix(in srgb, var(--text-secondary) 22%, transparent);
+    border-left: 3px solid var(--box-accent);
+    backdrop-filter: blur(2px);
+  }
+  .stat-box--broadcast .stat-box-title {
+    text-transform: uppercase; letter-spacing: 0.13em; font-size: 0.74em;
+    background: color-mix(in srgb, var(--box-accent) 16%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--box-accent) 30%, transparent);
+  }
+  .stat-box--broadcast .stat-box-row { border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 10%, transparent); }
+  .stat-box--broadcast .stat-box-row:last-child { border-bottom: none; }
+  .stat-box--broadcast .stat-box-flag { border-radius: 2px; }
+
+  /* 3 — EDITORIAL (Economist/FT) — transparent, top rule, refined */
+  .stat-box--editorial {
+    background: transparent;
+    border-top: 2px solid var(--text-primary);
+  }
+  .stat-box--editorial .stat-box-title {
+    font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; font-size: 0.82em; color: var(--text-primary); padding-bottom: 0.25em;
+  }
+  .stat-box--editorial .stat-box-row { border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 28%, transparent); }
+  .stat-box--editorial .stat-box-label { font-size: 0.84em; }
+  .stat-box--editorial .stat-box-value { font-weight: 700; }
+
+  /* 4 — BRUTALIST (poster) — inverted block, heavy condensed, hard edges */
+  .stat-box--brutalist {
+    background: var(--text-primary);
+    color: var(--palette-background);
+    border: 2px solid var(--text-primary);
+  }
+  .stat-box--brutalist .stat-box-title {
+    font-family: var(--font-display); font-weight: 800; text-transform: uppercase;
+    letter-spacing: 0.03em; font-size: 0.92em;
+    background: var(--box-accent); color: var(--palette-background); padding: 0.35em 0.7em;
+  }
+  .stat-box--brutalist .stat-box-row { padding: 0.4em 0.7em; }
+  .stat-box--brutalist .stat-box-label { font-weight: 700; text-transform: uppercase; color: color-mix(in srgb, var(--palette-background) 80%, var(--text-primary)); }
+  .stat-box--brutalist .stat-box-value { color: var(--palette-background); font-weight: 800; }
+  .stat-box--brutalist .stat-box-icon { opacity: 1; filter: invert(1); }
+
+  /* 5 — GLASS (glassmorphism) — frosted blur, rounded, light inner highlight */
+  .stat-box--glass {
+    background: color-mix(in srgb, var(--palette-surface) 28%, transparent);
+    border: 1px solid color-mix(in srgb, white 18%, transparent);
+    border-radius: 12px;
+    backdrop-filter: blur(12px) saturate(1.2);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, white 22%, transparent), 0 8px 30px rgba(0, 0, 0, 0.28);
+    overflow: hidden;
+  }
+  .stat-box--glass .stat-box-title {
+    text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.76em;
+    border-bottom: 1px solid color-mix(in srgb, white 12%, transparent);
+  }
+  .stat-box--glass .stat-box-label { color: color-mix(in srgb, var(--text-primary) 72%, transparent); }
+  .stat-box--glass .stat-box-flag { border-radius: 50%; }
+
+  /* 6 — MATERIAL (Google card) — solid surface, elevation, colored header */
+  .stat-box--material {
+    background: var(--palette-surface);
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.32), 0 8px 18px rgba(0, 0, 0, 0.26);
+    overflow: hidden;
+  }
+  .stat-box--material .stat-box-title {
+    background: var(--box-accent); color: var(--palette-background);
+    font-weight: 600; font-size: 0.8em; letter-spacing: 0.03em; padding: 0.6em 0.95em;
+  }
+  .stat-box--material .stat-box-row { padding: 0.55em 0.95em; }
+  .stat-box--material .stat-box-row:not(:last-child) { border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 14%, transparent); }
+  .stat-box--material .stat-box-value { color: var(--text-primary); }
 
   /* ── W12: geo-pinned icons ────────────────────────────────── */
   .map-icon {
     position: absolute;
     translate: -50% -50%;
     pointer-events: none;
+    z-index: 16;                       /* sit above arrows / fills */
+  }
+
+  /* Soft dark plate so a pin reads on top of bright effects (e.g. an arrow
+     that originates at the same point). */
+  .map-icon::before {
+    content: "";
+    position: absolute;
+    inset: -28%;
+    border-radius: 50%;
+    background: radial-gradient(circle,
+      color-mix(in srgb, var(--palette-background) 82%, transparent) 38%,
+      transparent 72%);
+    z-index: -1;
   }
 
   .map-icon-lift {

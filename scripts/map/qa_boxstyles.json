@@ -1,0 +1,50 @@
+{
+  "duration": 5,
+  "format": "horizontal",
+  "map_style": "dark",
+  "camera": { "center": [-5.0, 31.0], "zoom": 4.0, "pitch": 20, "bearing": 0, "duration": 0 },
+  "timeline": [
+    { "at": 0.30, "action": "statBox", "params": {
+        "id": "b-terminal", "style": "terminal", "title": "TERMINAL", "role": "highlight",
+        "position": { "x": 0.03, "y": 0.05, "unit": "frac" },
+        "rows": [
+          { "flag": "ma", "icon": "shield", "iconPack": "lucide", "label": "Royal Army", "value": "120K" },
+          { "flag": "fr", "icon": "users", "iconPack": "lucide", "label": "Allied support", "value": "45,000" }
+        ] } },
+    { "at": 0.45, "action": "statBox", "params": {
+        "id": "b-broadcast", "style": "broadcast", "title": "BROADCAST", "role": "ally",
+        "position": { "x": 0.37, "y": 0.05, "unit": "frac" },
+        "rows": [
+          { "flag": "ma", "icon": "shield", "iconPack": "lucide", "label": "Royal Army", "value": "120K" },
+          { "flag": "fr", "icon": "users", "iconPack": "lucide", "label": "Allied support", "value": "45,000" }
+        ] } },
+    { "at": 0.60, "action": "statBox", "params": {
+        "id": "b-editorial", "style": "editorial", "title": "EDITORIAL", "role": "neutral",
+        "position": { "x": 0.70, "y": 0.05, "unit": "frac" },
+        "rows": [
+          { "flag": "ma", "icon": "shield", "iconPack": "lucide", "label": "Royal Army", "value": "120K" },
+          { "flag": "fr", "icon": "users", "iconPack": "lucide", "label": "Allied support", "value": "45,000" }
+        ] } },
+    { "at": 0.75, "action": "statBox", "params": {
+        "id": "b-brutalist", "style": "brutalist", "title": "BRUTALIST", "role": "threat",
+        "position": { "x": 0.03, "y": 0.55, "unit": "frac" },
+        "rows": [
+          { "flag": "ma", "icon": "shield", "iconPack": "lucide", "label": "Royal Army", "value": "120K" },
+          { "flag": "fr", "icon": "users", "iconPack": "lucide", "label": "Allied support", "value": "45,000" }
+        ] } },
+    { "at": 0.90, "action": "statBox", "params": {
+        "id": "b-glass", "style": "glass", "title": "GLASS", "role": "highlight",
+        "position": { "x": 0.37, "y": 0.55, "unit": "frac" },
+        "rows": [
+          { "flag": "ma", "icon": "shield", "iconPack": "lucide", "label": "Royal Army", "value": "120K" },
+          { "flag": "fr", "icon": "users", "iconPack": "lucide", "label": "Allied support", "value": "45,000" }
+        ] } },
+    { "at": 1.05, "action": "statBox", "params": {
+        "id": "b-material", "style": "material", "title": "MATERIAL", "role": "contested",
+        "position": { "x": 0.70, "y": 0.55, "unit": "frac" },
+        "rows": [
+          { "flag": "ma", "icon": "shield", "iconPack": "lucide", "label": "Royal Army", "value": "120K" },
+          { "flag": "fr", "icon": "users", "iconPack": "lucide", "label": "Allied support", "value": "45,000" }
+        ] } }
+  ]
+}
