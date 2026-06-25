@@ -162,6 +162,21 @@ manim_renderer/
 
 See `manim_renderer/docs/` (`AGENT.md`, `SKILL.md`, `plan.md`, `recap.md`) for the full design, scene-authoring guide, and roadmap.
 
+## GPU sessions (infra)
+
+Heavy GPU work (ComfyUI b-roll, Blender renders, LoRA training) runs on ephemeral [Verda](https://verda.com) instances managed by one entry point — `pipeline/gpu_session.py`. Lifecycle is **up → health → use → auto-down**: it picks a GPU from a best→worst fallback chain using live Verda availability, polls a health endpoint, then tears the instance down on idle/budget caps. Workloads are declared in `infra/sessions.json`; the persistent models volume is never touched by `down`.
+
+```bash
+python pipeline/gpu_session.py gpus --all-locations          # browse live free GPU SKUs
+python pipeline/gpu_session.py interactive comfyui_setup     # wizard: pick GPU/region/spot, deploy, download
+python pipeline/gpu_session.py up comfyui --verbose          # automated bring-up (fallback chain)
+python pipeline/gpu_session.py status comfyui                # state, IP, health, uptime, est. cost
+python pipeline/gpu_session.py watchdog comfyui              # idle/budget auto-down (laptop side)
+python pipeline/gpu_session.py down comfyui                  # destroy instance only (models volume kept)
+```
+
+Needs `VERDA_CLIENT_ID` / `VERDA_CLIENT_SECRET` in `.env` (see `.env.example`). Two safety layers cap spend: a laptop **watchdog** (`idle_minutes` / `max_session_hours`) and a VM-side **dead-man cron** that self-terminates the instance if the laptop never does. The models volume is destroyed only via the explicit, typed-confirm `destroy volume` command. Full operator guide: `infra/OPERATOR_RUNBOOK.md` → **Session manager**; working rules: `infra/AGENT.md`.
+
 ## Composition & orchestration (in progress)
 
 These layers are being built — see [`plans/PLAN.md`](plans/PLAN.md) for scope, waves, and status.

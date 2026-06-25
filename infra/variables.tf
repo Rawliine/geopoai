@@ -126,3 +126,23 @@ variable "huggingface_token" {
   default     = ""
   sensitive   = true
 }
+
+variable "max_session_hours" {
+  type        = number
+  description = "Hard session budget cap (hours) for laptop watchdog + VM dead-man cron backstop."
+  default     = 8
+}
+
+variable "verda_client_id" {
+  type        = string
+  description = "Verda API client id for VM dead-man cron (optional; falls back to VERDA_CLIENT_ID at apply time)."
+  default     = ""
+  sensitive   = true
+}
+
+variable "verda_client_secret" {
+  type        = string
+  description = "Verda API client secret for VM dead-man cron (optional; falls back to VERDA_CLIENT_SECRET at apply time)."
+  default     = ""
+  sensitive   = true
+}

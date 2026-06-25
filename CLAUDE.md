@@ -20,7 +20,7 @@ pass into finished episodes.
 | Manim renderer | `manim_renderer/` | live | `manim_renderer/docs/` (SKILL, AGENT, recap, plan) |
 | B-roll | `broll/` | live | `broll/` (AGENT, plan, recap) |
 | Presenter renderer | `presenter_renderer/` | in progress | `presenter_renderer/` (AGENT, plan, recap, SKILL) |
-| Infra (GPU sessions) | `infra/` | live | `infra/README.md` + `infra/OPERATOR_RUNBOOK.md` + `infra/AGENT.md` |
+| Infra (GPU sessions) | `infra/` + `pipeline/gpu_session.py` | live | `infra/README.md` + `infra/OPERATOR_RUNBOOK.md` (Session manager) + `infra/AGENT.md` |
 | Composition | `composition/` | in progress — see `plans/W15`–`W17` | — |
 | Orchestration | `orchestration/` | in progress — see `plans/W20` | — |
 
