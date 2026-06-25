@@ -1743,6 +1743,96 @@ def cmd_interactive(
         return 0
 
 
+def _interactive_teardown(
+    *,
+    input_fn: Any,
+    gpu_rates: dict[str, float],
+    gpu_profiles: dict[str, GpuProfile],
+    workloads: dict[str, WorkloadSpec],
+) -> int:
+    print("Teardown menu:")
+    print("  1) Destroy instance only (keep volume)")
+    print("  2) Destroy volume only (instance must be down)")
+    print("  3) Destroy instance then volume")
+    print("  q) Quit")
+    raw = input_fn("Choice: ").strip()
+    if raw == "1":
+        wl = _prompt_workload(input_fn)
+        ns = argparse.Namespace(workload=wl)
+        return cmd_destroy_instance(ns, gpu_rates, gpu_profiles, workloads)
+    if raw == "2":
+        return cmd_destroy_volume(argparse.Namespace(), gpu_rates, gpu_profiles, workloads, input_fn=input_fn)
+    if raw == "3":
+        wl = _prompt_workload(input_fn)
+        ns = argparse.Namespace(workload=wl)
+        rc = cmd_destroy_instance(ns, gpu_rates, gpu_profiles, workloads)
+        if rc != 0:
+            return rc
+        return cmd_destroy_volume(argparse.Namespace(), gpu_rates, gpu_profiles, workloads, input_fn=input_fn)
+    return 0
+
+
+def cmd_destroy_instance(
+    args: argparse.Namespace,
+    gpu_rates: dict[str, float],
+    gpu_profiles: dict[str, GpuProfile],
+    workloads: dict[str, WorkloadSpec],
+) -> int:
+    return cmd_down(args, gpu_rates, gpu_profiles, workloads)
+
+
+def cmd_destroy_volume(
+    args: argparse.Namespace,
+    gpu_rates: dict[str, float],
+    gpu_profiles: dict[str, GpuProfile],
+    workloads: dict[str, WorkloadSpec],
+    *,
+    input_fn: Any = input,
+) -> int:
+    if instance_in_terraform_state():
+        log.error("instance still in terraform state — run: gpu_session destroy instance <workload>")
+        return 1
+    state = load_state()
+    for wl, sess in state.items():
+        if sess.get("ip") and is_session_live(sess, workloads.get(wl, workloads["comfyui_setup"]), gpu_profiles):
+            log.error("live session for %s — destroy instance first", wl)
+            return 1
+
+    token = verda_oauth_token()
+    if not token:
+        log.error("VERDA_CLIENT_ID/SECRET required")
+        return 1
+    storage = load_storage_config()
+    volume = read_volume_state(token, storage)
+    if not volume.id:
+        log.info("no models volume to destroy")
+        return 0
+
+    print(f"Volume: {volume.name} id={volume.id} location={volume.location} "
+          f"size={volume.size_gb}GB ~${volume.monthly_cost_estimate}/mo status={volume.status}")
+    if input_fn("Destroy this volume? Type 'yes': ").strip().lower() != "yes":
+        print("Aborted.")
+        return 1
+    name_confirm = volume.name or ""
+    if input_fn(f"Type exact volume name to confirm [{name_confirm}]: ").strip() != name_confirm:
+        print("Aborted.")
+        return 1
+
+    try:
+        verda_api_delete(f"volumes/{volume.id}", token=token)
+    except (urllib.error.HTTPError, OSError) as exc:
+        log.error("Verda DELETE volume failed: %s", exc)
+        return 1
+
+    if volume.in_terraform_state:
+        rm = run_terraform(["state", "rm", "verda_volume.models"])
+        if rm.returncode != 0:
+            log.warning("terraform state rm failed (volume deleted in Verda): %s", rm.stderr)
+
+    log.info("volume destroyed in Verda; terraform state cleared")
+    return 0
+
+
 def session_uptime_hours(session: dict[str, Any], *, now: datetime | None = None) -> float:
     started = _parse_iso(session["started_at"])
     now = now or _utc_now()
@@ -1958,6 +2048,13 @@ def build_parser() -> argparse.ArgumentParser:
     p_inter.set_defaults(func=cmd_interactive, workload=None)
 
 
+    p_destroy = sub.add_parser("destroy", help="tear down instance or volume")
+    destroy_sub = p_destroy.add_subparsers(dest="destroy_target", required=True)
+    p_destroy_inst = destroy_sub.add_parser("instance", help="destroy VM only (keeps models volume)")
+    add_workload(p_destroy_inst)
+    p_destroy_inst.set_defaults(func=cmd_destroy_instance)
+    p_destroy_vol = destroy_sub.add_parser("volume", help="destroy models block volume (confirmed)")
+    p_destroy_vol.set_defaults(func=cmd_destroy_volume, workload=None)
 
     p_status = sub.add_parser("status", help="instance state, health, uptime, estimated cost")
     add_workload(p_status)
@@ -2008,6 +2105,8 @@ def main(argv: list[str] | None = None) -> int:
             args.workload = args.workload  # positional optional
         return int(cmd_interactive(args, gpu_rates, gpu_profiles, workloads))
 
+    if args.command == "destroy" and getattr(args, "destroy_target", None) == "volume":
+        return int(cmd_destroy_volume(args, gpu_rates, gpu_profiles, workloads))
 
     if not getattr(args, "workload", None) or args.workload not in workloads:
         log.error("unknown workload: %s", getattr(args, "workload", None))
