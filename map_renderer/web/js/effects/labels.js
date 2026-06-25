@@ -489,6 +489,7 @@ function statBox(map, overlayEl, spec) {
     rowEl.appendChild(val);
 
     if (!_deterministic) rowEl.classList.add('stat-row-enter');
+    else rowEl.style.opacity = '1';  // deterministic: no CSS entrance — show at base
     body.appendChild(rowEl);
   });
 
@@ -510,6 +511,7 @@ function showIcon(map, overlayEl, spec) {
     size = 28,
     lift = false,
     _actionAt = 0,
+    _deterministic = false,
   } = spec;
 
   if (!Array.isArray(position)) {
@@ -545,7 +547,7 @@ function showIcon(map, overlayEl, spec) {
   el.appendChild(img);
 
   _labelsLayer(overlayEl).appendChild(el);
-  el.classList.add('map-icon-enter');
+  if (!_deterministic) el.classList.add('map-icon-enter');  // det: show at base
   return el;
 }
 
@@ -583,6 +585,7 @@ MapEffects.registerAction('statBox', _statBoxAction);
 const _showIconAction = function (map, overlayEl, entry, ctx) {
   const params = Object.assign({}, entry.params ?? {}, {
     _actionAt: entry.at ?? 0,
+    _deterministic: Boolean(ctx.deterministic),
   });
   showIcon(map, overlayEl, params);
 };
