@@ -10,11 +10,11 @@ missed.
 Every commit message has **THREE parts**:
 
 1. **Subject** — a conventional-commit line with **NO marker**:
-   `<type>(<scope>): <summary>`
+  `<type>(<scope>): <summary>`
 2. **Body** — bullet points **grouped by file**: one `<path>:` header per file
-   you touched, then `- ` bullets describing what changed in that file.
+  you touched, then `-`  bullets describing what changed in that file.
 3. **Marker** — the `(Wxx.Ty)` lane/item marker **alone on the final line**,
-   after the body (one blank line above it).
+  after the body (one blank line above it).
 
 Full example (write it to a file and `git commit -F msg.txt` — the body is
 multi-line, so a single `-m` won't do):
@@ -43,10 +43,12 @@ push — the operator merges and pushes.
 
 The operator opens a worktree **before** the first prompt. Common cases:
 
-| How opened | Folder example | Branch you may see |
-|------------|----------------|-------------------|
-| `git worktree add <path> -b agents/<lane-id>` | `geopoai-w18` | `agents/w18-broll` ✓ |
-| **Cursor “create worktree”** | `wk9n`, `.cursor/worktrees/…` | `cursor/feb013b7` ← **normal** |
+
+| How opened                                    | Folder example                | Branch you may see             |
+| --------------------------------------------- | ----------------------------- | ------------------------------ |
+| `git worktree add <path> -b agents/<lane-id>` | `geopoai-w18`                 | `agents/w18-broll` ✓           |
+| **Cursor “create worktree”**                  | `wk9n`, `.cursor/worktrees/…` | `cursor/feb013b7` ← **normal** |
+
 
 **Only the git branch name matters** — not the folder name. Each lane prompt
 below includes a `Branch (first action)` block with the **exact target branch**.
@@ -55,14 +57,16 @@ The agent **never** runs `git worktree` / `git worktree add`.
 
 **Decision table** (target = `agents/<lane-id>` from your lane prompt):
 
-| `git branch --show-current` | Action |
-|-----------------------------|--------|
-| already `agents/<lane-id>` | continue |
-| `cursor/*` or any other feature branch | `git branch -m agents/<lane-id>` — **rename only** |
-| `main` | `git checkout -b agents/<lane-id>` |
+
+| `git branch --show-current`            | Action                                             |
+| -------------------------------------- | -------------------------------------------------- |
+| already `agents/<lane-id>`             | continue                                           |
+| `cursor/`* or any other feature branch | `git branch -m agents/<lane-id>` — **rename only** |
+| `main`                                 | `git checkout -b agents/<lane-id>`                 |
+
 
 **Never** `git checkout -b agents/<lane-id>` when already on a feature branch
-(including `cursor/*`). That leaves an orphan `cursor/<hash>` ref next to your
+(including `cursor/`*). That leaves an orphan `cursor/<hash>` ref next to your
 real lane branch and causes “two branch names” confusion.
 
 Never commit on `main`.
@@ -240,7 +244,7 @@ Context: this is the one lane that costs money when tested. The whole point is a
 
 ---
 
-## W15 — Captions (whisperX → ASS → occupancy-aware burn-in)
+## W15 — Captions (whisperX → ASS → policy-driven burn-in)
 
 ```text
 Read plans/W15-captions.md and execute it exactly, checklist items in order.
@@ -258,7 +262,7 @@ Commits: ONE per checklist item, in the 3-part format from "Commit format" above
 
 Discipline: read plans/PLAN.md first. Touch ONLY your allowlist (composition/captions.py, tools/align_vo.py, tests/test_captions.py, requirements.txt for the whisperX/stable-ts line). No placeholders: actually install the aligner and run it on a committed sample wav; actually burn a 9:16 demo clip. Run acceptance; paste output + screenshots.
 
-Context: develop against docs/contracts/fixtures/ (real layout.json arrives after W10/W13 merge — your build() must accept the schema shape now). Implement the frozen composition.captions.build(...) signature exactly. Captions are TRANSCRIPT (callouts are compression — never duplicate). All styling from config/design_tokens.json (safe_areas caption_band, typography).
+Context: develop against docs/contracts/fixtures/ (real layout.json arrives after W10/W13 merge — your build() must accept the schema shape now). Implement `composition.captions.build(...)` per W15 (incl. `burn_windows`). Captions are TRANSCRIPT (callouts are compression — never duplicate). Default burn policy is `broll_only` — ASS omits chunks outside burn windows; SRT carries full VO when sidecar is on. Caption policy is independent of render `caption_band`. Styling: brand-minimal ASS strip from tokens (Inter, caption scale, highlight emphasis) — NOT Manim callout or map label styles.
 ```
 
 ---
@@ -304,7 +308,7 @@ Commits: ONE per checklist item, in the 3-part format from "Commit format" above
 
 Discipline: read plans/PLAN.md first. Touch ONLY your allowlist (composition/{engine,transitions,export}.py, composition/README.md, pipeline/compose.py, tests/test_compose.py). Call captions.build / sound.build via the frozen stub signatures — do NOT implement their internals. No placeholders: produce a real playable final mp4 in BOTH export profiles from fixture clips. Run acceptance; paste output + boundary frame dumps.
 
-Context: develop against docs/contracts/fixtures/compose.min.json + the frozen stub signatures (composition is W02's skeleton). Re-encode once at the end. nvenc with libx264 fallback (mirror map_renderer/runner.py detection — reimplement locally, don't cross-import).
+Context: develop against docs/contracts/fixtures/compose.min.json + the frozen stub signatures (composition is W02's skeleton). Wire `caption_policy` → `burn_windows` → `captions.build(...)` per W17 T3 (default `broll_only`). Re-encode once at the end. nvenc with libx264 fallback (mirror map_renderer/runner.py detection — reimplement locally, don't cross-import).
 ```
 
 ---
@@ -327,7 +331,7 @@ Commits: ONE per checklist item, in the 3-part format from "Commit format" above
 
 Discipline: read plans/PLAN.md and ALL of docs/contracts/*.schema.json first. Touch ONLY your allowlist (orchestration/, pipeline/orchestrate.py, config/show_bible.geopoai.json, tests/test_orchestration.py). No placeholders: the example episode must actually walk every stage to compose with stub clips; QC rules must actually fire on the deliberately-failing fixtures. Run acceptance; paste output.
 
-Context: ZERO LLM API calls — every brain stage HALTS with an instruction + schema for Claude Code to author, then validate advances. Keep the brain interface swappable for future API. Zero geopolitics hardcoded in orchestration/ — everything genre-flavored reads from the show bible (a grep for "geopoli" in stages/ must hit nothing). Selective re-render via content hashing.
+Context: ZERO LLM API calls — every brain stage HALTS with an instruction + schema for Claude Code to author, then validate advances. Keep the brain interface swappable for future API. Zero geopolitics hardcoded in orchestration/ — everything genre-flavored reads from the show bible (a grep for "geopoli" in stages/ must hit nothing). Show bible default `caption_policy: { burn_in: broll_only, sidecar: true }`; operator sets per-episode override before `script`; compose stage propagates to compose spec. Selective re-render via content hashing.
 ```
 
 ---

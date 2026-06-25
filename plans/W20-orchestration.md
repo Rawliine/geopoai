@@ -23,7 +23,9 @@ pipeline/broll.py (exit codes, --ask/--pick) · plans/PLAN.md (goal section)
 ### T1 — Manifest + runner
 `orchestration/manifest.py`: load/save/validate episode.json, stage status
 transitions (pending → awaiting_brain | running → done | failed), artifact
-hash recording. `orchestration/runner.py`: stage registry, sequential
+hash recording. Optional top-level **`caption_policy`** on the manifest
+(inherits bible default when absent; operator sets before `script`). 
+`orchestration/runner.py`: stage registry, sequential
 `next`, idempotent re-runs. CLI `pipeline/orchestrate.py`:
 `new <show> <episode_id>` · `status` · `next` · `validate <stage>` ·
 `run <stage>` · `qc` · `invalidate <stage|clip_id>`.
@@ -38,7 +40,9 @@ incentives"); hook grammar — list of schema+twist hook patterns, each
 (hook / context / incentive-model / resolution / implication); tone
 ("analytical, dry wit allowed in callouts"); component palette preferences;
 default formats; topic source notes; validator thresholds (override
-tokens.timing where needed); per-platform metadata rules.
+tokens.timing where needed); per-platform metadata rules; **`caption_policy`**
+default `{ "burn_in": "broll_only", "sidecar": true }` — operator may
+override per episode in `episode.json` before brain stages run.
 `orchestration/bible.py` loader. Stages read EVERYTHING genre-flavored from
 the bible — zero geopolitics hardcoded in orchestration/ (test enforces:
 grep stages/ for "geopoli" must hit nothing).
@@ -53,12 +57,16 @@ grep stages/ for "geopoli" must hit nothing).
   grammar — familiar_schema + broken_variable explicit fields). Schema-
   validated artifact angle.json.
 - `script` (BRAIN): VO script as beats[]: { beat_id, vo_text (with **emphasis**
-  markup), intent, evidence_refs[] }. Validator: every factual beat carries
-  ≥1 evidence_ref; reading time vs target duration check.
+  markup), intent, evidence_refs[] }. Instruction includes the episode's
+  **`caption_policy`**: VO is the full transcript; on-screen text in scenes
+  is compression only (callouts/labels) — do not duplicate VO verbatim in
+  scene JSON. Validator: every factual beat carries ≥1 evidence_ref; reading
+  time vs target duration check.
 - `storyboard` (BRAIN): beat → clips: renderer (map|manim|broll|escape_hatch),
-  duration, scene-file path to author next, format targets. Validator:
-  durations sum ≈ VO; renderer exists; max consecutive same-renderer
-  (bible threshold).
+  duration, scene-file path to author next, format targets. Optional
+  `"captions": false` on a row to suppress burn-in for that clip (subtractive
+  override). Validator: durations sum ≈ VO; renderer exists; max consecutive
+  same-renderer (bible threshold).
 - `scenes` (BRAIN): per-clip scene JSONs / shot specs authored into
   episodes/<id>/scenes/; validate each against its renderer schema
   (manim validator, map schema, shot spec schema).
@@ -70,7 +78,9 @@ grep stages/ for "geopoli" must hit nothing).
   Broll --ask checkpoints surface as awaiting_brain with the contact sheet
   path in the instruction.
 - `compose`: build compose spec from storyboard (transitions: bible default
-  whoosh on camera-adjacent boundaries, else cut) → pipeline/compose.py.
+  whoosh on camera-adjacent boundaries, else cut); copy episode `caption_policy`
+  into spec; set per-clip `renderer` + optional `captions` on each `clip_ref`
+  → pipeline/compose.py.
 - `qc`: see T4. - `publish`: see T5.
 
 ### T4 — QC stage
@@ -79,7 +89,8 @@ Machine checks, report to episodes/<id>/qc_report.md, failures block:
   interval (words.json), token-overlap ratio vs concurrent VO sentence
   > 0.6 → fail ("callouts compress, never transcribe");
 - pacing: aggregate events.json — gaps > static_max_s, density spikes;
-- caption collisions: captions ASS positions vs layout.json overlap report;
+- caption collisions: when burn-in is active, ASS positions vs layout.json
+  overlap report (skip when `burn_in: never`);
 - loudness: final mix −14±1 LUFS; clip/format integrity (every storyboard
   clip present, right resolution).
 

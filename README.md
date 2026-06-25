@@ -166,7 +166,7 @@ See `manim_renderer/docs/` (`AGENT.md`, `SKILL.md`, `plan.md`, `recap.md`) for t
 
 These layers are being built — see [`plans/PLAN.md`](plans/PLAN.md) for scope, waves, and status.
 
-- **Composition** (`composition/`) — assembles rendered clips into episodes: occupancy-aware caption burn-in, an automatic SFX/music sound pass, transitions, color grading, and multi-format export. Specs: `plans/W15`–`plans/W17`.
+- **Composition** (`composition/`) — assembles rendered clips into episodes: policy-driven caption burn-in (default b-roll only), an automatic SFX/music sound pass, transitions, color grading, and multi-format export. Specs: `plans/W15`–`plans/W17`.
 - **Orchestration** (`orchestration/`) — episode manifest plus a stage runner with hash-based selective re-render, QC gates, and publish, driven by Claude Code as the brain (no LLM API). Spec: `plans/W20`.
 
 Brand consistency across every layer comes from `config/design_tokens.json` (palette, typography, glow, timing, safe areas) and the asset lockfile `assets/manifest.json` — both established in W02. Never hardcode visual constants or fetch assets ad hoc.

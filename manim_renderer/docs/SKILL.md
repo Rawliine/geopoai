@@ -988,7 +988,7 @@ regions are derived from `tokens.safe_areas[format]`:
 | Region | Protects against | Token |
 |---|---|---|
 | `platform_margins` | platform UI chrome (e.g. the 9:16 right rail) | `safe_areas[fmt].platform_margins` |
-| `caption_band` | burned-in VO caption strip | `safe_areas[fmt].caption_band` |
+| `caption_band` | layout reservation during render (keep components out of the strip) | `safe_areas[fmt].caption_band` |
 
 The renderer keeps **every** component (slot-placed, subject/anchored callouts
 included) out of the enabled regions, at stage time, on top of the layout
@@ -1003,9 +1003,11 @@ solver. Geometry lives in the tokens; whether each region applies is **policy**:
              "safe_areas": { "platform_margins": true, "caption_band": false } }
   ```
 
-> Lead follow-up (cross-lane, not in W10): lift this into `compose.schema.json`
-> flags + a shared `safe_area_policy` passed into each render, and make
-> `caption_band` auto-conditional on `captions: true`.
+**Independent of caption burn-in:** episode `caption_policy` (W15/W17/W20)
+controls whether ASS subtitles are burned in post — default `broll_only`.
+`caption_band` does **not** auto-toggle with caption policy; operators set
+each independently (e.g. reserve the band on vertical even when burn-in is
+`broll_only`, or disable the band on a scene that uses full-frame layout).
 
 ---
 
