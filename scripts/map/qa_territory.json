@@ -17,7 +17,7 @@
       "action": "applyFill",
       "params": {
         "id": "inv1-geo",
-        "country": "Ukraine",
+        "country": "France",
         "opacity": 0,
         "effect": "fill-fade",
         "duration": 0.01
@@ -73,8 +73,8 @@
       "at": 1.0,
       "action": "flyTo",
       "params": {
-        "center": [31.5, 49.0],
-        "zoom": 4.8,
+        "center": [2.5, 47.0],
+        "zoom": 4.3,
         "pitch": 35,
         "bearing": 0,
         "duration": 1.5,
@@ -86,9 +86,9 @@
       "action": "advanceFront",
       "params": {
         "id": "inv1",
-        "country": "Ukraine",
+        "country": "France",
         "geojsonSource": "inv1-geo",
-        "from": [37.5, 47.9],
+        "from": [6.5, 47.8],
         "progress": [
           { "t": 0, "v": 0 },
           { "t": 4, "v": 0.45 },
@@ -116,7 +116,8 @@
       "action": "applyFill",
       "params": {
         "id": "wsahara-hatch",
-        "country": "W. Sahara",
+        "country": "Western Sahara",
+        "version": "ceasefire",
         "role": "contested",
         "pattern": "hatch",
         "opacity": 0.7,
