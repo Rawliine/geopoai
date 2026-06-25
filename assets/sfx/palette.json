@@ -1,5 +1,5 @@
 {
-  "_comment": "SFX palette skeleton — restraint over spectacle. W16 curates TODO_CURATE slots.",
+  "_comment": "SFX palette — restraint over spectacle. Curated Kenney picks for W16 sound pass.",
   "version": 1,
   "density_cap_per_10s": 6,
   "families": {
@@ -17,7 +17,7 @@
         {
           "file": "assets/sfx/kenney-ui-audio/switch28.wav",
           "gain_db": -9,
-          "note": "TODO_CURATE — alternate camera-cut whoosh"
+          "note": "tight camera-cut whoosh, crisp attack"
         }
       ]
     },
@@ -35,7 +35,7 @@
         {
           "file": "assets/sfx/kenney-impact-sounds/impact_glass_medium_002.ogg",
           "gain_db": -7,
-          "note": "label-slam weight"
+          "note": "label-slam weight, bright transient"
         }
       ]
     },
@@ -48,12 +48,12 @@
         {
           "file": "assets/sfx/kenney-ui-audio/mouseclick1.wav",
           "gain_db": -11,
-          "note": "counter/stat tick"
+          "note": "counter/stat tick, dry and narrow"
         },
         {
           "file": "assets/sfx/kenney-ui-audio/click5.wav",
           "gain_db": -13,
-          "note": "TODO_CURATE — lighter stat tick"
+          "note": "lighter stat tick for dense counters"
         }
       ]
     },
@@ -66,17 +66,17 @@
         {
           "file": "assets/sfx/kenney-ui-audio/switch14.wav",
           "gain_db": -15,
-          "note": "fill/border swell — soft rise"
+          "note": "fill/border swell — soft rise, no click"
         },
         {
           "file": "assets/sfx/kenney-ui-audio/switch22.wav",
           "gain_db": -16,
-          "note": "TODO_CURATE — advanceFront peak swell"
+          "note": "advanceFront peak swell, gentle bloom"
         }
       ]
     },
     "ambient_bed": {
-      "file": "TODO_CURATE",
+      "file": "assets/sfx/kenney-ui-audio/rollover2.wav",
       "gain_db": -22,
       "cooldown_s": 0,
       "max_per_10s": 1,
@@ -84,7 +84,7 @@
         {
           "file": "assets/sfx/kenney-ui-audio/rollover1.wav",
           "gain_db": -24,
-          "note": "placeholder bed texture until curated loop is chosen"
+          "note": "alternate bed texture — softer tail for variety"
         }
       ]
     }
