@@ -1833,6 +1833,41 @@ def cmd_destroy_volume(
     return 0
 
 
+def cmd_setup(
+    args: argparse.Namespace,
+    gpu_rates: dict[str, float],
+    gpu_profiles: dict[str, GpuProfile],
+    workloads: dict[str, WorkloadSpec],
+) -> int:
+    workload = workloads[args.workload]
+    storage = load_storage_config()
+    state = load_state()
+    session = get_session(state, args.workload)
+    if not session:
+        log.error("no session state for %s — run interactive or up first", args.workload)
+        return 1
+    if not is_session_live(session, workload, gpu_profiles):
+        log.error("session not live for %s", args.workload)
+        return 1
+    profile = profile_for_session(session, gpu_profiles)
+    ip = session.get("ip")
+    if not ip:
+        ip = wait_for_instance_ip(workload, session["run_id"], profile)
+        session["ip"] = ip
+        state[args.workload] = session
+        save_state(state)
+
+    if models_download_complete(ip, storage.models_marker):
+        print(f"Models already complete ({storage.models_marker})")
+        return 0
+    if getattr(args, "yes", False):
+        return run_download_on_vm(workload, session["run_id"], profile)
+    return prompt_download_if_needed(
+        session, workload, profile, storage, assume_yes=False,
+        input_fn=getattr(args, "input_fn", input),
+    )
+
+
 def session_uptime_hours(session: dict[str, Any], *, now: datetime | None = None) -> float:
     started = _parse_iso(session["started_at"])
     now = now or _utc_now()
@@ -2047,6 +2082,10 @@ def build_parser() -> argparse.ArgumentParser:
     p_inter.add_argument("--force", action="store_true", help=argparse.SUPPRESS)
     p_inter.set_defaults(func=cmd_interactive, workload=None)
 
+    p_setup = sub.add_parser("setup", help="conditional model download on live instance")
+    add_workload(p_setup)
+    p_setup.add_argument("-y", "--yes", action="store_true", help="run download without prompting")
+    p_setup.set_defaults(func=cmd_setup)
 
     p_destroy = sub.add_parser("destroy", help="tear down instance or volume")
     destroy_sub = p_destroy.add_subparsers(dest="destroy_target", required=True)
