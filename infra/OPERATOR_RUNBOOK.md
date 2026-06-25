@@ -823,6 +823,10 @@ Generic across workloads (ComfyUI today; blender_render / lora_train; future TTS
 # Prefix Python/tests with conda env; source Verda creds for terraform:
 set -a && source /home/rawline/GeoPoAI/.env && set +a
 
+# List every Verda GPU SKU (live catalog — no auth required):
+conda run -n geopo python pipeline/gpu_session.py gpus
+conda run -n geopo python pipeline/gpu_session.py gpus --json
+
 conda run -n geopo python pipeline/gpu_session.py up comfyui_setup --verbose
 conda run -n geopo python pipeline/gpu_session.py status comfyui_setup
 conda run -n geopo python pipeline/gpu_session.py run comfyui -- python pipeline/broll.py shot.json
@@ -831,6 +835,76 @@ conda run -n geopo python pipeline/gpu_session.py down comfyui_setup
 ```
 
 Workload registry: `infra/sessions.json`. Laptop session state: `infra/.session_state.json` (gitignored).
+
+### Interactive wizard (recommended for setup)
+
+Browse live availability, pick GPU + region + spot/on-demand yourself, deploy, optionally download models:
+
+```bash
+conda run -n geopo python pipeline/gpu_session.py interactive
+conda run -n geopo python pipeline/gpu_session.py interactive comfyui_setup
+conda run -n geopo python pipeline/gpu_session.py interactive --teardown   # instance / volume menu
+```
+
+Non-interactive browse (same table as the wizard, no prompts):
+
+```bash
+conda run -n geopo python pipeline/gpu_session.py gpus --all-locations
+conda run -n geopo python pipeline/gpu_session.py gpus --all-locations --sort-by spot
+```
+
+**Volume vs region:** the wizard shows your Terraform/Verda models volume. If the GPU region does not match the volume, choose:
+
+- **A)** Re-browse GPUs in the volume's region (keep weights), or
+- **B)** Replace the volume in the GPU region (`DESTROY-VOLUME` confirm — old weights gone unless backed up).
+
+**Download:** after deploy, the wizard checks `/mnt/models/.geopoai_download_complete`. Defer or re-run:
+
+```bash
+conda run -n geopo python pipeline/gpu_session.py setup comfyui_setup
+conda run -n geopo python pipeline/gpu_session.py setup comfyui_setup -y
+```
+
+**Destroy matrix** (instance and disk are separate):
+
+| Command | What it removes |
+|---------|-----------------|
+| `destroy instance <workload>` or `down <workload>` | VM + OS disk only |
+| `destroy volume` | Block volume (`geopoai-models-persistent`) — typed confirm; instance must be down |
+
+Legacy shell scripts (`apply_comfyui_setup.sh`, `destroy_comfyui_instance.sh`) still work as fallbacks.
+
+**Recovery:** if Verda shows the volume deleted but Terraform state still references it: `terraform state rm verda_volume.models`, then create via wizard or `terraform apply -target=verda_volume.models`.
+
+### GPU best-case → worst-case fallback (Verda API)
+
+Verda documents capacity as error code **`service_unavailable`** (HTTP 503): *"Not enough resources at the moment, try again later or use a different resource"* ([api.verda.com/v1/docs](https://api.verda.com/v1/docs)).
+
+Before `up`, the session manager uses official endpoints:
+
+| Endpoint | Auth | Purpose |
+|----------|------|---------|
+| `GET /v1/instance-types` | public | Full SKU catalog, `supported_os`, `price_per_hour`, `spot_price` |
+| `GET /v1/instance-availability` | OAuth | Per `location_code`, which `instance_type` values are free now |
+| `POST /v1/oauth2/token` | client credentials | Powers availability calls (`VERDA_CLIENT_ID` / `VERDA_CLIENT_SECRET`) |
+
+`verda_image` is **not** hardcoded — it is chosen from each SKU's `supported_os` array (see `infra/README.md` troubleshooting). Wrong image → `400 Operating system is not valid for this instance type`.
+
+```bash
+# Full catalog + free? column for a location (needs .env creds for availability)
+conda run -n geopo python pipeline/gpu_session.py gpus --location FIN-01
+conda run -n geopo python pipeline/gpu_session.py gpus --json
+```
+
+Each workload's `gpu_preference` in `sessions.json` is best→worst order. `up` pre-filters using `/instance-availability`, then falls back on `service_unavailable` at terraform apply time.
+
+| Workload | Best (try first) | Worst (last resort) |
+|----------|------------------|---------------------|
+| `comfyui` | `h100_spot` | `v100_ondemand` |
+| `comfyui_setup` | `v100_ondemand` | `a100_fin03_ondemand` |
+| `blender_render` / `lora_train` | `h100_spot` | `a100_fin03_ondemand` |
+
+Force one profile: `up comfyui --profile a6000_spot`. Edit `gpu_profiles` / `gpu_preference` when the catalog changes.
 
 ### Idle + budget insurance (two layers)
 
@@ -841,11 +915,11 @@ Workload registry: `infra/sessions.json`. Laptop session state: `infra/.session_
 
 Forgot-the-H100-overnight: laptop watchdog is primary; VM cron fires even if the laptop sleeps.
 
-### Models volume (never destroyed by session manager)
+### Models volume (destroy only via explicit command)
 
 - Dashboard name: `geopoai-models-persistent`
-- Volume ID (setup-001): `a4e5300f-32c3-41f4-9a74-d057fb7d628f`
-- `gpu_session down` runs `terraform destroy -target=verda_instance.this` only — same guard as `destroy_comfyui_instance.sh`.
+- `gpu_session down` / `destroy instance` runs `terraform destroy -target=verda_instance.this` only.
+- `gpu_session destroy volume` deletes via Verda API + `terraform state rm` (never auto).
 
 ### Cost estimates
 
