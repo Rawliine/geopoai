@@ -498,6 +498,142 @@ def cmd_down(args: argparse.Namespace, gpu_rates: dict[str, float], workloads: d
     return 0
 
 
+def session_uptime_hours(session: dict[str, Any], *, now: datetime | None = None) -> float:
+    started = _parse_iso(session["started_at"])
+    now = now or _utc_now()
+    return max(0.0, (now - started).total_seconds() / 3600.0)
+
+
+def idle_since_minutes(session: dict[str, Any], *, now: datetime | None = None) -> float:
+    last = _parse_iso(session.get("last_activity_at") or session["started_at"])
+    now = now or _utc_now()
+    return max(0.0, (now - last).total_seconds() / 60.0)
+
+
+def detect_activity(
+    session: dict[str, Any],
+    workload: WorkloadSpec,
+    *,
+    last_fingerprint: str | None = None,
+) -> tuple[bool, str | None]:
+    """Return (active, new_fingerprint)."""
+    ip = session.get("ip")
+    if not ip:
+        return False, last_fingerprint
+
+    if workload.health.type == "http" and workload.health.port:
+        active, fingerprint = poll_comfyui_activity(ip, workload.health.port)
+        if active:
+            return True, fingerprint
+        if last_fingerprint is not None and fingerprint != last_fingerprint:
+            return True, fingerprint
+        return False, fingerprint
+
+    # SSH workloads: activity only via last_activity_at file-touch protocol.
+    return False, last_fingerprint
+
+
+def should_teardown(
+    session: dict[str, Any],
+    workload: WorkloadSpec,
+    *,
+    now: datetime | None = None,
+    last_fingerprint: str | None = None,
+) -> tuple[bool, str]:
+    now = now or _utc_now()
+    uptime_h = session_uptime_hours(session, now=now)
+    if uptime_h >= workload.max_session_hours:
+        return True, (
+            f"HARD BUDGET CAP: session uptime {uptime_h:.2f}h >= "
+            f"max_session_hours={workload.max_session_hours}"
+        )
+
+    active, _fp = detect_activity(session, workload, last_fingerprint=last_fingerprint)
+    if active:
+        return False, "activity detected"
+
+    idle_min = idle_since_minutes(session, now=now)
+    if idle_min >= workload.idle_minutes:
+        return True, (
+            f"IDLE: no activity for {idle_min:.1f}m >= idle_minutes={workload.idle_minutes}"
+        )
+    return False, f"ok (idle {idle_min:.1f}m)"
+
+
+def watchdog_loop(
+    workload_name: str,
+    *,
+    poll_sec: int = 60,
+    state_path: Path = _STATE_PATH,
+    once: bool = False,
+) -> int:
+    gpu_rates, workloads = load_registry()
+    workload = workloads[workload_name]
+    last_fingerprint: str | None = None
+
+    while True:
+        state = load_state(state_path)
+        session = get_session(state, workload_name)
+        if not session:
+            log.error("no session for %s — watchdog exiting", workload_name)
+            return 1
+
+        active, last_fingerprint = detect_activity(
+            session, workload, last_fingerprint=last_fingerprint
+        )
+        if active:
+            record_activity(workload_name, path=state_path)
+
+        teardown, reason = should_teardown(
+            get_session(load_state(state_path), workload_name) or session,
+            workload,
+            last_fingerprint=last_fingerprint,
+        )
+        if teardown:
+            log.warning("WATCHDOG TEARDOWN: %s", reason)
+            ns = argparse.Namespace(workload=workload_name)
+            return cmd_down(ns, gpu_rates, workloads)
+
+        log.info(
+            "watchdog ok workload=%s uptime=%.2fh idle=%.1fm cost=$%.4f",
+            workload_name,
+            session_uptime_hours(session),
+            idle_since_minutes(session),
+            estimate_cost_usd(session, gpu_rates),
+        )
+        if once:
+            return 0
+        time.sleep(poll_sec)
+
+
+def _spawn_watchdog(workload: str, poll_sec: int = 60) -> None:
+    cmd = [
+        sys.executable,
+        str(Path(__file__).resolve()),
+        "watchdog",
+        workload,
+        "--poll-sec",
+        str(poll_sec),
+    ]
+    log.info("spawning background watchdog: %s", " ".join(cmd))
+    subprocess.Popen(
+        cmd,
+        cwd=_REPO_ROOT,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+
+def cmd_watchdog(args: argparse.Namespace, gpu_rates: dict[str, float], workloads: dict[str, WorkloadSpec]) -> int:
+    return watchdog_loop(
+        args.workload,
+        poll_sec=args.poll_sec,
+        state_path=args.state_path,
+        once=args.once,
+    )
+
+
 def cmd_run(args: argparse.Namespace, gpu_rates: dict[str, float], workloads: dict[str, WorkloadSpec]) -> int:
     state = load_state()
     session = get_session(state, args.workload)
@@ -517,6 +653,7 @@ def cmd_run(args: argparse.Namespace, gpu_rates: dict[str, float], workloads: di
         return 1
 
     log.info("executing: %s", " ".join(shlex.quote(c) for c in cmd))
+    _spawn_watchdog(args.workload, poll_sec=getattr(args, "poll_sec", 60))
     proc = subprocess.run(cmd, cwd=_REPO_ROOT)
     record_activity(args.workload)
     return proc.returncode
@@ -550,6 +687,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("--verbose", action="store_true")
     p_run.add_argument("command", nargs=argparse.REMAINDER, help="command after --")
     p_run.set_defaults(func=cmd_run)
+
+    p_watch = sub.add_parser("watchdog", help="idle/budget watchdog loop (laptop side)")
+    add_workload(p_watch)
+    p_watch.add_argument("--poll-sec", type=int, default=60)
+    p_watch.add_argument("--once", action="store_true", help="single poll iteration (testing)")
+    p_watch.set_defaults(func=cmd_watchdog)
 
     return parser
 
