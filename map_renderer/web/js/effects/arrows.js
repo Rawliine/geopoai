@@ -243,6 +243,10 @@ function _patchDeterministicRuntime() {
     rt.stepTo = function w12StepTo(tSec) {
       origStep(tSec);
       overlayEl.querySelectorAll('svg.effect-arrow[data-arrow-style]').forEach(svgEl => {
+        // Recompute the geo->pixel path every step so arrows/supply lines follow
+        // camera moves in deterministic mode (the MapEffects.reproject patch only
+        // fires on realtime map 'move' events, which deterministic stepping skips).
+        _reprojectArrowSvg(map, svgEl);
         _updateArrowDeterministic(svgEl, tSec);
       });
       if (typeof MapEffects._updateW12Labels === 'function') {
