@@ -1,0 +1,13 @@
+[
+  {"word": "The", "start": 0.0, "end": 0.2, "confidence": 0.99},
+  {"word": "front", "start": 0.2, "end": 0.5, "confidence": 0.99, "emphasis": false},
+  {"word": "line", "start": 0.5, "end": 0.8, "confidence": 0.99},
+  {"word": "shifted", "start": 0.9, "end": 1.2, "confidence": 0.99},
+  {"word": "fifty", "start": 1.3, "end": 1.5, "confidence": 0.99},
+  {"word": "kilometers", "start": 1.5, "end": 2.0, "confidence": 0.99},
+  {"word": "overnight.", "start": 2.0, "end": 2.6, "confidence": 0.99},
+  {"word": "Supply", "start": 3.0, "end": 3.3, "confidence": 0.99},
+  {"word": "routes", "start": 3.3, "end": 3.6, "confidence": 0.99},
+  {"word": "were", "start": 3.6, "end": 3.8, "confidence": 0.99},
+  {"word": "cut.", "start": 3.8, "end": 4.2, "confidence": 0.99}
+]
