@@ -157,6 +157,20 @@ PACKS: dict[str, PackDefinition] = {
             extract_glob="*.svg",
         ),
     ),
+    # Rectangular flags (4x3) — for maskImage "flag inside a country shape",
+    # where a circular flag would only show a round patch.
+    "flag-icons": PackDefinition(
+        name="flag-icons",
+        kind="icons",
+        license="MIT",
+        license_url="https://opensource.org/licenses/MIT",
+        resolve=lambda: _github_tag_archive(
+            "lipis/flag-icons",
+            "v7.2.3",
+            archive_prefix=f"{_repo_archive_prefix('lipis/flag-icons', 'v7.2.3')}flags/4x3/",
+            extract_glob="*.svg",
+        ),
+    ),
     "kenney-ui-audio": PackDefinition(
         name="kenney-ui-audio",
         kind="sfx",

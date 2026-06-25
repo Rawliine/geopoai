@@ -147,7 +147,7 @@
         "id": "algeria-flag",
         "country": "Algeria",
         "geojsonSource": "alg-mask-geo",
-        "image": "../../assets/icons/circle-flags/dz.svg",
+        "image": "../../assets/icons/flag-icons/dz.svg",
         "fit": "cover",
         "opacity": 0.85,
         "pan": { "duration": 10, "dx": 0.12, "dy": 0.06 }
