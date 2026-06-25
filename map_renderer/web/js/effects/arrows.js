@@ -12,12 +12,13 @@ function _seeded(seed, x) {
   return s - Math.floor(s);
 }
 
-function _wobbleArc(arc, wobble, seed, fromPx, toPx) {
+function _wobbleArc(arc, wobble, seed, _fromPx, _toPx) {
   if (!wobble) return arc;
   const amp = typeof wobble === 'number' ? wobble : 25;
-  const midX = (fromPx.x + toPx.x) / 2;
-  const midY = (fromPx.y + toPx.y) / 2;
-  const n = _seeded(seed, midX * 0.01 + midY * 0.02) - 0.5;
+  // Seed-only noise so the wobble is a stable property of the arrow. Deriving it
+  // from the pixel midpoint made the arc bend/twitch as the camera moved (the
+  // midpoint shifts every frame, so the offset kept recomputing).
+  const n = _seeded(seed, Number(seed) * 0.137 + 3.1) - 0.5;
   return arc + n * amp * 2;
 }
 
