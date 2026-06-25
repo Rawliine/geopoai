@@ -13,11 +13,14 @@ visual grammar incl. invasion-front modeling and 3D), bring the manim engine
 to brand-quality, unify the brand (tokens: palette/fonts/timing/safe-areas),
 build the composition layer (assembly + policy-driven caption burn-in +
 automatic sound pass), expand b-roll (sources, link ingest, eval), automate GPU infra
-sessions, and stand up the orchestration layer **without any LLM API** —
-Claude Code acts as the brain at every authoring stage.
+sessions, and stand up the orchestration layer with a **pluggable brain** —
+selectable per episode: an in-session CLI agent (Claude Code / Gemini) **or** an
+LLM API (LangGraph), behind one swappable brain layer. Episodes also take rich
+inputs (article links for content; image/video links routed to b-roll, manim, or
+map media).
 
 Out of scope for this plan (backlog): presenter-layer feature work, upload
-automation, LLM-API brains, self-hosted LLM, show #2 bibles.
+automation, self-hosted LLM, show #2 bibles.
 
 ## Waves and dependency order
 
@@ -40,9 +43,16 @@ WAVE 1 (parallel lanes; all depend on W00+W02; W01 independent)
   W19 infra-sessions           (generic GPU session manager + watchdogs)
 
 WAVE 2 (parallel; depend on Wave 1 contracts being exercised)
-  W20 orchestration            (episode manifest, stage runner, QC, publish)
   W21 escape-hatch             (guarded custom-Manim path)
   W22 map-3d                   (glTF models on map via three.js custom layer)
+  W24 brain-layer              (swappable authoring brains: halt / CLI agent / LLM API)
+  W25 manim-media              (fitted image/video box component)
+  W26 map-media-frames         (reserved-region box + clip-to-border media)
+  W27 broll-provided-media     (supplied URL/file as a forced b-roll source)
+
+WAVE 3 (integrator; depends on Wave 1 + W24 + W25 + W26 + W27)
+  W20 orchestration            (episode manifest, stage runner, pluggable brain,
+                                rich media inputs, QC, publish)
 
 INTEGRATION (lead-driven, no lane file)
   End-to-end mini-episode: 2 map clips + 2 manim clips + 1 broll clip + a VO
@@ -71,9 +81,14 @@ INTEGRATION (lead-driven, no lane file)
 | W17  | agents/w17-compose       | composition/{engine,transitions,export}.py, pipeline/compose.py                                                                          | W02        |
 | W18  | agents/w18-broll         | broll/, pipeline/broll.py, .env.example                                                                                                  | W02        |
 | W19  | agents/w19-infra         | infra/, pipeline/gpu_session.py                                                                                                          | —          |
-| W20  | agents/w20-orchestration | orchestration/, pipeline/orchestrate.py, config/show_bible.*.json                                                                        | Wave 1     |
+| W20  | agents/w20-orchestration | orchestration/, pipeline/orchestrate.py, config/show_bible.*.json                                                                        | Wave 1, W24–W27 |
 | W21  | agents/w21-escape        | manim_renderer/escape_hatch/                                                                                                             | W10        |
 | W22  | agents/w22-map3d         | map_renderer/web/js/effects/models3d.js, web/vendor/ (three only)                                                                        | W13        |
+| W23  | agents/w23-interactive-sessions | pipeline/gpu_session.py, infra/ (sessions.json, startup_scripts, *.tf)                                                            | W19 (merged) |
+| W24  | agents/w24-brain-layer   | brains/, tests/test_brains.py, requirements.txt + .env.example (append)                                                                 | —          |
+| W25  | agents/w25-manim-media   | manim_renderer/{components,registry.py,schema,theme,docs/fragments,tests}, scripts/manim/                                                | W10 (merged) |
+| W26  | agents/w26-map-media-frames | map_renderer/web/js/effects/media.js, web/css/media.css, docs/fragments/, scripts/map/ (lead pre-adds map.html tag + schema stub)     | W11, W14 (merged) |
+| W27  | agents/w27-broll-provided-media | broll/lib/provided_source.py, pipeline/broll.py, broll/docs/fragments/, tests/test_broll_provided.py                              | W18 (merged) |
 
 
 Within a wave, allowlists are disjoint by construction. Two lanes may never
@@ -143,6 +158,12 @@ W13 + W10 + W18 first (W13 lands the emission machinery other lanes' outputs
 get verified against; W10/W18 are independent), then W11 + W12 + W14, then
 W15 + W16 + W17, then W19.
 
+Wave-2/3 (Wave 1 + W23 all merged): **W24 + W25 + W26 + W27 run fully in parallel**
+— disjoint allowlists, every dependency already merged (lead pre-creates the
+`media.js` script tag in map.html + the `media` schema stub for W26 first). Then
+**W20** alone as the integrator once W24–W27 land. W21 + W22 are independent of this
+set and can run anytime in Wave 2.
+
 ## Definition of done (plan-wide)
 
 1. Every lane merged, acceptance green.
@@ -155,5 +176,5 @@ W15 + W16 + W17, then W19.
 ## Backlog (explicitly deferred, do not implement)
 
 Presenter integration beyond the events/tokens contract · platform upload
-automation · API-driven brains in orchestration · self-hosted LLM · second
-show bible · occupancy v2 (saliency-aware) · fine-tuned CLIP verifier.
+automation · self-hosted LLM · second show bible · occupancy v2 (saliency-aware) ·
+fine-tuned CLIP verifier.

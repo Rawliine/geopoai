@@ -22,7 +22,8 @@ pass into finished episodes.
 | Presenter renderer | `presenter_renderer/` | in progress | `presenter_renderer/` (AGENT, plan, recap, SKILL) |
 | Infra (GPU sessions) | `infra/` + `pipeline/gpu_session.py` | live | `infra/README.md` + `infra/OPERATOR_RUNBOOK.md` (Session manager) + `infra/AGENT.md` |
 | Composition | `composition/` | in progress — see `plans/W15`–`W17` | — |
-| Orchestration | `orchestration/` | in progress — see `plans/W20` | — |
+| Brain layer | `brains/` | planned — see `plans/W24` | `brains/README.md` (planned) |
+| Orchestration | `orchestration/` | in progress — see `plans/W20` (pluggable brain + rich media inputs; brains `plans/W24`, media `plans/W25`–`W27`) | — |
 
 ## Running renders
 

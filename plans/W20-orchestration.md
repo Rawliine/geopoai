@@ -1,14 +1,18 @@
-# W20 — Orchestration: episode manifest, stage runner, QC, publish — NO LLM API
+# W20 — Orchestration: episode manifest, stage runner, QC, publish — pluggable brain
 
-Branch: `agents/w20-orchestration` · Depends on: Wave 1 merged (esp. W17).
+Branch: `agents/w20-orchestration` · Depends on: Wave 1 merged (esp. W17) **+ W24
+(brain layer) + W25/W26/W27 (media contracts)**.
 
 ## Goal
 The episode factory as a staged state machine over one persistent artifact
 (`episodes/<id>/episode.json`, schema: docs/contracts/episode.schema.json).
-**Constraint: zero LLM API calls.** Every authoring stage ("brain stage")
-halts with a written instruction + schema; Claude Code (the operator's
-session) authors the artifact; `validate` checks and advances. The brain
-interface must be swappable for API calls later without touching stages.
+Every authoring stage ("brain stage") emits a written instruction + schema and is
+satisfied by a **brain** (W24): `halt` (operator's Claude Code session authors the
+file, today's default), `claude-cli` / `gemini-cli` (CLI agent), or `api` (LangGraph).
+The brain is chosen **once per episode** via `episode.json.brain` (default from the
+show bible). Stages never know which brain ran — they only `next → (author) →
+validate → advance`. Inputs are rich: article link(s) for content, plus image/video
+links routed to b-roll, manim, or map media (see T3).
 
 ## Allowlist
 orchestration/ (new package) · pipeline/orchestrate.py (new) ·
@@ -26,9 +30,13 @@ transitions (pending → awaiting_brain | running → done | failed), artifact
 hash recording. Optional top-level **`caption_policy`** on the manifest
 (inherits bible default when absent; operator sets before `script`). 
 `orchestration/runner.py`: stage registry, sequential
-`next`, idempotent re-runs. CLI `pipeline/orchestrate.py`:
-`new <show> <episode_id>` · `status` · `next` · `validate <stage>` ·
-`run <stage>` · `qc` · `invalidate <stage|clip_id>`.
+`next`, idempotent re-runs. **Brain wiring:** the runner resolves
+`episode.json.brain` (one per episode; bible default when absent) through
+`brains.select_brain` (W24) and hands brain stages off to it — `halt` stops at
+`awaiting_brain`; `claude-cli`/`gemini-cli`/`api` author + validate inline. CLI
+`pipeline/orchestrate.py`: `new <show> <episode_id>` · `status` · `next` ·
+`validate <stage>` · `run <stage>` · `qc` · `invalidate <stage|clip_id>`. A
+`--brain <name>` flag overrides the episode's brain for one command (debugging).
 Also `orchestration/README.md`: stage map, the brain protocol (next →
 author artifact → validate), manifest lifecycle — this layer's SKILL.md
 equivalent.
@@ -48,10 +56,15 @@ the bible — zero geopolitics hardcoded in orchestration/ (test enforces:
 grep stages/ for "geopoli" must hit nothing).
 
 ### T3 — Stages (orchestration/stages/*.py)
-- `ingest`: inputs = URLs, local files, pasted notes. URLs fetched
-  (readability text extraction; media via broll reference ingest for
-  video/images). Output: evidence.json — quotes/stats/claims/media refs,
-  each with source + retrieved_at. Brainless (mechanical).
+- `ingest`: a structured **`inputs[]`** on `episode.json`, each
+  `{ id, type: article|image|video, url|path, use, region? }` where `use` ∈
+  `content | hook | broll | manim_media | map_mask | map_region`. One or many
+  `content` articles feed evidence; `hook`/media items are routed by `use`.
+  Mechanical: `content` URLs → readability text extraction; media (`broll`,
+  `manim_media`, `map_mask`, `map_region`, `hook`) → fetched/probed via the broll
+  downloader, license required. Output: evidence.json (quotes/stats/claims with
+  source + retrieved_at) **and** media_pool.json (each input with its resolved
+  local file, dims/duration, and target `use`/`region`). Brainless.
 - `angle` (BRAIN): instruction asks for: chosen angle, the incentive
   structure (actors/options/payoffs sketch), the hook (per bible hook
   grammar — familiar_schema + broken_variable explicit fields). Schema-
@@ -65,8 +78,14 @@ grep stages/ for "geopoli" must hit nothing).
 - `storyboard` (BRAIN): beat → clips: renderer (map|manim|broll|escape_hatch),
   duration, scene-file path to author next, format targets. Optional
   `"captions": false` on a row to suppress burn-in for that clip (subtractive
-  override). Validator: durations sum ≈ VO; renderer exists; max consecutive
-  same-renderer (bible threshold).
+  override). **Media placement:** each media item from media_pool.json is placed
+  per its `use` — `broll` → a provided-source clip (W27 `--provided`); `manim_media`
+  → a `showMedia` action in a manim scene (W25); `map_mask`/`map_region` →
+  `maskMedia`/`showMediaFrame` in a map scene (W26); `hook` → the opening clip. The
+  brain may re-route a media item to a different renderer; the validator checks the
+  chosen action exists for that renderer. Validator: durations sum ≈ VO; renderer
+  exists; max consecutive same-renderer (bible threshold); every media_pool item
+  referenced exactly once.
 - `scenes` (BRAIN): per-clip scene JSONs / shot specs authored into
   episodes/<id>/scenes/; validate each against its renderer schema
   (manim validator, map schema, shot spec schema).
@@ -111,7 +130,9 @@ Mocked-renderer tests for runner/hash/invalidate/QC rules. Committed
 exercising every stage to `compose` with stub clips.
 
 ## Out of scope
-LLM API integration (interface only) · uploads · TTS · new renderer features.
+Building the brains themselves (W24 — this lane only resolves + calls them) ·
+the media renderers/components (W25 manim, W26 map, W27 broll — this lane only
+routes `inputs[]` to them) · uploads · TTS · new renderer features.
 
 ## Acceptance
 `orchestrate.py new geopoai ep000 && next` walks the full stage sequence on

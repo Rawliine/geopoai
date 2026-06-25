@@ -78,8 +78,11 @@ Never commit on `main`.
 - **Map lanes:** dispatch **W13 first** — it owns `core/runtime.js` and the
 `events.json` / `layout.json` emitters that W11, W12, and W22 attach to. Then
 W11 + W12 + W14 in parallel (disjoint files).
-- **Wave 2:** W20 waits for all of Wave 1 merged; **W21 waits for W10**; **W22
-waits for W13**.
+- **Wave 2:** **W24 + W25 + W26 + W27 run fully in parallel** (Wave 1 + W23 all
+merged; disjoint allowlists; lead pre-adds W26's `media.js` script tag + schema stub
+first). **W21 waits for W10** (merged); **W22 waits for W13** (merged).
+- **Wave 3:** **W20** alone, after W24–W27 merge (it resolves the brain via W24 and
+routes media inputs to W25/W26/W27).
 
 ---
 
@@ -313,7 +316,7 @@ Context: develop against docs/contracts/fixtures/compose.min.json + the frozen s
 
 ---
 
-## W20 — Orchestration (episode manifest, stages, QC) — WAIT for all Wave 1 merged
+## W20 — Orchestration (episode manifest, stages, pluggable brain, QC) — WAIT for Wave 1 + W24–W27 merged
 
 ```text
 Read plans/W20-orchestration.md and execute it exactly, checklist items in order.
@@ -329,9 +332,9 @@ Env: prefix every Python/test command with `conda run -n geopo`.
 
 Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(orchestration): episode manifest + stage runner` (NO marker), then a per-file bullet body, then `(W20.T1)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
 
-Discipline: read plans/PLAN.md and ALL of docs/contracts/*.schema.json first. Touch ONLY your allowlist (orchestration/, pipeline/orchestrate.py, config/show_bible.geopoai.json, tests/test_orchestration.py). No placeholders: the example episode must actually walk every stage to compose with stub clips; QC rules must actually fire on the deliberately-failing fixtures. Run acceptance; paste output.
+Discipline: read plans/PLAN.md, plans/W24-brain-layer.md, and ALL of docs/contracts/*.schema.json first. Touch ONLY your allowlist (orchestration/, pipeline/orchestrate.py, config/show_bible.geopoai.json, tests/test_orchestration.py). Import the brain from the `brains` package (W24) — do NOT implement brains here. No placeholders: the example episode must actually walk every stage to compose with stub clips; QC rules must actually fire on the deliberately-failing fixtures. Run acceptance; paste output.
 
-Context: ZERO LLM API calls — every brain stage HALTS with an instruction + schema for Claude Code to author, then validate advances. Keep the brain interface swappable for future API. Zero geopolitics hardcoded in orchestration/ — everything genre-flavored reads from the show bible (a grep for "geopoli" in stages/ must hit nothing). Show bible default `caption_policy: { burn_in: broll_only, sidecar: true }`; operator sets per-episode override before `script`; compose stage propagates to compose spec. Selective re-render via content hashing.
+Context: the brain is PLUGGABLE, chosen once per episode via `episode.json.brain` (default from the bible) and resolved through `brains.select_brain` (W24): `halt` stops with an instruction + schema for Claude Code to author then validate; `claude-cli`/`gemini-cli`/`api` author + validate inline. Rich `inputs[]`: article link(s) → content; image/video links routed by `use` to broll (W27 --provided), manim media (W25 showMedia), or map media (W26 maskMedia/showMediaFrame). Zero geopolitics hardcoded in orchestration/ — everything genre-flavored reads from the show bible (a grep for "geopoli" in stages/ must hit nothing). Show bible default `caption_policy: { burn_in: broll_only, sidecar: true }`; operator sets per-episode override before `script`; compose stage propagates to compose spec. Selective re-render via content hashing.
 ```
 
 ---
@@ -378,5 +381,97 @@ Commits: ONE per checklist item, in the 3-part format from "Commit format" above
 Discipline: read plans/PLAN.md first. Touch ONLY your allowlist (web/js/effects/models3d.js, web/vendor/ for three only, tools/prepare_assets.py + assets/manifest.json model-pack entry, scripts/map/qa_models.json, map_renderer/docs/fragments/W22.md). If you genuinely need a new <script> tag in map.html, STOP and report — the lead adds it (rule 3). No placeholders: models must really render and stay geo-anchored through camera moves, in BOTH realtime and deterministic modes. Run acceptance; paste screenshots.
 
 Context: W13's emitter reads your fn.eventMeta (type "model", intensity 0.7). Add the CC0 low-poly model pack to assets/catalog.py (verify CC0, record license in manifest). Deterministic: model transforms derived purely from runtime t.
+```
+
+---
+
+## W24 — Brain layer (halt / CLI agent / LLM API) — independent, run anytime
+
+```text
+Read plans/W24-brain-layer.md and execute it exactly, checklist items in order.
+
+Branch (first action): target agents/w24-brain-layer. Run `git branch --show-current`.
+  • agents/w24-brain-layer → continue.
+  • main → `git checkout -b agents/w24-brain-layer`.
+  • cursor/* or anything else → `git branch -m agents/w24-brain-layer` (rename ONLY; never checkout -b).
+  Do not run git worktree. Worktree folder name is irrelevant.
+Never work on main.
+
+Env: prefix every Python/test command with `conda run -n geopo`.
+
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(brains): brain protocol + repair loop` (NO marker), then a per-file bullet body, then `(W24.T1)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
+
+Discipline: read plans/PLAN.md + docs/contracts/*.schema.json first. Touch ONLY your allowlist (brains/, tests/test_brains.py, append-only requirements.txt + .env.example). No orchestration coupling — this layer is generic (instruction, schema, context) → validated dict. No placeholders: the api brain is FULLY built on LangGraph (mock the provider in tests, real graph); cli_agent really shells out to claude/gemini (mock subprocess in tests). Run acceptance; paste output.
+
+Context: mirror pipeline/broll.py's `claude -p` subprocess + JSON-capture discipline for cli_agent. api brain uses the latest Claude model via the Messages API, key from .env (ANTHROPIC_API_KEY) — Gemini optional. Brain chosen once per episode by W20; you only ship select_brain + config/brains.json defaults. validate_and_repair re-prompts with the jsonschema error on invalid output.
+```
+
+---
+
+## W25 — Manim media (fitted image/video box) — independent (W10 merged)
+
+```text
+Read plans/W25-manim-media.md and execute it exactly, checklist items in order.
+
+Branch (first action): target agents/w25-manim-media. Run `git branch --show-current`.
+  • agents/w25-manim-media → continue.
+  • main → `git checkout -b agents/w25-manim-media`.
+  • cursor/* or anything else → `git branch -m agents/w25-manim-media` (rename ONLY; never checkout -b).
+  Do not run git worktree. Worktree folder name is irrelevant.
+Never work on main.
+
+Env: prefix every Python/render/test command with `conda run -n geopo`.
+
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(manim): fitted media component` (NO marker), then a per-file bullet body, then `(W25.T1)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
+
+Discipline: read plans/PLAN.md + manim_renderer/docs/SKILL.md first. Touch ONLY your allowlist (manim_renderer/{components,registry.py,schema,theme,docs/fragments,tests}, scripts/manim/). No hardcoded hex/px — letterbox/border/padding from theme tokens (rule 1). Keep the no-raw-coordinates validator rule. No placeholders: showMedia must really fit a portrait image, a landscape image, AND a video inside the box without stretching, in both formats; verify the rendered frames yourself. Run acceptance; paste output + the golden frame.
+
+Context: rework manim_renderer/components/narrative/image_card.py (Ken Burns + attribution chip reusable) into MediaFrame; keep showImageCard as a thin alias. object-fit: contain (letterbox), never cover-stretch. Document the action in docs/fragments/w25-manim-media.md (lead merges into SKILL.md).
+```
+
+---
+
+## W26 — Map media frames (reserved-region box + clip-to-border) — independent (W11/W14 merged)
+
+```text
+Read plans/W26-map-media-frames.md and execute it exactly, checklist items in order.
+
+Branch (first action): target agents/w26-map-media-frames. Run `git branch --show-current`.
+  • agents/w26-map-media-frames → continue.
+  • main → `git checkout -b agents/w26-map-media-frames`.
+  • cursor/* or anything else → `git branch -m agents/w26-map-media-frames` (rename ONLY; never checkout -b).
+  Do not run git worktree. Worktree folder name is irrelevant.
+Never work on main.
+
+Env: prefix every Python/render/test command with `conda run -n geopo`. Link .env for renders if missing: ln -sf /home/rawline/GeoPoAI/.env ./.env
+
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(map): reserved-region media frame` (NO marker), then a per-file bullet body, then `(W26.T1)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
+
+Discipline: read plans/PLAN.md + map_renderer/docs/SKILL.md first. Touch ONLY your allowlist (NEW web/js/effects/media.js, web/css/media.css, docs/fragments/w26-map-media.md, scripts/map/). DO NOT edit fills.js/borders.js/arrows.js/labels.js — reuse maskImage's ring/clip approach in your own file. The lead has pre-added the media.js <script> tag in map.html and a media stub in scene.schema.json — fill the schema stub, never add a script tag yourself (rule 3; STOP and report if the tag is missing). All colors/border/letterbox from design tokens via CSS vars. No placeholders: a DETERMINISTIC demo must show a video in a top box with the globe below AND media clipped to Morocco; verify frames yourself. Run acceptance; paste screenshots.
+
+Context: two actions — showMediaFrame (screen region box, contain-fit, safe-area aware) and maskMedia (clip image/video to a resolver geometry; add video, which maskImage lacks; reproject on camera move, deterministic-safe). removeMediaFrame/removeMask for clean exits.
+```
+
+---
+
+## W27 — B-roll provided media (forced source) — independent (W18 merged)
+
+```text
+Read plans/W27-broll-provided-media.md and execute it exactly, checklist items in order.
+
+Branch (first action): target agents/w27-broll-provided-media. Run `git branch --show-current`.
+  • agents/w27-broll-provided-media → continue.
+  • main → `git checkout -b agents/w27-broll-provided-media`.
+  • cursor/* or anything else → `git branch -m agents/w27-broll-provided-media` (rename ONLY; never checkout -b).
+  Do not run git worktree. Worktree folder name is irrelevant.
+Never work on main.
+
+Env: prefix every Python/test command with `conda run -n geopo`.
+
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(broll): provided-source forced pick` (NO marker), then a per-file bullet body, then `(W27.T1)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
+
+Discipline: read plans/PLAN.md + broll/AGENT.md first. Touch ONLY your allowlist (broll/lib/provided_source.py, pipeline/broll.py, broll/docs/fragments/w27-provided-media.md, tests/test_broll_provided.py). Reuse the existing broll downloader/asset_wrapper — NO new dependency. license field is mandatory (mirror asset_wrapper provenance). No placeholders: a provided URL AND a provided local file must each become a real clip with license metadata; missing-license + junk-file must be rejected. Run acceptance; paste output.
+
+Context: a provided candidate (source="provided") short-circuits keyword search + ranking (forced pick) but still passes the integrity/verifier gate unless --trust-provided. W20 maps inputs[] use:"broll" to `pipeline/broll.py --provided`.
 ```
 
