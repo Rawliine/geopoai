@@ -179,6 +179,30 @@
     z-index: 2;
   }
 
+  /* "1939" — heavy condensed display, editorial weight carries the drama */
+  .title-card-text {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: 0.005em;
+    line-height: 0.9;
+    color: var(--text-primary);
+    text-shadow: 0 2px 18px rgba(0, 0, 0, 0.85);
+  }
+
+  /* "THE SIEGE BEGINS" — wide-tracked uppercase, an accent hairline above */
+  .title-card-sub {
+    margin-top: 0.45em;
+    padding-top: 0.4em;
+    font-family: var(--font-primary);
+    font-weight: 600;
+    font-size: 0.32em;
+    text-transform: uppercase;
+    letter-spacing: 0.34em;
+    color: var(--role-highlight-core);
+    border-top: 1px solid color-mix(in srgb, var(--role-highlight-core) 55%, transparent);
+    display: inline-block;
+  }
+
   .title-slam .title-card-inner {
     animation: title-slam-in var(--effect-duration, 0.45s) cubic-bezier(0.175, 0.885, 0.32, 1) forwards;
     opacity: 0;
@@ -241,14 +265,13 @@
   /* ── W12: stat box ────────────────────────────────────────── */
   .stat-box {
     position: absolute;
-    min-width: 220px;
-    background: color-mix(in srgb, var(--palette-surface) 92%, transparent);
-    border: 1px solid color-mix(in srgb, var(--text-secondary) 35%, transparent);
-    border-radius: 4px;
-    padding: 0.65em 0.85em;
+    min-width: 232px;
+    background: color-mix(in srgb, var(--palette-background) 88%, transparent);
+    border: 1px solid color-mix(in srgb, var(--text-secondary) 24%, transparent);
+    border-left: 3px solid var(--role-neutral-core);
     font-family: var(--font-primary);
     color: var(--text-primary);
-    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(2px);
   }
 
   .stat-box-enter {
@@ -262,20 +285,25 @@
   }
 
   .stat-box-title {
-    font-size: var(--font-size-horizontal-label);
-    font-weight: 600;
-    padding-bottom: 0.4em;
-    margin-bottom: 0.35em;
-    border-bottom: 2px solid var(--role-neutral-core);
+    font-size: calc(var(--font-size-horizontal-label) * 0.72);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    color: var(--text-secondary);
+    padding: 0.55em 0.95em 0.5em;
+    border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 22%, transparent);
   }
 
   .stat-box-row {
     display: flex;
     align-items: center;
-    gap: 0.5em;
-    padding: 0.25em 0;
+    gap: 0.65em;
+    padding: 0.5em 0.95em;
     opacity: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--text-secondary) 9%, transparent);
   }
+
+  .stat-box-row:last-child { border-bottom: none; }
 
   .stat-row-enter {
     animation: stat-row-in 0.45s ease-out var(--row-delay, 0ms) forwards;
@@ -286,24 +314,36 @@
     100% { opacity: 1; transform: translateX(0); }
   }
 
-  .stat-box-icon,
-  .stat-box-flag {
-    width: 1.25em;
-    height: 1.25em;
+  .stat-box-icon {
+    width: 1em;
+    height: 1em;
     flex-shrink: 0;
+    opacity: 0.7;
     object-fit: contain;
+  }
+
+  .stat-box-flag {
+    width: 1.15em;
+    height: 1.15em;
+    flex-shrink: 0;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--text-secondary) 30%, transparent);
   }
 
   .stat-box-label {
     flex: 1;
     color: var(--text-secondary);
-    font-size: 0.85em;
+    font-size: 0.8em;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
   .stat-box-value {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-weight: 600;
+    font-size: 0.95em;
   }
 
   /* ── W12: geo-pinned icons ────────────────────────────────── */
