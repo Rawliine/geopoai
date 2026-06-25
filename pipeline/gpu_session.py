@@ -800,6 +800,949 @@ def terraform_destroy_args(
     ]
 
 
+def terraform_volume_apply_args(
+    workload: WorkloadSpec,
+    run_id: str,
+    profile: GpuProfile,
+) -> list[str]:
+    return [
+        "apply",
+        "-auto-approve",
+        "-target=verda_volume.models",
+        *terraform_base_args(workload, run_id, profile),
+    ]
+
+
+def apply_single_profile(
+    workload: WorkloadSpec,
+    run_id: str,
+    profile: GpuProfile,
+) -> subprocess.CompletedProcess[str]:
+    result = run_terraform(terraform_apply_args(workload, run_id, profile))
+    if result.returncode != 0 and is_startup_script_immutable_error(result):
+        log.warning("startup script immutable — retrying with -replace=verda_startup_script.this")
+        result = run_terraform(
+            terraform_apply_args(workload, run_id, profile, replace_startup_script=True),
+        )
+    return result
+
+
+def ensure_volume_at_location(
+    workload: WorkloadSpec,
+    run_id: str,
+    profile: GpuProfile,
+    volume: VolumeState,
+    *,
+    replace: bool = False,
+) -> int:
+    """Create or replace models volume in profile.location (terraform -target=verda_volume.models)."""
+    if replace and volume.in_terraform_state:
+        log.info("removing stale verda_volume.models from terraform state")
+        rm = run_terraform(["state", "rm", "verda_volume.models"])
+        if rm.returncode != 0:
+            log.error("terraform state rm failed: %s", (rm.stderr or rm.stdout or "").strip())
+            return rm.returncode
+    result = run_terraform(terraform_volume_apply_args(workload, run_id, profile))
+    if result.returncode != 0:
+        log.error("volume apply failed: %s", (result.stderr or result.stdout or "").strip())
+    return result.returncode
+
+
+def resolve_ssh_private_key() -> Path | None:
+    _load_dotenv_into_environ()
+    env_key = os.environ.get("GEOPOAI_SSH_IDENTITY", "")
+    if env_key and Path(env_key).expanduser().is_file():
+        return Path(env_key).expanduser()
+    for tfvar in ("workloads/comfyui.tfvars",):
+        pub = _read_tfvar_string(tfvar, "ssh_public_key_path")
+        if pub:
+            pub_path = Path(pub.replace("~", str(Path.home())))
+            priv = Path(str(pub_path)[:-4]) if str(pub_path).endswith(".pub") else pub_path
+            if priv.is_file():
+                return priv
+    for candidate in (Path.home() / ".ssh" / "id_ed25519", Path.home() / ".ssh" / "id_rsa"):
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def run_ssh_on_instance(
+    ip: str,
+    remote_cmd: str,
+    *,
+    user: str = "root",
+    identity: Path | None = None,
+) -> subprocess.CompletedProcess[str]:
+    identity = identity or resolve_ssh_private_key()
+    if not identity:
+        raise RuntimeError("no SSH private key found")
+    return subprocess.run(
+        [
+            "ssh",
+            "-i",
+            str(identity),
+            "-o",
+            "StrictHostKeyChecking=accept-new",
+            "-o",
+            "IdentitiesOnly=yes",
+            f"{user}@{ip}",
+            remote_cmd,
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+
+def models_download_complete(ip: str, marker: str) -> bool:
+    result = run_ssh_on_instance(ip, f"test -f {shlex.quote(marker)}")
+    return result.returncode == 0
+
+
+def run_download_on_vm(
+    workload: WorkloadSpec,
+    run_id: str,
+    profile: GpuProfile | None,
+) -> int:
+    """Sync repo + run download_models.sh on the live VM (wraps download_models_on_vm.sh)."""
+    _load_dotenv_into_environ()
+    hf = os.environ.get("TF_VAR_huggingface_token") or os.environ.get("HF_TOKEN", "")
+    if not hf:
+        log.error("set TF_VAR_huggingface_token or HF_TOKEN in .env")
+        return 1
+    os.environ["HF_TOKEN"] = hf
+    os.environ["GEOPOAI_TF_REFRESH_ARGS"] = " ".join(terraform_base_args(workload, run_id, profile))
+    script = _INFRA_DIR / "download_models_on_vm.sh"
+    if not script.is_file():
+        log.error("missing %s", script)
+        return 1
+    proc = subprocess.run([str(script), run_id], cwd=_INFRA_DIR)
+    return proc.returncode
+
+
+def finish_session_after_deploy(
+    workload_name: str,
+    workload: WorkloadSpec,
+    run_id: str,
+    profile: GpuProfile,
+    gpu_profiles: dict[str, GpuProfile],
+    *,
+    wait_health: bool = True,
+    verbose: bool = False,
+) -> tuple[int, dict[str, Any] | None]:
+    ip = wait_for_instance_ip(workload, run_id, profile)
+    instance_id = terraform_output("instance_id", workload, run_id, profile) or ""
+    session: dict[str, Any] = {
+        "workload": workload_name,
+        "run_id": run_id,
+        "started_at": _iso(_utc_now()),
+        "last_activity_at": _iso(_utc_now()),
+        "ip": ip,
+        "instance_id": instance_id,
+        "tfvars": workload.tfvars,
+        "gpu_profile": profile.name,
+        "gpu_type": profile.instance_type,
+        "verda_image": profile.verda_image,
+        "location": profile.location,
+        "use_spot": profile.use_spot,
+    }
+    state = load_state()
+    state[workload_name] = session
+    save_state(state)
+
+    if workload.env_export:
+        port = workload.health.port or 8188
+        update_env_export(workload.env_export, f"http://{ip}:{port}")
+
+    if wait_health:
+        deadline = time.monotonic() + 1800
+        while time.monotonic() < deadline:
+            if check_health(session, workload):
+                log.info("health check passed for %s at %s", workload_name, ip)
+                break
+            log.info("waiting for health (%s)...", workload.health.type)
+            time.sleep(15)
+        else:
+            log.error("health check timed out for %s", workload_name)
+            return 1, session
+
+    if verbose:
+        _tail_bootstrap_log(session, gpu_profiles)
+    return 0, session
+
+
+def prompt_download_if_needed(
+    session: dict[str, Any],
+    workload: WorkloadSpec,
+    profile: GpuProfile | None,
+    storage: StorageConfig,
+    *,
+    input_fn: Any = input,
+    assume_yes: bool = False,
+) -> int:
+    ip = session.get("ip")
+    if not ip:
+        return 0
+    marker = storage.models_marker
+    if models_download_complete(ip, marker):
+        print(f"Models marker present ({marker}) — skipping download.")
+        return 0
+    print(f"Models not found on volume (missing {marker}).")
+    if not assume_yes:
+        ans = input_fn("Run model download now? (1–3 hours) [Y/n]: ").strip().lower()
+        if ans in ("n", "no"):
+            print("Skipped download. Run: python pipeline/gpu_session.py setup <workload>")
+            return 0
+    return run_download_on_vm(workload, session["run_id"], profile)
+
+
+def run_terraform(tf_args: list[str], *, cwd: Path = _INFRA_DIR) -> subprocess.CompletedProcess[str]:
+    _load_dotenv_into_environ()
+    cmd = ["terraform", *tf_args]
+    safe_args = []
+    for arg in cmd:
+        if arg.startswith("-var=verda_client_secret="):
+            safe_args.append("-var=verda_client_secret=***")
+        else:
+            safe_args.append(arg)
+    log.info("running: %s (cwd=%s)", " ".join(shlex.quote(a) for a in safe_args), cwd)
+    return subprocess.run(
+        cmd,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        env=os.environ.copy(),
+    )
+
+
+def terraform_output(
+    name: str,
+    workload: WorkloadSpec,
+    run_id: str,
+    profile: GpuProfile | None = None,
+) -> str | None:
+    result = run_terraform(
+        ["output", "-raw", name, *terraform_base_args(workload, run_id, profile)],
+    )
+    if result.returncode != 0:
+        return None
+    value = (result.stdout or "").strip()
+    if not value or value == "null":
+        return None
+    return value
+
+
+def terraform_refresh(
+    workload: WorkloadSpec,
+    run_id: str,
+    profile: GpuProfile | None = None,
+) -> None:
+    run_terraform(["refresh", *terraform_base_args(workload, run_id, profile)])
+
+
+def wait_for_instance_ip(
+    workload: WorkloadSpec,
+    run_id: str,
+    profile: GpuProfile | None = None,
+    *,
+    max_wait_sec: int = 300,
+    poll_sec: int = 10,
+) -> str:
+    deadline = time.monotonic() + max_wait_sec
+    while time.monotonic() < deadline:
+        terraform_refresh(workload, run_id, profile)
+        ip = terraform_output("instance_ip", workload, run_id, profile)
+        if ip:
+            log.info("instance_ip=%s", ip)
+            return ip
+        instance_id = terraform_output("instance_id", workload, run_id, profile)
+        log.info("waiting for IP (instance_id=%s)...", instance_id or "?")
+        time.sleep(poll_sec)
+    raise RuntimeError(f"timed out waiting for instance_ip after {max_wait_sec}s")
+
+
+def _http_probe(url: str, timeout: float = 10.0) -> bool:
+    try:
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return 200 <= resp.status < 500
+    except (urllib.error.URLError, TimeoutError, OSError):
+        return False
+
+
+def _ssh_probe(host: str, port: int = 22, timeout: float = 5.0) -> bool:
+    try:
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+
+
+def check_health(session: dict[str, Any], workload: WorkloadSpec) -> bool:
+    ip = session.get("ip")
+    if not ip:
+        return False
+    if workload.health.type == "http":
+        port = workload.health.port or 8188
+        path = workload.health.path or "/"
+        url = f"http://{ip}:{port}{path}"
+        return _http_probe(url)
+    if workload.health.type == "ssh":
+        return _ssh_probe(ip)
+    return False
+
+
+def poll_comfyui_activity(ip: str, port: int = 8188) -> tuple[bool, str]:
+    """Return (active, fingerprint) from ComfyUI /history and /queue."""
+    fingerprints: list[str] = []
+    active = False
+    for path in ("/queue", "/history"):
+        url = f"http://{ip}:{port}{path}"
+        try:
+            with urllib.request.urlopen(url, timeout=10) as resp:
+                body = resp.read()
+            fingerprints.append(hashlib.sha256(body).hexdigest())
+            payload = json.loads(body)
+            if path == "/queue":
+                if isinstance(payload, dict):
+                    running = payload.get("queue_running") or []
+                    pending = payload.get("queue_pending") or []
+                    if running or pending:
+                        active = True
+            elif path == "/history" and isinstance(payload, dict) and payload:
+                active = True
+        except (urllib.error.URLError, json.JSONDecodeError, TimeoutError, OSError):
+            continue
+    fingerprint = "|".join(fingerprints)
+    return active, fingerprint
+
+
+def is_session_live(
+    session: dict[str, Any],
+    workload: WorkloadSpec,
+    gpu_profiles: dict[str, GpuProfile] | None = None,
+) -> bool:
+    ip = session.get("ip")
+    if not ip:
+        return False
+    if check_health(session, workload):
+        return True
+    profile = profile_for_session(session, gpu_profiles or {})
+    run_id = session["run_id"]
+    instance_id = terraform_output("instance_id", workload, run_id, profile)
+    return bool(instance_id)
+
+
+def generate_run_id(workload: str, state: dict[str, dict[str, Any]]) -> str:
+    today = _utc_now().strftime("%Y-%m-%d")
+    prefix = f"{workload}-{today}-"
+    existing = [
+        s["run_id"]
+        for s in state.values()
+        if isinstance(s.get("run_id"), str) and s["run_id"].startswith(prefix)
+    ]
+    n = 1
+    while f"{prefix}{n}" in existing:
+        n += 1
+    return f"{prefix}{n}"
+
+
+def update_env_export(key: str, value: str) -> None:
+    if _ENV_PATH.exists():
+        _ENV_BAK_PATH.write_text(_ENV_PATH.read_text(encoding="utf-8"), encoding="utf-8")
+    lines: list[str] = []
+    if _ENV_PATH.exists():
+        lines = _ENV_PATH.read_text(encoding="utf-8").splitlines()
+    pattern = re.compile(rf"^{re.escape(key)}=")
+    replaced = False
+    out: list[str] = []
+    for line in lines:
+        if pattern.match(line):
+            out.append(f"{key}={value}")
+            replaced = True
+        else:
+            out.append(line)
+    if not replaced:
+        if out and out[-1].strip():
+            out.append("")
+        out.append(f"{key}={value}")
+    _ENV_PATH.write_text("\n".join(out) + "\n", encoding="utf-8")
+    log.info("updated %s in .env (backup at .env.bak)", key)
+
+
+def revert_env_export(key: str) -> None:
+    if not _ENV_BAK_PATH.exists():
+        return
+    bak_lines = _ENV_BAK_PATH.read_text(encoding="utf-8").splitlines()
+    pattern = re.compile(rf"^{re.escape(key)}=")
+    for line in bak_lines:
+        if pattern.match(line):
+            _, _, val = line.partition("=")
+            update_env_export(key, val.strip())
+            return
+
+
+def estimate_cost_usd(
+    session: dict[str, Any],
+    gpu_rates: dict[str, float],
+    *,
+    now: datetime | None = None,
+) -> float:
+    started = _parse_iso(session["started_at"])
+    now = now or _utc_now()
+    hours = max(0.0, (now - started).total_seconds() / 3600.0)
+    gpu_type = session.get("gpu_type") or ""
+    rate = gpu_rates.get(gpu_type, 0.0)
+    return round(hours * rate, 4)
+
+
+def apply_with_gpu_fallback(
+    workload: WorkloadSpec,
+    run_id: str,
+    chain: list[GpuProfile],
+) -> tuple[GpuProfile | None, subprocess.CompletedProcess[str]]:
+    last_result: subprocess.CompletedProcess[str] | None = None
+    for idx, profile in enumerate(chain):
+        log.info(
+            "trying gpu profile %s (%s) [%d/%d]",
+            profile.name,
+            profile.label,
+            idx + 1,
+            len(chain),
+        )
+        result = run_terraform(terraform_apply_args(workload, run_id, profile))
+        if result.returncode != 0 and is_startup_script_immutable_error(result):
+            log.warning(
+                "profile %s: Verda startup script immutable — retrying with -replace=verda_startup_script.this",
+                profile.name,
+            )
+            result = run_terraform(
+                terraform_apply_args(workload, run_id, profile, replace_startup_script=True),
+            )
+        last_result = result
+        if result.returncode == 0:
+            return profile, result
+        if is_service_unavailable(result):
+            log.warning(
+                "profile %s: Verda service_unavailable (503) — %s",
+                profile.name,
+                "trying next" if idx + 1 < len(chain) else "no profiles left",
+            )
+            continue
+        log.warning("terraform apply exited %s for profile %s", result.returncode, profile.name)
+        if result.stderr:
+            log.warning("%s", result.stderr.strip())
+        if is_definitive_apply_failure(result):
+            return None, result
+        # Ambiguous failure — instance may still be provisioning.
+        return profile, result
+    return None, last_result or subprocess.CompletedProcess([], 1, "", "")
+
+
+def prepare_deploy_chain(
+    workload: WorkloadSpec,
+    gpu_profiles: dict[str, GpuProfile],
+    *,
+    force_profile: str | None = None,
+) -> tuple[list[GpuProfile], dict[str, float], str, dict[str, set[str]] | None]:
+    """Resolve best→worst chain using Verda GET /instance-types + /instance-availability."""
+    raw_chain = profiles_to_try(workload, gpu_profiles, force_profile=force_profile)
+    catalog_list = fetch_verda_instance_types()
+    catalog = index_instance_types(catalog_list)
+    rates = rates_from_catalog(catalog_list)
+    location = resolve_workload_location(workload, raw_chain[0] if raw_chain else None)
+
+    token = verda_oauth_token()
+    availability: dict[str, set[str]] | None = None
+    if token:
+        availability = fetch_instance_availability_by_location(token)
+        log.info("GET /instance-availability: %d locations", len(availability))
+    else:
+        log.warning(
+            "GET /instance-availability skipped — set VERDA_CLIENT_ID/SECRET; "
+            "will rely on service_unavailable at apply time"
+        )
+
+    chain = resolve_profiles_for_location(raw_chain, catalog, location, availability)
+    if not chain:
+        log.warning("no profiles pass availability filter — resolving images without pre-filter")
+        chain = resolve_profiles_for_location(raw_chain, catalog, location, None)
+    if not chain:
+        raise ValueError(
+            f"no deployable gpu profiles for {workload.name} at {location}; "
+            "run: python pipeline/gpu_session.py gpus --location "
+            f"{location}"
+        )
+    return chain, rates, location, availability
+
+
+def cmd_gpus(args: argparse.Namespace) -> int:
+    types = fetch_verda_instance_types()
+    token = verda_oauth_token()
+    availability = fetch_instance_availability_by_location(token) if token else None
+    if args.json:
+        payload: dict[str, Any] = {"instance_types": types}
+        if availability is not None:
+            payload["instance_availability"] = [
+                {"location_code": k, "availabilities": sorted(v)}
+                for k, v in sorted(availability.items())
+            ]
+        if token:
+            payload["volumes"] = fetch_verda_volumes(token)
+        print(json.dumps(payload, indent=2))
+        return 0
+    if getattr(args, "all_locations", False):
+        if availability is None:
+            print("# GET /v1/instance-availability requires VERDA_CLIENT_ID/SECRET in .env\n")
+            return 1
+        offerings = build_gpu_offerings(
+            types,
+            availability,
+            include_cpu=getattr(args, "include_cpu", False),
+            sort_by=getattr(args, "sort_by", "ondemand"),
+        )
+        print(format_gpu_offerings_table(offerings))
+        return 0
+    location = args.location or "FIN-01"
+    if availability is None:
+        print("# GET /v1/instance-availability requires VERDA_CLIENT_ID/SECRET in .env\n")
+    print(format_gpu_catalog(types, spot=False, availability=availability, location=location))
+    print()
+    print(format_gpu_catalog(types, spot=True, availability=availability, location=location))
+    return 0
+
+
+def cmd_up(
+    args: argparse.Namespace,
+    gpu_rates: dict[str, float],
+    gpu_profiles: dict[str, GpuProfile],
+    workloads: dict[str, WorkloadSpec],
+) -> int:
+    workload = workloads[args.workload]
+    state = load_state()
+
+    existing = get_session(state, args.workload)
+    if existing and is_session_live(existing, workload, gpu_profiles):
+        log.error(
+            "refusing up: live session for %s (run_id=%s ip=%s)",
+            args.workload,
+            existing.get("run_id"),
+            existing.get("ip"),
+        )
+        return 1
+
+    run_id = args.run_id
+    if run_id == "auto":
+        run_id = generate_run_id(args.workload, state)
+
+    try:
+        chain, catalog_rates, location, _avail = prepare_deploy_chain(
+            workload,
+            gpu_profiles,
+            force_profile=getattr(args, "profile", None),
+        )
+    except ValueError as exc:
+        log.error("%s", exc)
+        return 1
+
+    # Catalog prices refreshed from GET /instance-types during prepare_deploy_chain.
+    _ = {**gpu_rates, **catalog_rates}
+
+    log.info(
+        "bringing up %s run_id=%s @ %s (gpu chain: %s)",
+        args.workload,
+        run_id,
+        location,
+        " → ".join(f"{p.name}[{p.instance_type}]" for p in chain),
+    )
+    chosen_profile, result = apply_with_gpu_fallback(workload, run_id, chain)
+    if chosen_profile is None:
+        log.error(
+            "terraform apply failed for all profiles — %s",
+            "Verda service_unavailable for every SKU"
+            if result and is_service_unavailable(result)
+            else "see terraform output above",
+        )
+        if result and result.stderr:
+            log.error("%s", result.stderr.strip())
+        return 1
+    if result.returncode != 0:
+        log.error("terraform apply failed for profile %s", chosen_profile.name)
+        if result.stderr:
+            log.error("%s", result.stderr.strip())
+        return 1
+
+    ip = wait_for_instance_ip(workload, run_id, chosen_profile)
+    instance_id = terraform_output("instance_id", workload, run_id, chosen_profile) or ""
+
+    session: dict[str, Any] = {
+        "workload": args.workload,
+        "run_id": run_id,
+        "started_at": _iso(_utc_now()),
+        "last_activity_at": _iso(_utc_now()),
+        "ip": ip,
+        "instance_id": instance_id,
+        "tfvars": workload.tfvars,
+        "gpu_profile": chosen_profile.name,
+        "gpu_type": chosen_profile.instance_type,
+        "verda_image": chosen_profile.verda_image,
+        "location": location,
+        "use_spot": chosen_profile.use_spot,
+    }
+    state[args.workload] = session
+    save_state(state)
+
+    if workload.env_export:
+        port = workload.health.port or 8188
+        update_env_export(workload.env_export, f"http://{ip}:{port}")
+
+    # Health poll
+    deadline = time.monotonic() + 1800
+    while time.monotonic() < deadline:
+        if check_health(session, workload):
+            log.info("health check passed for %s at %s", args.workload, ip)
+            break
+        log.info("waiting for health (%s)...", workload.health.type)
+        time.sleep(15)
+    else:
+        log.error("health check timed out for %s", args.workload)
+        return 1
+
+    if args.verbose:
+        _tail_bootstrap_log(session, gpu_profiles)
+
+    print(json.dumps(session, indent=2))
+    return 0
+
+
+def _tail_bootstrap_log(
+    session: dict[str, Any],
+    gpu_profiles: dict[str, GpuProfile],
+) -> None:
+    ssh_script = _INFRA_DIR / "verda_ssh.sh"
+    if not ssh_script.exists():
+        return
+    workload = WorkloadSpec(
+        name=session["workload"],
+        tfvars=session["tfvars"],
+        health=HealthSpec(type="ssh"),
+        env_export=None,
+        default_gpu_profile="",
+        gpu_preference=[],
+        idle_minutes=0,
+        max_session_hours=0,
+    )
+    profile = profile_for_session(session, gpu_profiles)
+    os.environ["GEOPOAI_TF_REFRESH_ARGS"] = " ".join(
+        terraform_base_args(workload, session["run_id"], profile)
+    )
+    log.info("streaming bootstrap log (Ctrl-C to stop tail; VM keeps running)")
+    try:
+        subprocess.run(
+            [str(ssh_script), "--", "tail", "-n", "50", "/var/log/geopoai-bootstrap.log"],
+            cwd=_INFRA_DIR,
+            check=False,
+        )
+    except KeyboardInterrupt:
+        log.info("stopped tailing bootstrap log")
+
+
+def cmd_status(
+    args: argparse.Namespace,
+    gpu_rates: dict[str, float],
+    gpu_profiles: dict[str, GpuProfile],
+    workloads: dict[str, WorkloadSpec],
+) -> int:
+    workload = workloads[args.workload]
+    state = load_state()
+    session = get_session(state, args.workload)
+    if not session:
+        print(json.dumps({"workload": args.workload, "status": "down"}))
+        return 0
+
+    healthy = check_health(session, workload)
+    live = is_session_live(session, workload, gpu_profiles)
+    status = "up" if live else "stale"
+    started = _parse_iso(session["started_at"])
+    uptime_hours = (_utc_now() - started).total_seconds() / 3600.0
+    report = {
+        "workload": args.workload,
+        "status": status,
+        "run_id": session["run_id"],
+        "ip": session.get("ip"),
+        "instance_id": session.get("instance_id"),
+        "healthy": healthy,
+        "uptime_hours": round(uptime_hours, 3),
+        "estimated_cost_usd": estimate_cost_usd(session, gpu_rates),
+        "gpu_profile": session.get("gpu_profile"),
+        "gpu_type": session.get("gpu_type"),
+        "started_at": session.get("started_at"),
+        "last_activity_at": session.get("last_activity_at"),
+    }
+    print(json.dumps(report, indent=2))
+    return 0
+
+
+def cmd_down(
+    args: argparse.Namespace,
+    gpu_rates: dict[str, float],
+    gpu_profiles: dict[str, GpuProfile],
+    workloads: dict[str, WorkloadSpec],
+) -> int:
+    workload = workloads[args.workload]
+    state = load_state()
+    session = get_session(state, args.workload)
+    if not session:
+        log.info("no session state for %s — nothing to tear down", args.workload)
+        return 0
+
+    run_id = session["run_id"]
+    profile = profile_for_session(session, gpu_profiles)
+    log.info(
+        "destroying instance only for %s run_id=%s profile=%s",
+        args.workload,
+        run_id,
+        profile.name if profile else "?",
+    )
+    result = run_terraform(terraform_destroy_args(workload, run_id, profile))
+    if result.returncode != 0:
+        log.error("terraform destroy failed: %s", (result.stderr or result.stdout or "").strip())
+        return result.returncode
+
+    if workload.env_export:
+        revert_env_export(workload.env_export)
+
+    state.pop(args.workload, None)
+    save_state(state)
+    log.info("session down; models volume untouched")
+    return 0
+
+
+def _is_tty() -> bool:
+    try:
+        return sys.stdin.isatty() and sys.stdout.isatty()
+    except (AttributeError, ValueError):
+        return False
+
+
+def _prompt_workload(input_fn: Any = input) -> str:
+    choices = ["comfyui_setup", "comfyui", "blender_render", "lora_train"]
+    print("Select workload:")
+    for i, name in enumerate(choices, start=1):
+        print(f"  {i}) {name}")
+    while True:
+        raw = input_fn("Workload [1]: ").strip() or "1"
+        if raw.isdigit() and 1 <= int(raw) <= len(choices):
+            return choices[int(raw) - 1]
+        if raw in choices:
+            return raw
+        print("Invalid choice.")
+
+
+def _browse_offerings_interactive(
+    catalog: list[dict[str, Any]],
+    availability: dict[str, set[str]],
+    *,
+    location_filter: str | None = None,
+    input_fn: Any = input,
+) -> GpuOffering | None:
+    sort_by = "ondemand"
+    while True:
+        offerings = build_gpu_offerings(
+            catalog,
+            availability,
+            location_filter=location_filter,
+            sort_by=sort_by,
+        )
+        if not offerings:
+            print("No free GPU SKUs" + (f" in {location_filter}" if location_filter else "") + ".")
+            return None
+        print(format_gpu_offerings_table(offerings, title=f"Sort: {sort_by}"))
+        raw = input_fn("Pick: ").strip().lower()
+        if raw in ("q", "quit"):
+            return None
+        if raw in ("r", "refresh"):
+            catalog = fetch_verda_instance_types()
+            token = verda_oauth_token()
+            if token:
+                availability = fetch_instance_availability_by_location(token)
+            continue
+        if raw in ("s", "sort"):
+            sort_by = input_fn("Sort by ondemand/spot/vram [ondemand]: ").strip().lower() or "ondemand"
+            if sort_by not in ("ondemand", "spot", "vram"):
+                sort_by = "ondemand"
+            continue
+        if raw.isdigit():
+            idx = int(raw)
+            if 1 <= idx <= len(offerings):
+                return offerings[idx - 1]
+        print("Invalid pick.")
+
+
+def _interactive_resolve_volume(
+    offering: GpuOffering,
+    workload: WorkloadSpec,
+    run_id: str,
+    profile: GpuProfile,
+    storage: StorageConfig,
+    token: str | None,
+    *,
+    input_fn: Any = input,
+) -> int:
+    volume = read_volume_state(token, storage)
+    print("\n--- Models volume ---")
+    if volume.id:
+        print(
+            f"  id={volume.id} name={volume.name} location={volume.location} "
+            f"size={volume.size_gb}GB status={volume.status} "
+            f"~${volume.monthly_cost_estimate}/mo"
+        )
+    else:
+        print("  No volume in Terraform state / Verda.")
+
+    vol_loc = volume.location
+    gpu_loc = offering.location
+
+    if not volume.id or volume.status == "deleted":
+        ans = input_fn(f"Create {storage.default_volume_size_gb}GB volume in {gpu_loc}? [Y/n]: ").strip().lower()
+        if ans in ("n", "no"):
+            return 1
+        return ensure_volume_at_location(workload, run_id, profile, volume, replace=bool(volume.in_terraform_state))
+
+    if vol_loc and vol_loc != gpu_loc:
+        print(f"Region mismatch: volume={vol_loc} GPU={gpu_loc}")
+        print("  A) Re-browse GPUs in volume region")
+        print("  B) Replace volume in GPU region (DESTROY-VOLUME confirm; weights lost)")
+        print("  C) Cancel")
+        choice = input_fn("Choice [A]: ").strip().upper() or "A"
+        if choice == "C":
+            return 1
+        if choice == "B":
+            confirm = input_fn("Type DESTROY-VOLUME to confirm replacing volume: ").strip()
+            if confirm != "DESTROY-VOLUME":
+                print("Aborted.")
+                return 1
+            if instance_in_terraform_state():
+                print("Destroy the instance first: gpu_session destroy instance <workload>")
+                return 1
+            return ensure_volume_at_location(workload, run_id, profile, volume, replace=True)
+        return 2  # signal re-browse in volume region
+
+    return 0
+
+
+def cmd_interactive(
+    args: argparse.Namespace,
+    gpu_rates: dict[str, float],
+    gpu_profiles: dict[str, GpuProfile],
+    workloads: dict[str, WorkloadSpec],
+) -> int:
+    if not _is_tty() and not getattr(args, "force", False):
+        print(
+            "interactive requires a TTY.\n"
+            "Try: python pipeline/gpu_session.py gpus --all-locations\n"
+            "     python pipeline/gpu_session.py up <workload> --profile <name>",
+            file=sys.stderr,
+        )
+        return 1
+
+    input_fn = getattr(args, "input_fn", input)
+    storage = load_storage_config()
+
+    if getattr(args, "teardown", False):
+        return _interactive_teardown(input_fn=input_fn, gpu_rates=gpu_rates, gpu_profiles=gpu_profiles, workloads=workloads)
+
+    workload_name = getattr(args, "workload", None) or _prompt_workload(input_fn)
+    workload = workloads[workload_name]
+    state = load_state()
+    if get_session(state, workload_name) and is_session_live(
+        get_session(state, workload_name) or {}, workload, gpu_profiles
+    ):
+        log.error("live session exists for %s — run destroy instance first", workload_name)
+        return 1
+
+    token = verda_oauth_token()
+    if not token:
+        log.error("set VERDA_CLIENT_ID and VERDA_CLIENT_SECRET in .env")
+        return 1
+
+    catalog = fetch_verda_instance_types()
+    availability = fetch_instance_availability_by_location(token)
+    location_filter: str | None = None
+
+    while True:
+        offering = _browse_offerings_interactive(
+            catalog, availability, location_filter=location_filter, input_fn=input_fn
+        )
+        if offering is None:
+            return 1
+
+        print(f"\nSelected: {offering.instance_type} @ {offering.location}")
+        print(f"  On-demand: ${offering.price_ondemand or '?'}/h  Spot: ${offering.price_spot or '?'}/h")
+        billing = input_fn("Billing on-demand or spot? [on-demand/spot]: ").strip().lower()
+        use_spot = billing.startswith("s")
+        if use_spot and offering.price_spot is None:
+            print("No spot price in catalog — using on-demand.")
+            use_spot = False
+
+        profile = offering_to_profile(offering, use_spot=use_spot)
+        run_id = input_fn("run_id [auto]: ").strip() or "auto"
+        if run_id == "auto":
+            run_id = generate_run_id(workload_name, load_state())
+
+        vol_rc = _interactive_resolve_volume(
+            offering, workload, run_id, profile, storage, token, input_fn=input_fn
+        )
+        if vol_rc == 2:
+            location_filter = read_volume_state(token, storage).location
+            continue
+        if vol_rc != 0:
+            return 1
+
+        price = offering.price_spot if use_spot else offering.price_ondemand
+        vol = read_volume_state(token, storage)
+        print("\n--- Confirm deploy ---")
+        print(f"  workload={workload_name} run_id={run_id}")
+        print(f"  {offering.instance_type} @ {offering.location} spot={use_spot} ~${price or '?'}/h")
+        print(f"  volume={vol.id or 'new'} ({vol.location})")
+        if input_fn("Proceed? [yes/NO]: ").strip().lower() != "yes":
+            print("Aborted.")
+            return 1
+
+        result = apply_single_profile(workload, run_id, profile)
+        if result.returncode != 0:
+            if is_service_unavailable(result):
+                print("Verda service_unavailable — pick another GPU (refreshing).")
+                catalog = fetch_verda_instance_types()
+                availability = fetch_instance_availability_by_location(token)
+                continue
+            log.error("apply failed: %s", (result.stderr or result.stdout or "").strip())
+            return 1
+
+        rc, session = finish_session_after_deploy(
+            workload_name,
+            workload,
+            run_id,
+            profile,
+            gpu_profiles,
+            wait_health=True,
+            verbose=getattr(args, "verbose", False),
+        )
+        if rc != 0 or not session:
+            return rc
+
+        dl_rc = prompt_download_if_needed(session, workload, profile, storage, input_fn=input_fn)
+        if dl_rc != 0:
+            return dl_rc
+
+        ssh = terraform_output("ssh_command", workload, run_id, profile) or f"ssh ubuntu@{session['ip']}"
+        print("\n--- Session ready ---")
+        print(json.dumps(session, indent=2))
+        print(f"\nSSH: {ssh}")
+        print(f"Status: python pipeline/gpu_session.py status {workload_name}")
+        print(f"Teardown: python pipeline/gpu_session.py destroy instance {workload_name}")
+        return 0
+
+
 def session_uptime_hours(session: dict[str, Any], *, now: datetime | None = None) -> float:
     started = _parse_iso(session["started_at"])
     now = now or _utc_now()
@@ -1007,6 +1950,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_gpus.set_defaults(func=cmd_gpus, workload=None)
 
+    p_inter = sub.add_parser("interactive", help="browse GPUs, pick region/SKU, deploy, optional download")
+    p_inter.add_argument("workload", nargs="?", help="skip workload prompt if given")
+    p_inter.add_argument("--teardown", action="store_true", help="teardown submenu (instance/volume)")
+    p_inter.add_argument("--verbose", action="store_true")
+    p_inter.add_argument("--force", action="store_true", help=argparse.SUPPRESS)
+    p_inter.set_defaults(func=cmd_interactive, workload=None)
 
 
 
@@ -1054,6 +2003,10 @@ def main(argv: list[str] | None = None) -> int:
 
     gpu_rates, gpu_profiles, workloads = load_registry()
 
+    if args.command == "interactive":
+        if getattr(args, "workload", None):
+            args.workload = args.workload  # positional optional
+        return int(cmd_interactive(args, gpu_rates, gpu_profiles, workloads))
 
 
     if not getattr(args, "workload", None) or args.workload not in workloads:
