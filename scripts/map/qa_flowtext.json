@@ -1,0 +1,167 @@
+{
+  "duration": 25,
+  "_deterministic": true,
+  "_fps": 60,
+  "_seed": 42,
+  "map_style": "dark",
+  "camera": {
+    "center": [-8.5, 30.5],
+    "zoom": 4.4,
+    "pitch": 28,
+    "bearing": -8,
+    "duration": 1.0
+  },
+  "timeline": [
+    {
+      "at": 0.5,
+      "action": "drawArrow",
+      "params": {
+        "id": "taper-advance",
+        "from": [-6.8416, 34.0209],
+        "to": [-13.1953, 27.1536],
+        "style": "taper",
+        "width_px": 30,
+        "role": "threat",
+        "wobble": true,
+        "arc": 55,
+        "duration": 2.8,
+        "curved": true
+      }
+    },
+    {
+      "at": 1.0,
+      "action": "drawArrow",
+      "params": {
+        "id": "arc-transatlantic",
+        "from": [2.3522, 48.8566],
+        "to": [-77.0369, 38.9072],
+        "style": "arc",
+        "role": "ally",
+        "width": 2.5,
+        "bowScale": 0.18,
+        "travelDot": true,
+        "headed": true,
+        "duration": 3.0
+      }
+    },
+    {
+      "at": 2.0,
+      "action": "supplyLine",
+      "params": {
+        "id": "supply-route",
+        "points": [
+          [-7.5898, 33.5731],
+          [-8.009, 31.6295],
+          [-9.5981, 30.4278],
+          [-13.1953, 27.1536]
+        ],
+        "role": "contested",
+        "speed": 72,
+        "style": "dashed",
+        "duration": 1.0
+      }
+    },
+    {
+      "at": 3.0,
+      "action": "showLabel",
+      "params": {
+        "id": "leader-casablanca",
+        "text": "CASABLANCA",
+        "position": [-7.5898, 33.5731],
+        "role": "highlight",
+        "effect": "label-fade",
+        "duration": 0.7,
+        "leader": { "to": [-7.5898, 33.5731], "style": "thin" }
+      }
+    },
+    {
+      "at": 5.0,
+      "action": "showLabel",
+      "params": {
+        "id": "counter-troops",
+        "text": "",
+        "position": { "x": 0.72, "y": 0.22, "unit": "frac" },
+        "role": "threat",
+        "effect": "label-fade",
+        "duration": 0.6,
+        "counter": {
+          "from": 0,
+          "to": 2300000,
+          "duration": 3.0,
+          "format": "short",
+          "prefix": "",
+          "suffix": " troops"
+        }
+      }
+    },
+    {
+      "at": 8.0,
+      "action": "titleCard",
+      "params": {
+        "id": "chapter-1939",
+        "text": "1939",
+        "sub": "THE SIEGE BEGINS",
+        "role": "highlight",
+        "effect": "letterbox",
+        "hold_s": 3.0,
+        "duration": 0.75
+      }
+    },
+    {
+      "at": 10.0,
+      "action": "statBox",
+      "params": {
+        "id": "forces-statbox",
+        "title": "FORCES IN THEATER",
+        "role": "neutral",
+        "position": { "x": 0.04, "y": 0.1, "unit": "frac" },
+        "rows": [
+          {
+            "flag": "ma",
+            "icon": "shield",
+            "iconPack": "lucide",
+            "label": "Royal Army",
+            "value": "120K"
+          },
+          {
+            "flag": "fr",
+            "icon": "users",
+            "iconPack": "lucide",
+            "label": "Allied support",
+            "counter": {
+              "from": 0,
+              "to": 45000,
+              "duration": 2.5,
+              "format": "comma"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "at": 11.0,
+      "action": "showIcon",
+      "params": {
+        "id": "icon-rabat",
+        "position": [-6.8416, 34.0209],
+        "icon": "map-pin",
+        "iconPack": "lucide",
+        "role": "threat",
+        "lift": true,
+        "size": 32
+      }
+    },
+    {
+      "at": 14.0,
+      "action": "flyTo",
+      "params": {
+        "center": [-11.0, 29.0],
+        "zoom": 5.2,
+        "pitch": 35,
+        "bearing": 15,
+        "duration": 3.5,
+        "easing": "swoop"
+      }
+    }
+  ]
+}
