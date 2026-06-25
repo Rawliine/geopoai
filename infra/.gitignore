@@ -15,6 +15,9 @@ terraform.tfstate.*
 # Personal operator notes (not shared via git)
 OPERATOR_RUNBOOK.md
 
+# GPU session manager runtime state (laptop-side)
+.session_state.json
+
 # Local overrides experiments
 override.tf
 *_override.tf

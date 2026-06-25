@@ -1,0 +1,57 @@
+{
+  "gpu_hourly_usd": {
+    "1V100.6V": 0.35,
+    "1A6000.10V": 0.55,
+    "1A100.22V": 1.10,
+    "1H100.80S.30V": 0.80
+  },
+  "workloads": {
+    "comfyui": {
+      "tfvars": [
+        "workloads/comfyui.tfvars",
+        "workloads/comfyui_production.tfvars"
+      ],
+      "health": {
+        "type": "http",
+        "port": 8188,
+        "path": "/"
+      },
+      "env_export": "BROLL_COMFYUI_URL",
+      "default_gpu_profile": "1H100.80S.30V",
+      "idle_minutes": 30,
+      "max_session_hours": 8
+    },
+    "comfyui_setup": {
+      "tfvars": ["workloads/comfyui.tfvars"],
+      "health": {
+        "type": "http",
+        "port": 8188,
+        "path": "/"
+      },
+      "env_export": "BROLL_COMFYUI_URL",
+      "default_gpu_profile": "1V100.6V",
+      "idle_minutes": 60,
+      "max_session_hours": 6
+    },
+    "blender_render": {
+      "tfvars": ["workloads/blender_render.tfvars"],
+      "health": {
+        "type": "ssh"
+      },
+      "env_export": null,
+      "default_gpu_profile": "1H100.80S.30V",
+      "idle_minutes": 20,
+      "max_session_hours": 4
+    },
+    "lora_train": {
+      "tfvars": ["workloads/lora_train.tfvars"],
+      "health": {
+        "type": "ssh"
+      },
+      "env_export": null,
+      "default_gpu_profile": "1H100.80S.30V",
+      "idle_minutes": 15,
+      "max_session_hours": 16
+    }
+  }
+}
