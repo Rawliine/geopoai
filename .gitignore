@@ -1,4 +1,5 @@
 .env
+.env.bak
 
 # Terraform local state (may contain secrets from startup script interpolation)
 infra/terraform.tfstate

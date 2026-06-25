@@ -17,6 +17,7 @@ OPERATOR_RUNBOOK.md
 
 # GPU session manager runtime state (laptop-side)
 .session_state.json
+.watchdog_*.pid
 
 # Local overrides experiments
 override.tf

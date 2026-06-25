@@ -269,6 +269,9 @@ def verda_oauth_token(*, api_base: str = _VERDA_API_BASE) -> str | None:
     except urllib.error.HTTPError as exc:
         log.warning("Verda OAuth failed (%s): %s", exc.code, exc.read().decode(errors="replace")[:200])
         return None
+    except (urllib.error.URLError, OSError, json.JSONDecodeError) as exc:
+        log.warning("Verda OAuth unreachable: %s", exc)
+        return None
 
 
 def verda_api_get(path: str, *, token: str | None = None, api_base: str = _VERDA_API_BASE) -> Any:
@@ -754,12 +757,8 @@ def terraform_base_args(
         f"-var=run_id={run_id}",
         f"-var=max_session_hours={workload.max_session_hours}",
     ]
-    client_id = os.environ.get("VERDA_CLIENT_ID", "")
-    client_secret = os.environ.get("VERDA_CLIENT_SECRET", "")
-    if client_id:
-        args.append(f"-var=verda_client_id={client_id}")
-    if client_secret:
-        args.append(f"-var=verda_client_secret={client_secret}")
+    # verda_client_id / verda_client_secret are NOT passed here — run_terraform injects
+    # them as TF_VAR_* env so the secret never appears on the process command line.
     for tfvar in workload.tfvars:
         args.append(f"-var-file={tfvar}")
     if profile:
@@ -928,6 +927,7 @@ def finish_session_after_deploy(
     *,
     wait_health: bool = True,
     verbose: bool = False,
+    hourly_usd: float | None = None,
 ) -> tuple[int, dict[str, Any] | None]:
     ip = wait_for_instance_ip(workload, run_id, profile)
     instance_id = terraform_output("instance_id", workload, run_id, profile) or ""
@@ -944,6 +944,7 @@ def finish_session_after_deploy(
         "verda_image": profile.verda_image,
         "location": profile.location,
         "use_spot": profile.use_spot,
+        "hourly_usd": hourly_usd,
     }
     state = load_state()
     state[workload_name] = session
@@ -998,19 +999,23 @@ def prompt_download_if_needed(
 def run_terraform(tf_args: list[str], *, cwd: Path = _INFRA_DIR) -> subprocess.CompletedProcess[str]:
     _load_dotenv_into_environ()
     cmd = ["terraform", *tf_args]
-    safe_args = []
-    for arg in cmd:
-        if arg.startswith("-var=verda_client_secret="):
-            safe_args.append("-var=verda_client_secret=***")
-        else:
-            safe_args.append(arg)
-    log.info("running: %s (cwd=%s)", " ".join(shlex.quote(a) for a in safe_args), cwd)
+    env = os.environ.copy()
+    # Hand Verda creds to terraform via TF_VAR_* env (read by var.verda_client_*),
+    # not on argv — keeps the secret out of `ps` / shell history.
+    for src, dst in (
+        ("VERDA_CLIENT_ID", "TF_VAR_verda_client_id"),
+        ("VERDA_CLIENT_SECRET", "TF_VAR_verda_client_secret"),
+    ):
+        val = os.environ.get(src, "")
+        if val:
+            env[dst] = val
+    log.info("running: %s (cwd=%s)", " ".join(shlex.quote(a) for a in cmd), cwd)
     return subprocess.run(
         cmd,
         cwd=cwd,
         capture_output=True,
         text=True,
-        env=os.environ.copy(),
+        env=env,
     )
 
 
@@ -1147,7 +1152,9 @@ def generate_run_id(workload: str, state: dict[str, dict[str, Any]]) -> str:
 
 
 def update_env_export(key: str, value: str) -> None:
-    if _ENV_PATH.exists():
+    # Back up the pre-session .env once; a later up must not clobber the original
+    # (revert_env_export deletes the backup so the next session starts fresh).
+    if _ENV_PATH.exists() and not _ENV_BAK_PATH.exists():
         _ENV_BAK_PATH.write_text(_ENV_PATH.read_text(encoding="utf-8"), encoding="utf-8")
     lines: list[str] = []
     if _ENV_PATH.exists():
@@ -1174,11 +1181,29 @@ def revert_env_export(key: str) -> None:
         return
     bak_lines = _ENV_BAK_PATH.read_text(encoding="utf-8").splitlines()
     pattern = re.compile(rf"^{re.escape(key)}=")
+    original: str | None = None
     for line in bak_lines:
         if pattern.match(line):
             _, _, val = line.partition("=")
-            update_env_export(key, val.strip())
-            return
+            original = val.strip()
+            break
+    if original is not None:
+        update_env_export(key, original)
+    # Backup served its purpose; drop it so the next session re-snapshots a clean .env.
+    _ENV_BAK_PATH.unlink(missing_ok=True)
+
+
+def hourly_rate_for_profile(
+    profile: GpuProfile,
+    catalog: dict[str, dict[str, Any]],
+) -> float | None:
+    """$/h for a profile from the Verda catalog — spot price if use_spot, else on-demand."""
+    entry = catalog.get(profile.instance_type) or {}
+    if profile.use_spot:
+        spot = _float_or_none(entry.get("spot_price"))
+        if spot is not None:
+            return spot
+    return _float_or_none(entry.get("price_per_hour"))
 
 
 def estimate_cost_usd(
@@ -1191,8 +1216,12 @@ def estimate_cost_usd(
     now = now or _utc_now()
     hours = max(0.0, (now - started).total_seconds() / 3600.0)
     gpu_type = session.get("gpu_type") or ""
-    rate = gpu_rates.get(gpu_type, 0.0)
-    return round(hours * rate, 4)
+    # Prefer the live $/h captured at deploy time; fall back to the (usually empty)
+    # registry table so cost is non-zero even when sessions.json carries no rates.
+    rate = session.get("hourly_usd")
+    if rate is None:
+        rate = gpu_rates.get(gpu_type, 0.0)
+    return round(hours * float(rate or 0.0), 4)
 
 
 def apply_with_gpu_fallback(
@@ -1243,7 +1272,13 @@ def prepare_deploy_chain(
     gpu_profiles: dict[str, GpuProfile],
     *,
     force_profile: str | None = None,
-) -> tuple[list[GpuProfile], dict[str, float], str, dict[str, set[str]] | None]:
+) -> tuple[
+    list[GpuProfile],
+    dict[str, float],
+    str,
+    dict[str, set[str]] | None,
+    dict[str, dict[str, Any]],
+]:
     """Resolve best→worst chain using Verda GET /instance-types + /instance-availability."""
     raw_chain = profiles_to_try(workload, gpu_profiles, force_profile=force_profile)
     catalog_list = fetch_verda_instance_types()
@@ -1272,11 +1307,15 @@ def prepare_deploy_chain(
             "run: python pipeline/gpu_session.py gpus --location "
             f"{location}"
         )
-    return chain, rates, location, availability
+    return chain, rates, location, availability, catalog
 
 
 def cmd_gpus(args: argparse.Namespace) -> int:
-    types = fetch_verda_instance_types()
+    try:
+        types = fetch_verda_instance_types()
+    except (urllib.error.URLError, OSError, RuntimeError) as exc:
+        print(f"# Verda API unreachable (GET /instance-types): {exc}", file=sys.stderr)
+        return 1
     token = verda_oauth_token()
     availability = fetch_instance_availability_by_location(token) if token else None
     if args.json:
@@ -1335,7 +1374,7 @@ def cmd_up(
         run_id = generate_run_id(args.workload, state)
 
     try:
-        chain, catalog_rates, location, _avail = prepare_deploy_chain(
+        chain, _catalog_rates, location, _avail, catalog = prepare_deploy_chain(
             workload,
             gpu_profiles,
             force_profile=getattr(args, "profile", None),
@@ -1343,9 +1382,6 @@ def cmd_up(
     except ValueError as exc:
         log.error("%s", exc)
         return 1
-
-    # Catalog prices refreshed from GET /instance-types during prepare_deploy_chain.
-    _ = {**gpu_rates, **catalog_rates}
 
     log.info(
         "bringing up %s run_id=%s @ %s (gpu chain: %s)",
@@ -1387,6 +1423,7 @@ def cmd_up(
         "verda_image": chosen_profile.verda_image,
         "location": location,
         "use_spot": chosen_profile.use_spot,
+        "hourly_usd": hourly_rate_for_profile(chosen_profile, catalog),
     }
     state[args.workload] = session
     save_state(state)
@@ -1726,6 +1763,7 @@ def cmd_interactive(
             gpu_profiles,
             wait_health=True,
             verbose=getattr(args, "verbose", False),
+            hourly_usd=(offering.price_spot if use_spot else offering.price_ondemand),
         )
         if rc != 0 or not session:
             return rc
@@ -1976,7 +2014,33 @@ def watchdog_loop(
         time.sleep(poll_sec)
 
 
+def _watchdog_pidfile(workload: str) -> Path:
+    return _INFRA_DIR / f".watchdog_{workload}.pid"
+
+
+def _watchdog_running(workload: str) -> bool:
+    pf = _watchdog_pidfile(workload)
+    if not pf.exists():
+        return False
+    try:
+        pid = int(pf.read_text(encoding="utf-8").strip())
+    except (ValueError, OSError):
+        return False
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+    return True
+
+
 def _spawn_watchdog(workload: str, poll_sec: int = 60) -> None:
+    if _watchdog_running(workload):
+        log.info("watchdog already running for %s — not spawning another", workload)
+        return
     cmd = [
         sys.executable,
         str(Path(__file__).resolve()),
@@ -1986,13 +2050,17 @@ def _spawn_watchdog(workload: str, poll_sec: int = 60) -> None:
         str(poll_sec),
     ]
     log.info("spawning background watchdog: %s", " ".join(cmd))
-    subprocess.Popen(
+    proc = subprocess.Popen(
         cmd,
         cwd=_REPO_ROOT,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         start_new_session=True,
     )
+    try:
+        _watchdog_pidfile(workload).write_text(f"{proc.pid}\n", encoding="utf-8")
+    except OSError:
+        pass
 
 
 def cmd_watchdog(
@@ -2027,7 +2095,7 @@ def cmd_run(
             return 1
 
     record_activity(args.workload)
-    cmd = args.command
+    cmd = _normalize_run_command(args.cmd)
     if not cmd:
         log.error("run requires a command after --")
         return 1
@@ -2107,7 +2175,8 @@ def build_parser() -> argparse.ArgumentParser:
     add_workload(p_run)
     p_run.add_argument("--run-id", default="auto")
     p_run.add_argument("--verbose", action="store_true")
-    p_run.add_argument("command", nargs=argparse.REMAINDER, help="command after --")
+    # Named `cmd` (not `command`) to avoid clobbering the subparser dest="command".
+    p_run.add_argument("cmd", nargs=argparse.REMAINDER, help="command after --")
     p_run.set_defaults(func=cmd_run)
 
     p_watch = sub.add_parser("watchdog", help="idle/budget watchdog loop (laptop side)")
@@ -2150,9 +2219,6 @@ def main(argv: list[str] | None = None) -> int:
     if not getattr(args, "workload", None) or args.workload not in workloads:
         log.error("unknown workload: %s", getattr(args, "workload", None))
         return 1
-
-    if args.command == "run":
-        args.command = _normalize_run_command(args.command)
 
     return int(args.func(args, gpu_rates, gpu_profiles, workloads))
 

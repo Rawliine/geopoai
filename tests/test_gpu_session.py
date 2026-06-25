@@ -401,3 +401,25 @@ def test_cmd_setup_requires_session(registry_path: Path) -> None:
   with mock.patch.object(gs, "load_state", return_value={}):
     rc = gs.cmd_setup(ns, rates, profiles, workloads)
   assert rc == 1
+
+
+def test_cost_prefers_session_hourly_rate() -> None:
+  # Registry rate table is empty in production; the rate captured at deploy time wins.
+  session = _sample_session(hourly_usd=2.0)
+  now = datetime(2025, 6, 25, 14, 0, 0, tzinfo=timezone.utc)
+  assert gs.estimate_cost_usd(session, {}, now=now) == pytest.approx(4.0, rel=1e-3)
+
+
+def test_hourly_rate_for_profile_spot_vs_ondemand() -> None:
+  catalog = {"1V100.6V": {"instance_type": "1V100.6V", "price_per_hour": 0.17, "spot_price": 0.08}}
+  od = gs.GpuProfile(name="x", instance_type="1V100.6V", use_spot=False, label="")
+  spot = gs.GpuProfile(name="x", instance_type="1V100.6V", use_spot=True, label="")
+  assert gs.hourly_rate_for_profile(od, catalog) == 0.17
+  assert gs.hourly_rate_for_profile(spot, catalog) == 0.08
+  assert gs.hourly_rate_for_profile(od, {}) is None
+
+
+def test_run_subcommand_does_not_clobber_command_dest() -> None:
+  ns = gs.build_parser().parse_args(["run", "comfyui", "--", "echo", "hi"])
+  assert ns.command == "run"
+  assert gs._normalize_run_command(ns.cmd) == ["echo", "hi"]
