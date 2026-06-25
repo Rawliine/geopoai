@@ -1,7 +1,8 @@
-"""W19 tests: GPU session manager registry, state, idle logic, destroy safety."""
+"""W19/W23 tests: GPU session manager registry, state, idle, interactive wizard."""
 
 from __future__ import annotations
 
+import argparse
 import json
 import subprocess
 import sys
@@ -48,11 +49,13 @@ def _sample_session(workload: str = "comfyui_setup", **overrides: Any) -> dict[s
 
 
 def test_registry_parses_all_workloads(registry_path: Path) -> None:
-  rates, workloads = gs.load_registry(registry_path)
+  rates, profiles, workloads = gs.load_registry(registry_path)
   assert set(workloads) == {"comfyui", "comfyui_setup", "blender_render", "lora_train"}
   assert workloads["comfyui"].health.type == "http"
   assert workloads["blender_render"].health.type == "ssh"
-  assert rates["1H100.80S.30V"] == 0.80
+  assert "h100_spot" in profiles
+  assert profiles["h100_spot"].instance_type == "1H100.80S.30V"
+  assert workloads["comfyui"].gpu_preference[0] == "h100_spot"
 
 
 def test_state_lifecycle(state_path: Path) -> None:
@@ -89,7 +92,7 @@ def test_cost_math() -> None:
 
 
 def test_should_teardown_idle(registry_path: Path) -> None:
-  _, workloads = gs.load_registry(registry_path)
+  _, _, workloads = gs.load_registry(registry_path)
   workload = workloads["comfyui_setup"]
   started = datetime(2025, 6, 25, 10, 0, 0, tzinfo=timezone.utc)
   last = started
@@ -102,7 +105,7 @@ def test_should_teardown_idle(registry_path: Path) -> None:
 
 
 def test_should_teardown_hard_cap(registry_path: Path) -> None:
-  _, workloads = gs.load_registry(registry_path)
+  _, _, workloads = gs.load_registry(registry_path)
   workload = workloads["comfyui_setup"]
   started = datetime(2025, 6, 25, 10, 0, 0, tzinfo=timezone.utc)
   session = _sample_session(started_at=started.isoformat())
@@ -113,7 +116,7 @@ def test_should_teardown_hard_cap(registry_path: Path) -> None:
 
 
 def test_destroy_targets_instance_only(registry_path: Path) -> None:
-  _, workloads = gs.load_registry(registry_path)
+  _, _, workloads = gs.load_registry(registry_path)
   workload = workloads["comfyui_setup"]
   args = gs.terraform_destroy_args(workload, "test-run-001")
   assert "-target=verda_instance.this" in args
@@ -128,7 +131,7 @@ def test_run_terraform_never_passes_volume(monkeypatch: pytest.MonkeyPatch, regi
     return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
   monkeypatch.setattr(gs.subprocess, "run", fake_run)
-  _, workloads = gs.load_registry(registry_path)
+  _, _, workloads = gs.load_registry(registry_path)
   gs.run_terraform(gs.terraform_destroy_args(workloads["comfyui_setup"], "rid-1"))
   assert captured
   joined = " ".join(captured[0])
@@ -141,13 +144,13 @@ def test_cmd_up_refuses_live_duplicate(
   state_path: Path,
   monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-  rates, workloads = gs.load_registry(registry_path)
+  rates, profiles, workloads = gs.load_registry(registry_path)
   session = _sample_session()
   gs.save_state({"comfyui_setup": session}, state_path)
   monkeypatch.setattr(gs, "_STATE_PATH", state_path)
-  monkeypatch.setattr(gs, "is_session_live", lambda s, w: True)
-  ns = mock.Mock(workload="comfyui_setup", run_id="auto", verbose=False)
-  rc = gs.cmd_up(ns, rates, workloads)
+  monkeypatch.setattr(gs, "is_session_live", lambda s, w, gp=None: True)
+  ns = mock.Mock(workload="comfyui_setup", run_id="auto", verbose=False, profile=None)
+  rc = gs.cmd_up(ns, rates, profiles, workloads)
   assert rc == 1
 
 
@@ -188,3 +191,213 @@ def test_poll_comfyui_activity_detects_queue() -> None:
   with mock.patch("urllib.request.urlopen", side_effect=[FakeResp(), FakeResp()]):
     active, _ = gs.poll_comfyui_activity("10.0.0.5")
   assert active is True
+
+
+def test_is_capacity_error_detects_503() -> None:
+  result = subprocess.CompletedProcess([], 1, "", '{"code":"service_unavailable","message":"Not enough resources"}')
+  assert gs.is_service_unavailable(result) is True
+
+
+def test_resolve_verda_image_from_supported_os() -> None:
+  entry = {
+    "instance_type": "1V100.6V",
+    "supported_os": ["ubuntu-22.04-cuda-12.4-docker", "ubuntu-24.04"],
+  }
+  assert gs.resolve_verda_image(entry) == "ubuntu-22.04-cuda-13.0-open-docker" or (
+    gs.resolve_verda_image(entry) == "ubuntu-22.04-cuda-12.4-docker"
+  )
+  assert gs.resolve_verda_image(entry, ("ubuntu-22.04-cuda-12.4-docker",)) == "ubuntu-22.04-cuda-12.4-docker"
+
+
+def test_apply_with_gpu_fallback_tries_next_profile(registry_path: Path) -> None:
+  _, profiles, workloads = gs.load_registry(registry_path)
+  workload = workloads["comfyui_setup"]
+  catalog = {
+    p.instance_type: {"instance_type": p.instance_type, "supported_os": ["ubuntu-22.04-cuda-12.4-docker"]}
+    for p in gs.profiles_to_try(workload, profiles)
+  }
+  chain = gs.resolve_profiles_for_location(
+    gs.profiles_to_try(workload, profiles)[:2],
+    catalog,
+    "FIN-01",
+    None,
+  )
+  calls: list[str] = []
+
+  def fake_run(tf_args: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+    joined = " ".join(tf_args)
+    if "apply" in tf_args:
+      for p in chain:
+        if p.instance_type in joined:
+          calls.append(p.name)
+          break
+    if len(calls) == 1:
+      return subprocess.CompletedProcess(tf_args, 1, "", '{"code":"service_unavailable"}')
+    return subprocess.CompletedProcess(tf_args, 0, "", "")
+
+  with mock.patch.object(gs, "run_terraform", side_effect=fake_run):
+    chosen, _ = gs.apply_with_gpu_fallback(workload, "test-run", chain)
+  assert chosen == chain[1]
+  assert calls == [chain[0].name, chain[1].name]
+
+
+def test_load_storage_config(registry_path: Path) -> None:
+  storage = gs.load_storage_config(registry_path)
+  assert storage.models_marker.endswith(".geopoai_download_complete")
+  assert storage.default_volume_size_gb == 280
+  assert storage.volume_monthly_usd_per_gb == 0.10
+
+
+def test_build_gpu_offerings_free_skus_only() -> None:
+  catalog = [
+    {
+      "instance_type": "1V100.6V",
+      "display_name": "V100",
+      "price_per_hour": 0.17,
+      "spot_price": 0.08,
+      "gpu_memory": {"size_in_gigabytes": 16},
+      "supported_os": ["ubuntu-22.04-cuda-12.4-docker"],
+    },
+    {
+      "instance_type": "CPU.4V.16G",
+      "display_name": "CPU",
+      "price_per_hour": 0.03,
+      "gpu_memory": {"size_in_gigabytes": 0},
+      "supported_os": ["ubuntu-22.04"],
+    },
+    {
+      "instance_type": "1H100.80S.30V",
+      "display_name": "H100",
+      "price_per_hour": 2.5,
+      "spot_price": 1.0,
+      "gpu_memory": {"size_in_gigabytes": 80},
+      "supported_os": ["ubuntu-24.04-cuda-13.0-open-docker"],
+    },
+  ]
+  availability = {"FIN-01": {"1V100.6V"}, "FIN-03": {"1H100.80S.30V", "CPU.4V.16G"}}
+  rows = gs.build_gpu_offerings(catalog, availability)
+  types = {(r.location, r.instance_type) for r in rows}
+  assert ("FIN-01", "1V100.6V") in types
+  assert ("FIN-03", "1H100.80S.30V") in types
+  assert not any(r.instance_type.startswith("CPU.") for r in rows)
+  assert rows[0].price_ondemand == 0.17
+
+
+def test_build_gpu_offerings_include_cpu() -> None:
+  catalog = [{"instance_type": "CPU.4V.16G", "price_per_hour": 0.03, "gpu_memory": {}}]
+  availability = {"FIN-03": {"CPU.4V.16G"}}
+  rows = gs.build_gpu_offerings(catalog, availability, include_cpu=True)
+  assert len(rows) == 1
+
+
+def test_offering_to_profile() -> None:
+  offering = gs.GpuOffering(
+    location="FIN-03",
+    instance_type="1V100.6V",
+    display_name="V100",
+    vram_gb=16.0,
+    price_ondemand=0.17,
+    price_spot=0.08,
+    supported_os=("ubuntu-22.04-cuda-12.4-docker",),
+  )
+  profile = gs.offering_to_profile(offering, use_spot=False)
+  assert profile.location == "FIN-03"
+  assert profile.instance_type == "1V100.6V"
+  assert profile.verda_image == "ubuntu-22.04-cuda-12.4-docker"
+
+
+def test_cmd_destroy_volume_refuses_live_instance(monkeypatch: pytest.MonkeyPatch) -> None:
+  monkeypatch.setattr(gs, "instance_in_terraform_state", lambda: True)
+  rates, profiles, workloads = gs.load_registry()
+  rc = gs.cmd_destroy_volume(
+    argparse.Namespace(),
+    rates,
+    profiles,
+    workloads,
+    input_fn=lambda _: "yes",
+  )
+  assert rc == 1
+
+
+def test_cmd_destroy_volume_requires_name_confirm(
+  monkeypatch: pytest.MonkeyPatch,
+  registry_path: Path,
+) -> None:
+  vol = gs.VolumeState(
+    id="vol-1",
+    name="geopoai-models-persistent",
+    location="FIN-03",
+    size_gb=280,
+    status="detached",
+    monthly_cost_estimate=28.0,
+    in_terraform_state=True,
+  )
+  monkeypatch.setattr(gs, "instance_in_terraform_state", lambda: False)
+  monkeypatch.setattr(gs, "load_state", lambda: {})
+  monkeypatch.setattr(gs, "verda_oauth_token", lambda: "tok")
+  monkeypatch.setattr(gs, "read_volume_state", lambda *a, **k: vol)
+  deleted: list[str] = []
+  monkeypatch.setattr(gs, "verda_api_delete", lambda path, **k: deleted.append(path))
+  monkeypatch.setattr(
+    gs,
+    "run_terraform",
+    lambda *a, **k: subprocess.CompletedProcess([], 0, "", ""),
+  )
+  rates, profiles, workloads = gs.load_registry(registry_path)
+  inputs = iter(["yes", "wrong-name"])
+  rc = gs.cmd_destroy_volume(
+    argparse.Namespace(),
+    rates,
+    profiles,
+    workloads,
+    input_fn=lambda _: next(inputs),
+  )
+  assert rc == 1
+  assert deleted == []
+
+  inputs2 = iter(["yes", "geopoai-models-persistent"])
+  rc2 = gs.cmd_destroy_volume(
+    argparse.Namespace(),
+    rates,
+    profiles,
+    workloads,
+    input_fn=lambda _: next(inputs2),
+  )
+  assert rc2 == 0
+  assert deleted == ["volumes/vol-1"]
+
+
+def test_prompt_download_skips_when_marker(
+  registry_path: Path,
+  monkeypatch: pytest.MonkeyPatch,
+) -> None:
+  _, profiles, workloads = gs.load_registry(registry_path)
+  workload = workloads["comfyui_setup"]
+  storage = gs.load_storage_config(registry_path)
+  session = _sample_session()
+  profile = gs.profile_for_session(session, profiles)
+  monkeypatch.setattr(gs, "models_download_complete", lambda ip, marker: True)
+  called = []
+  monkeypatch.setattr(gs, "run_download_on_vm", lambda *a, **k: called.append(1) or 0)
+  rc = gs.prompt_download_if_needed(session, workload, profile, storage, input_fn=lambda _: "y")
+  assert rc == 0
+  assert called == []
+
+
+def test_cmd_interactive_aborts_without_tty(
+  registry_path: Path,
+  monkeypatch: pytest.MonkeyPatch,
+) -> None:
+  rates, profiles, workloads = gs.load_registry(registry_path)
+  monkeypatch.setattr(gs, "_is_tty", lambda: False)
+  ns = argparse.Namespace(workload=None, teardown=False, verbose=False, force=False)
+  rc = gs.cmd_interactive(ns, rates, profiles, workloads)
+  assert rc == 1
+
+
+def test_cmd_setup_requires_session(registry_path: Path) -> None:
+  rates, profiles, workloads = gs.load_registry(registry_path)
+  ns = argparse.Namespace(workload="comfyui_setup", yes=False)
+  with mock.patch.object(gs, "load_state", return_value={}):
+    rc = gs.cmd_setup(ns, rates, profiles, workloads)
+  assert rc == 1
