@@ -165,12 +165,119 @@ def _merge_short_gaps(chunks: list[Chunk], min_s: float) -> list[Chunk]:
     ]
 
 
+def _hex_to_ass_bgr(hex_color: str) -> str:
+    hex_color = hex_color.lstrip("#")
+    r, g, b = int(hex_color[0:2], 16), int(hex_color[2:4], 16), int(hex_color[4:6], 16)
+    return f"{b:02X}{g:02X}{r:02X}"
+
+
+def _ass_time(seconds: float) -> str:
+    if seconds < 0:
+        seconds = 0.0
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = seconds % 60
+    return f"{hours}:{minutes:02d}:{secs:05.2f}"
+
+
+def _caption_font_size(tokens: dict[str, Any], fmt: str) -> int:
+    return int(tokens["typography"]["scale"][fmt]["caption"])
+
+
+def _play_res(fmt: str) -> tuple[int, int]:
+    return (1080, 1920) if fmt == "vertical" else (1920, 1080)
+
+
+def _band_center_y(band: tuple[float, float]) -> float:
+    return (band[0] + band[1]) / 2.0
+
+
+def _styled_dialogue(
+    chunk: Chunk,
+    tokens: dict[str, Any],
+    fmt: str,
+    band: tuple[float, float],
+) -> str:
+    width, height = _play_res(fmt)
+    cy = _band_center_y(band)
+    y = int(cy * height)
+    primary = tokens["typography"]["primary"]
+    size = _caption_font_size(tokens, fmt)
+    text_color = _hex_to_ass_bgr(tokens["palette"]["text"]["primary"])
+    highlight = _hex_to_ass_bgr(tokens["palette"]["roles"]["highlight"]["core"])
+    back = _hex_to_ass_bgr(tokens["palette"]["background"])
+
+    parts: list[str] = []
+    for word, emph in zip(chunk.words, chunk.emphasis, strict=False):
+        if emph:
+            parts.append(f"{{\\c&H{highlight}&}}{word}{{\\c&H{text_color}&}}")
+        else:
+            parts.append(word)
+    text = " ".join(parts)
+    start = _ass_time(chunk.start)
+    end = _ass_time(chunk.end)
+    return (
+        f"Dialogue: 0,{start},{end},Caption,,0,0,0,,{{\\an8\\pos({width // 2},{y})"
+        f"\\fn{primary}\\fs{size}\\c&H{text_color}&\\bord2\\3c&H{back}&"
+        f"\\shad0\\borderstyle3}}{text}"
+    )
+
+
+def write_ass(
+    chunks: list[Chunk],
+    tokens: dict[str, Any],
+    fmt: str,
+    out_path: Path,
+    *,
+    band: tuple[float, float] | None = None,
+) -> Path:
+    """Write a brand-minimal ASS transcript strip at the caption band."""
+    width, height = _play_res(fmt)
+    caption_band = band or tuple(tokens["safe_areas"][fmt]["caption_band"])
+    header = [
+        "[Script Info]",
+        "Title: GeoPoAI captions",
+        "ScriptType: v4.00+",
+        "WrapStyle: 0",
+        f"PlayResX: {width}",
+        f"PlayResY: {height}",
+        "ScaledBorderAndShadow: yes",
+        "",
+        "[V4+ Styles]",
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
+        (
+            f"Style: Caption,{tokens['typography']['primary']},{_caption_font_size(tokens, fmt)},"
+            f"&H{_hex_to_ass_bgr(tokens['palette']['text']['primary'])}&,"
+            f"&HFFFFFF&,&H{_hex_to_ass_bgr(tokens['palette']['background'])}&,"
+            f"&HAA{_hex_to_ass_bgr(tokens['palette']['background'])}&,0,0,0,0,100,100,0,0,3,2,0,8,40,40,80,1"
+        ),
+        "",
+        "[Events]",
+        "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
+    ]
+    lines = list(header)
+    for chunk in chunks:
+        lines.append(_styled_dialogue(chunk, tokens, fmt, caption_band))
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return out_path
+
+
 def build(
     vo_wav: Path,
     words_json: Path | None,
     layout_jsons: list[Path],
     tokens: dict[str, Any],
     fmt: str,
+    *,
+    script_text: str | None = None,
+    output_dir: Path | None = None,
 ) -> Path:
-    """Build an ASS subtitle file from VO alignment and occupancy layouts."""
-    raise NotImplementedError("ASS generation is implemented in W15.T3+")
+    """Build an ASS subtitle file from VO alignment (default caption band)."""
+    if words_json is None:
+        raise ValueError("words_json is required — run tools/align_vo.py first")
+    out_dir = output_dir or vo_wav.parent
+    ass_path = out_dir / f"{vo_wav.stem}.ass"
+    words = load_words(words_json, script_text)
+    chunks = chunk_words(words, tokens, script_text=script_text)
+    return write_ass(chunks, tokens, fmt, ass_path)
