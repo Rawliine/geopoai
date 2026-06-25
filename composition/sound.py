@@ -607,7 +607,7 @@ def _loudnorm_two_pass(input_wav: Path, target_lufs: float, out_path: Path) -> d
             "-i",
             str(input_wav),
             "-af",
-            f"loudnorm=I={target_lufs}:TP=-1.5:LRA=11:print_format=json",
+            f"loudnorm=I={target_lufs}:TP=-1.5:LRA=11:dual_mono=true:print_format=json",
             "-f",
             "null",
             "-",
@@ -627,12 +627,12 @@ def _loudnorm_two_pass(input_wav: Path, target_lufs: float, out_path: Path) -> d
             str(input_wav),
             "-af",
             (
-                f"loudnorm=I={target_lufs}:TP=-1.5:LRA=11:"
+                f"loudnorm=I={target_lufs}:TP=-1.5:LRA=11:dual_mono=true:"
                 f"measured_I={stats['input_i']}:"
                 f"measured_TP={stats['input_tp']}:"
                 f"measured_LRA={stats['input_lra']}:"
                 f"measured_thresh={stats['input_thresh']}:"
-                f"offset={stats['target_offset']}:linear=true"
+                f"offset={stats['target_offset']}:linear=true:print_format=summary"
             ),
             str(out_path),
         ]
