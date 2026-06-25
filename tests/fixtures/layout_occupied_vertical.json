@@ -1,0 +1,46 @@
+{
+  "clip_id": "broll_window",
+  "format": "vertical",
+  "sample_hz": 2,
+  "frames": [
+    {
+      "t": 0.0,
+      "boxes": [
+        {
+          "id": "lower_callout",
+          "kind": "callout",
+          "x": 0.1,
+          "y": 0.76,
+          "w": 0.8,
+          "h": 0.14
+        }
+      ]
+    },
+    {
+      "t": 3.0,
+      "boxes": [
+        {
+          "id": "lower_callout",
+          "kind": "callout",
+          "x": 0.1,
+          "y": 0.76,
+          "w": 0.8,
+          "h": 0.14
+        }
+      ]
+    },
+    {
+      "t": 6.0,
+      "boxes": [
+        {
+          "id": "lower_callout",
+          "kind": "callout",
+          "x": 0.1,
+          "y": 0.76,
+          "w": 0.8,
+          "h": 0.14
+        }
+      ]
+    }
+  ]
+}

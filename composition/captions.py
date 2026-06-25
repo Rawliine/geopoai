@@ -223,14 +223,17 @@ def _candidate_bands(
 
 def _caption_rect(
     band: tuple[float, float],
+    tokens: dict[str, Any],
+    fmt: str,
     *,
-    width_frac: float = CAPTION_WIDTH_FRAC,
     height_frac: float = CAPTION_HEIGHT_FRAC,
 ) -> tuple[float, float, float, float]:
     cy = _band_center_y(band)
     h = min(height_frac, band[1] - band[0])
-    w = width_frac
-    return ((1.0 - w) / 2, cy - h / 2, w, h)
+    margins = tokens["safe_areas"][fmt]["platform_margins"]
+    x = float(margins["left"])
+    w = 1.0 - float(margins["left"]) - float(margins["right"])
+    return (x, cy - h / 2, w, h)
 
 
 def _box_overlap(a: tuple[float, float, float, float], b: tuple[float, float, float, float]) -> float:
@@ -294,8 +297,10 @@ def _overlap_score(
     chunk: Chunk,
     band: tuple[float, float],
     layout_rows: list[tuple[float, float, str, tuple[float, float, float, float]]],
+    tokens: dict[str, Any],
+    fmt: str,
 ) -> float:
-    caption_rect = _caption_rect(band)
+    caption_rect = _caption_rect(band, tokens, fmt)
     score = 0.0
     for t0, t1, kind, box in layout_rows:
         if t1 < chunk.start or t0 > chunk.end:
@@ -322,10 +327,12 @@ def place_chunks(
     for idx, chunk in enumerate(chunks):
         scored: list[tuple[str, tuple[float, float], float]] = []
         for name, band in candidates:
-            rect = _caption_rect(band)
+            rect = _caption_rect(band, tokens, fmt)
             if not _inside_margins(rect, margin_rect):
                 continue
-            scored.append((name, band, _overlap_score(chunk, band, layout_rows)))
+            scored.append(
+                (name, band, _overlap_score(chunk, band, layout_rows, tokens, fmt))
+            )
         if not scored:
             name, band = candidates[0]
             placements[idx] = (name, band)

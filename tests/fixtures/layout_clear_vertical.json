@@ -1,0 +1,11 @@
+{
+  "clip_id": "broll_clear",
+  "format": "vertical",
+  "sample_hz": 2,
+  "frames": [
+    {
+      "t": 0.0,
+      "boxes": []
+    }
+  ]
+}
