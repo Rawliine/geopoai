@@ -4,8 +4,8 @@
 Usage:
     python config/prepare_maps.py --list-versions   # shim → this module
     python config/prepare_maps.py --from-manifest --version latest
-    python config/prepare_maps.py --from-manifest --version 1991_ceasefire
-    python config/prepare_maps.py --zip /path/to/file.zip --version my_version
+    python -m map_renderer.data_prep.prepare_maps --discover natural_earth
+    python -m map_renderer.data_prep.prepare_maps --add natural_earth:ne_10m_admin_0_disputed_areas --version disputed
 """
 
 from __future__ import annotations
@@ -20,6 +20,13 @@ import zipfile
 from pathlib import Path
 
 import shapefile  # pyshp
+
+from map_renderer.data_prep.catalogs import (
+    get_catalog,
+    list_catalog_names,
+    load_manifest,
+    merge_manifest_entry,
+)
 
 ROOT      = Path(__file__).resolve().parent.parent.parent
 CACHE_DIR = ROOT / "data" / ".cache"
@@ -117,7 +124,7 @@ def _country_slug(name: str) -> str:
 # ── Manifest / source resolution ─────────────────────────────────────────────
 
 def _source_from_manifest(manifest_path: Path, version: str) -> Path:
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest = load_manifest(manifest_path)
     if version not in manifest:
         available = ", ".join(manifest.keys())
         raise KeyError(
@@ -148,6 +155,12 @@ def _source_from_manifest(manifest_path: Path, version: str) -> Path:
         return _download(url, cached)
 
     raise ValueError(f"Unsupported source_type {source_type!r} for version '{version}'")
+
+
+def _processing_recipe(manifest_path: Path, version: str) -> str:
+    manifest = load_manifest(manifest_path)
+    cfg = manifest.get(version, {})
+    return cfg.get("processing", "countries")
 
 
 # ── Country extraction ────────────────────────────────────────────────────────
@@ -191,6 +204,142 @@ def _extract_targeted_countries(
     return missing
 
 
+def process_version(
+    manifest_path: Path,
+    version: str,
+    *,
+    out_dir: Path | None = None,
+    force: bool = False,
+    targets: list[str] | None = None,
+    quiet: bool = False,
+) -> int:
+    """Download and process one manifest version. Returns feature/country count written."""
+    out_root = out_dir if out_dir else (MAPS_DIR / version)
+    out_root.mkdir(parents=True, exist_ok=True)
+    recipe = _processing_recipe(manifest_path, version)
+
+    if recipe == "places":
+        out_fc = out_root / "places.featurecollection.geojson"
+    else:
+        out_fc = out_root / "countries.featurecollection.geojson"
+
+    if out_fc.exists() and not force:
+        log.info("Using cached FeatureCollection: %s", out_fc)
+        fc = json.loads(out_fc.read_text(encoding="utf-8"))
+    else:
+        source_path = _source_from_manifest(manifest_path, version)
+        if not source_path.exists():
+            raise FileNotFoundError(f"Source not found: {source_path}")
+        fc = _normalize_to_featurecollection(source_path)
+        out_fc.write_text(json.dumps(fc, ensure_ascii=False), encoding="utf-8")
+        log.info("Wrote FeatureCollection (%d features) → %s",
+                 len(fc.get("features", [])), out_fc)
+
+    if recipe == "places":
+        count = len(fc.get("features", []))
+        if not quiet:
+            print(f"✓  {version}: {count} places → {out_root}")
+        return count
+
+    countries_dir = out_root / "countries"
+    if countries_dir.exists() and force:
+        shutil.rmtree(countries_dir)
+    countries_dir.mkdir(parents=True, exist_ok=True)
+
+    if targets:
+        targets_list = [t for t in targets if t.strip()]
+        missing = _extract_targeted_countries(fc, countries_dir, targets_list)
+        written = len(targets_list) - len(missing)
+        if missing:
+            raise ValueError(f"Countries not found in dataset: {', '.join(missing)}")
+    else:
+        written, unnamed = _extract_all_countries(fc, countries_dir)
+        if unnamed:
+            log.warning("%d features had no recognisable name and were skipped.", len(unnamed))
+
+    log.info("Wrote %d country files → %s", written, countries_dir)
+    if not quiet:
+        print(f"✓  {version}: {written} countries → {out_root}")
+    return written
+
+
+# ── Catalog CLI helpers ───────────────────────────────────────────────────────
+
+def _parse_catalog_dataset(spec: str) -> tuple[str, str]:
+    if ":" not in spec:
+        raise ValueError(f"Expected CATALOG:DATASET, got {spec!r}")
+    catalog, dataset = spec.split(":", 1)
+    catalog = catalog.strip()
+    dataset = dataset.strip()
+    if not catalog or not dataset:
+        raise ValueError(f"Expected CATALOG:DATASET, got {spec!r}")
+    return catalog, dataset
+
+
+def _cmd_discover(catalog_name: str) -> int:
+    catalog = get_catalog(catalog_name)
+    datasets = catalog.list_datasets()
+    print(f"\nCatalog '{catalog_name}' — {len(datasets)} datasets:\n")
+    print(f"  {'DATASET_ID':<45s}  {'RES':<5s}  {'FAMILY':<12s}  DESCRIPTION")
+    print(f"  {'-'*45}  {'-'*5}  {'-'*12}  {'-'*30}")
+    for ds in datasets:
+        print(f"  {ds.dataset_id:<45s}  {ds.resolution:<5s}  {ds.family:<12s}  {ds.description}")
+    print()
+    return 0
+
+
+def _cmd_add(
+    manifest_path: Path,
+    spec: str,
+    version_key: str | None,
+    *,
+    force: bool = False,
+    quiet: bool = False,
+) -> int:
+    catalog_name, dataset_id = _parse_catalog_dataset(spec)
+    catalog = get_catalog(catalog_name)
+    entry = dict(catalog.manifest_entry(dataset_id))
+    entry.setdefault("added_by", "discover")
+    key = version_key or dataset_id
+    merge_manifest_entry(manifest_path, key, entry)
+    log.info("Wrote manifest entry '%s' from %s:%s", key, catalog_name, dataset_id)
+    process_version(manifest_path, key, force=force, quiet=quiet)
+    return 0
+
+
+def _cmd_add_all(
+    manifest_path: Path,
+    catalog_name: str,
+    *,
+    force: bool = False,
+    quiet: bool = False,
+) -> int:
+    catalog = get_catalog(catalog_name)
+    for ds in catalog.list_datasets():
+        spec = f"{catalog_name}:{ds.dataset_id}"
+        _cmd_add(manifest_path, spec, ds.dataset_id, force=force, quiet=quiet)
+    return 0
+
+
+def _cmd_audit(manifest_path: Path) -> int:
+    manifest = load_manifest(manifest_path)
+    print("\nNon-commercial map versions (commercial_ok: false):\n")
+    found = 0
+    for key, entry in sorted(manifest.items()):
+        if entry.get("commercial_ok") is not False:
+            continue
+        local = MAPS_DIR / key
+        has_data = local.exists() and any(local.iterdir())
+        status = "present locally" if has_data else "manifest only"
+        license_name = entry.get("license", "?")
+        print(f"  {key:<30s}  license={license_name:<12s}  [{status}]")
+        found += 1
+    if not found:
+        print("  (none)")
+    print()
+    return 0
+
+
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 def main() -> int:
@@ -200,6 +349,14 @@ def main() -> int:
     )
     parser.add_argument("--list-versions", action="store_true",
                         help="Print available versions from the manifest and exit.")
+    parser.add_argument("--discover", default=None, metavar="CATALOG",
+                        help="List datasets available in a catalog.")
+    parser.add_argument("--add", default=None, metavar="CATALOG:DATASET",
+                        help="Add a dataset from a catalog to the manifest and download.")
+    parser.add_argument("--add-all", default=None, metavar="CATALOG",
+                        help="Bulk-add every dataset from a catalog.")
+    parser.add_argument("--audit", action="store_true",
+                        help="List non-commercial versions in manifest/local data.")
     parser.add_argument("--from-manifest", action="store_true",
                         help="Resolve source URL from the manifest.")
     parser.add_argument("--zip", default=None, metavar="PATH",
@@ -232,16 +389,63 @@ def main() -> int:
         if not manifest_path.exists():
             log.error("Manifest not found: %s", manifest_path)
             return 1
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest = load_manifest(manifest_path)
         print(f"\nAvailable map versions ({manifest_path}):\n")
         for k, v in manifest.items():
             res  = v.get("resolution", "?")
             desc = v.get("description", "")
-            print(f"  {k:<25s}  [{res}]  {desc}")
+            commercial = v.get("commercial_ok", "?")
+            print(f"  {k:<25s}  [{res}]  commercial_ok={commercial}  {desc}")
         print()
         return 0
 
-    # ── Resolve source ─────────────────────────────────────────────────────────
+    # ── Catalog commands ─────────────────────────────────────────────────────
+    if args.discover:
+        try:
+            return _cmd_discover(args.discover)
+        except KeyError as exc:
+            log.error("%s", exc)
+            if list_catalog_names():
+                log.error("Available catalogs: %s", ", ".join(list_catalog_names()))
+            return 1
+
+    if args.add:
+        try:
+            return _cmd_add(
+                manifest_path, args.add, args.version if args.version != "latest" else None,
+                force=args.force, quiet=args.quiet,
+            )
+        except (KeyError, ValueError) as exc:
+            log.error("%s", exc)
+            return 1
+
+    if args.add_all:
+        try:
+            return _cmd_add_all(manifest_path, args.add_all, force=args.force, quiet=args.quiet)
+        except KeyError as exc:
+            log.error("%s", exc)
+            return 1
+
+    if args.audit:
+        return _cmd_audit(manifest_path)
+
+    # ── Legacy prepare flow ────────────────────────────────────────────────────
+    if args.from_manifest:
+        try:
+            out_dir = Path(args.out_dir) if args.out_dir else None
+            process_version(
+                manifest_path,
+                args.version,
+                out_dir=out_dir,
+                force=args.force,
+                targets=args.targets,
+                quiet=args.quiet,
+            )
+            return 0
+        except (KeyError, ValueError, FileNotFoundError, RuntimeError) as exc:
+            log.error("%s", exc)
+            return 1
+
     out_root = Path(args.out_dir) if args.out_dir else (MAPS_DIR / args.version)
     out_root.mkdir(parents=True, exist_ok=True)
     out_fc = out_root / "countries.featurecollection.geojson"
@@ -250,14 +454,12 @@ def main() -> int:
         log.info("Using cached FeatureCollection: %s", out_fc)
         fc = json.loads(out_fc.read_text(encoding="utf-8"))
     else:
-        if args.from_manifest:
-            source_path = _source_from_manifest(manifest_path, args.version)
-        elif args.geojson:
+        if args.geojson:
             source_path = Path(args.geojson)
         elif args.zip:
             source_path = Path(args.zip)
         else:
-            parser.error("Provide one of: --from-manifest, --geojson, --zip")
+            parser.error("Provide one of: --from-manifest, --geojson, --zip, --discover, --add, --audit")
 
         if not source_path.exists():
             log.error("Source not found: %s", source_path)
@@ -268,7 +470,6 @@ def main() -> int:
         log.info("Wrote FeatureCollection (%d features) → %s",
                  len(fc.get("features", [])), out_fc)
 
-    # ── Extract country files ─────────────────────────────────────────────────
     countries_dir = out_root / "countries"
     if countries_dir.exists() and args.force:
         shutil.rmtree(countries_dir)

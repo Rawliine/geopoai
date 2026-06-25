@@ -4,34 +4,54 @@
     "url": "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_admin_0_countries.zip",
     "source_dataset": "ne_10m_admin_0_countries",
     "resolution": "10m",
-    "description": "Natural Earth 10m countries. Morocco and Western Sahara merged into one polygon."
+    "description": "Natural Earth 10m countries. Morocco and Western Sahara merged into one polygon.",
+    "license": "pd",
+    "license_url": "https://www.naturalearthdata.com/about/terms-of-use/",
+    "commercial_ok": true,
+    "added_by": "manual"
   },
   "1991_ceasefire": {
     "source_type": "zip_url",
     "url": "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_admin_0_map_units.zip",
     "source_dataset": "ne_10m_admin_0_map_units",
     "resolution": "10m",
-    "description": "Natural Earth 10m map units. Morocco and Western Sahara are separate polygons. Use for ceasefire/disputed-territory scenes."
+    "description": "Natural Earth 10m map units. Morocco and Western Sahara are separate polygons. Use for ceasefire/disputed-territory scenes.",
+    "license": "pd",
+    "license_url": "https://www.naturalearthdata.com/about/terms-of-use/",
+    "commercial_ok": true,
+    "added_by": "manual"
   },
   "ne_10m_sovereignty": {
     "source_type": "zip_url",
     "url": "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_admin_0_sovereignty.zip",
     "source_dataset": "ne_10m_admin_0_sovereignty",
     "resolution": "10m",
-    "description": "Natural Earth 10m sovereignty units. Distinguishes sovereign states from dependent territories (e.g. Western Sahara under Moroccan sovereignty)."
+    "description": "Natural Earth 10m sovereignty units. Distinguishes sovereign states from dependent territories (e.g. Western Sahara under Moroccan sovereignty).",
+    "license": "pd",
+    "license_url": "https://www.naturalearthdata.com/about/terms-of-use/",
+    "commercial_ok": true,
+    "added_by": "manual"
   },
   "ne_50m_countries": {
     "source_type": "zip_url",
     "url": "https://naturalearth.s3.amazonaws.com/50m_cultural/ne_50m_admin_0_countries.zip",
     "source_dataset": "ne_50m_admin_0_countries",
     "resolution": "50m",
-    "description": "Natural Earth 50m countries. Lower resolution (~5x smaller than 10m), faster render. Good for wide-angle and global overview scenes."
+    "description": "Natural Earth 50m countries. Lower resolution (~5x smaller than 10m), faster render. Good for wide-angle and global overview scenes.",
+    "license": "pd",
+    "license_url": "https://www.naturalearthdata.com/about/terms-of-use/",
+    "commercial_ok": true,
+    "added_by": "manual"
   },
   "ne_110m_countries": {
     "source_type": "zip_url",
     "url": "https://naturalearth.s3.amazonaws.com/110m_cultural/ne_110m_admin_0_countries.zip",
     "source_dataset": "ne_110m_admin_0_countries",
     "resolution": "110m",
-    "description": "Natural Earth 110m countries. Minimal geometry detail. Best for planetary overview shots where fine borders are invisible anyway."
+    "description": "Natural Earth 110m countries. Minimal geometry detail. Best for planetary overview shots where fine borders are invisible anyway.",
+    "license": "pd",
+    "license_url": "https://www.naturalearthdata.com/about/terms-of-use/",
+    "commercial_ok": true,
+    "added_by": "manual"
   }
 }
