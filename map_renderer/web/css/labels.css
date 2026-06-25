@@ -163,6 +163,53 @@
     100% { stroke-dashoffset: 0; opacity: 1; }
   }
 
+  /* ── W12: label / counter style variants (showLabel `style:`) ──
+     Same family as the stat-box styles. --box-accent = role/custom color.
+     Applies to plain labels (e.g. CASABLANCA) AND counters.               */
+  .lbl--terminal {
+    font-family: var(--font-mono); color: var(--box-accent);
+    padding: 0.18em 0.5em 0.18em 0.55em;
+    border-left: 2px solid var(--box-accent);
+    background: color-mix(in srgb, var(--palette-background) 62%, transparent);
+  }
+  .lbl--terminal .leader-connector { stroke: var(--box-accent); }
+
+  .lbl--broadcast {
+    background: var(--box-accent); color: var(--palette-background);
+    padding: 0.28em 0.7em; border-radius: 2px; text-shadow: none;
+  }
+  .lbl--broadcast .leader-connector { stroke: var(--box-accent); stroke-width: 2; }
+
+  .lbl--editorial {
+    color: var(--text-primary); background: transparent;
+    padding: 0.12em 0 0.22em; letter-spacing: 0.12em;
+    border-bottom: 1px solid var(--box-accent);
+  }
+  .lbl--editorial .leader-connector { stroke: var(--text-secondary); }
+
+  .lbl--brutalist {
+    background: var(--text-primary); color: var(--palette-background);
+    padding: 0.24em 0.6em; font-weight: 800; text-shadow: none;
+    border: 2px solid var(--text-primary);
+  }
+  .lbl--brutalist .leader-connector { stroke: var(--text-primary); stroke-width: 3; }
+
+  .lbl--glass {
+    background: color-mix(in srgb, var(--palette-surface) 30%, transparent);
+    color: var(--text-primary); padding: 0.28em 0.8em;
+    border-radius: 999px; border: 1px solid color-mix(in srgb, white 18%, transparent);
+    backdrop-filter: blur(10px);
+  }
+  .lbl--glass .leader-connector { stroke: color-mix(in srgb, white 55%, transparent); }
+
+  .lbl--material {
+    background: var(--palette-surface); color: var(--text-primary);
+    padding: 0.28em 0.7em; border-radius: 6px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+    border-bottom: 2px solid var(--box-accent);
+  }
+  .lbl--material .leader-connector { stroke: var(--box-accent); }
+
   /* ── W12: title cards ─────────────────────────────────────── */
   .title-card {
     position: absolute;

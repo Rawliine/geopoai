@@ -1,0 +1,27 @@
+{
+  "duration": 5,
+  "_deterministic": true,
+  "_fps": 30,
+  "format": "horizontal",
+  "map_style": "dark",
+  "camera": { "center": [-5.0, 31.0], "zoom": 4.0, "pitch": 18, "bearing": 0, "duration": 0 },
+  "timeline": [
+    { "at": 0.2, "action": "showLabel", "params": { "id": "l1", "style": "terminal", "text": "CASABLANCA", "role": "highlight", "position": { "x": 0.24, "y": 0.12, "unit": "frac" }, "effect": "label-fade" } },
+    { "at": 0.2, "action": "showLabel", "params": { "id": "c1", "style": "terminal", "role": "highlight", "position": { "x": 0.66, "y": 0.12, "unit": "frac" }, "effect": "label-fade", "counter": { "from": 0, "to": 2300000, "duration": 2.5, "format": "short", "suffix": " TROOPS" } } },
+
+    { "at": 0.3, "action": "showLabel", "params": { "id": "l2", "style": "broadcast", "text": "CASABLANCA", "role": "ally", "position": { "x": 0.24, "y": 0.27, "unit": "frac" }, "effect": "label-fade" } },
+    { "at": 0.3, "action": "showLabel", "params": { "id": "c2", "style": "broadcast", "role": "ally", "position": { "x": 0.66, "y": 0.27, "unit": "frac" }, "effect": "label-fade", "counter": { "from": 0, "to": 2300000, "duration": 2.5, "format": "short", "suffix": " TROOPS" } } },
+
+    { "at": 0.4, "action": "showLabel", "params": { "id": "l3", "style": "editorial", "text": "CASABLANCA", "role": "neutral", "position": { "x": 0.24, "y": 0.42, "unit": "frac" }, "effect": "label-fade" } },
+    { "at": 0.4, "action": "showLabel", "params": { "id": "c3", "style": "editorial", "role": "neutral", "position": { "x": 0.66, "y": 0.42, "unit": "frac" }, "effect": "label-fade", "counter": { "from": 0, "to": 2300000, "duration": 2.5, "format": "short", "suffix": " TROOPS" } } },
+
+    { "at": 0.5, "action": "showLabel", "params": { "id": "l4", "style": "brutalist", "text": "CASABLANCA", "role": "threat", "position": { "x": 0.24, "y": 0.57, "unit": "frac" }, "effect": "label-fade" } },
+    { "at": 0.5, "action": "showLabel", "params": { "id": "c4", "style": "brutalist", "role": "threat", "position": { "x": 0.66, "y": 0.57, "unit": "frac" }, "effect": "label-fade", "counter": { "from": 0, "to": 2300000, "duration": 2.5, "format": "short", "suffix": " TROOPS" } } },
+
+    { "at": 0.6, "action": "showLabel", "params": { "id": "l5", "style": "glass", "text": "CASABLANCA", "role": "highlight", "position": { "x": 0.24, "y": 0.72, "unit": "frac" }, "effect": "label-fade" } },
+    { "at": 0.6, "action": "showLabel", "params": { "id": "c5", "style": "glass", "role": "highlight", "position": { "x": 0.66, "y": 0.72, "unit": "frac" }, "effect": "label-fade", "counter": { "from": 0, "to": 2300000, "duration": 2.5, "format": "short", "suffix": " TROOPS" } } },
+
+    { "at": 0.7, "action": "showLabel", "params": { "id": "l6", "style": "material", "text": "CASABLANCA", "role": "contested", "position": { "x": 0.24, "y": 0.87, "unit": "frac" }, "effect": "label-fade" } },
+    { "at": 0.7, "action": "showLabel", "params": { "id": "c6", "style": "material", "role": "contested", "position": { "x": 0.66, "y": 0.87, "unit": "frac" }, "effect": "label-fade", "counter": { "from": 0, "to": 2300000, "duration": 2.5, "format": "short", "suffix": " TROOPS" } } }
+  ]
+}

@@ -195,6 +195,7 @@ function showLabel(map, overlayEl, labelSpec) {
     fontSize,
     color,
     role = 'highlight',
+    style = 'broadcast',
     duration = 0.8,
     delay = 0,
     charInterval = 70,
@@ -237,17 +238,19 @@ function showLabel(map, overlayEl, labelSpec) {
     suffix: counterSuffix,
   };
 
+  const lblVariant = `lbl--${String(style).toLowerCase()}`;
   const el = MapEffects.createOverlayEl
-    ? MapEffects.createOverlayEl('div', 'label', { id, className: 'map-label effect-label' })
+    ? MapEffects.createOverlayEl('div', 'label', { id, className: `map-label ${lblVariant} effect-label` })
     : document.createElement('div');
   if (!MapEffects.createOverlayEl) {
     el.id = id;
-    el.classList.add('map-label', 'effect-label');
+    el.classList.add('map-label', lblVariant, 'effect-label');
+  } else {
+    el.classList.add(lblVariant);
   }
 
   if (hasCounter) {
     el.classList.add('label-counter-digits');
-    el.style.fontFamily = 'var(--font-mono)';
     el.dataset.counter = JSON.stringify(counterSpec);
     el.dataset.actionAt = _actionAt;
     if (_deterministic) {
@@ -266,20 +269,20 @@ function showLabel(map, overlayEl, labelSpec) {
     boxPx = px;
   }
 
+  // Box look (fill/border/padding/text color) comes from the .lbl--<style>
+  // variant; only position + dynamic values are inline. --box-accent is the
+  // role/custom color the variants build their accent from.
   el.style.cssText = `
     position: absolute;
     left: ${boxPx.x}px;
     top:  ${boxPx.y}px;
-    color: ${textColor};
     font-size: ${size};
+    ${hasCounter ? 'font-family: var(--font-mono); font-variant-numeric: tabular-nums;' : ''}
     translate: -50% -50%;
     transform-origin: ${anchor};
     --effect-duration: ${duration}s;
     --effect-delay: ${delay}s;
-    border-left: 3px solid ${_roleColor(role, 'core')};
-    background: var(--palette-surface);
-    padding: 0.35em 0.65em;
-    border-radius: 2px;
+    --box-accent: ${textColor};
   `;
 
   if (isGeoPinned) {
