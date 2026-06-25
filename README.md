@@ -88,9 +88,11 @@ To add a new dataset: add one entry to `map_renderer/data_prep/map_versions.json
 
 `renderer` defaults to `"mapbox"` if omitted. Coordinates are always `[longitude, latitude]`.
 
-**Timeline actions:** `showLabel`, `removeLabel`, `applyFill`, `removeLayer`, `applyBorder`, `removeBorder`, `drawArrow`, `removeArrow`, `pulseRing`, `flyTo`, `cameraShake`, `clearOverlay`.
+**Timeline actions:** `showLabel`, `removeLabel`, `applyFill`, `removeLayer`, `applyBorder`, `removeBorder`, `drawArrow`, `removeArrow`, `pulseRing`, `flyTo`, `cameraShake`, `clearOverlay` · **W11 territory:** `advanceFront`/`updateFront`/`removeFront`, `morphTerritory`, `maskImage` · **W12 flow/text:** `supplyLine`, `titleCard`, `statBox`, `showIcon` · **W13 camera/atmosphere:** `rotateAround`, `extrudeBars`, `showPlaceLabels`.
 
-**Effects:** `fill-fade`, `fill-wipe`, `fill-ripple`, `fill-contested` · `border-trim`, `border-glow`, `border-marching`, `border-breathe` · `arrow-draw`, `arrow-travel`, `arrow-glow` · `label-slam`, `label-typewriter`, `label-fade`. See `map_renderer/docs/SKILL.md` for the full authoring guide (content originated as `map_animation_skill.md`).
+**Effects:** `fill-fade`, `fill-wipe`, `fill-ripple`, `fill-contested`, `hatch` · `border-trim`, `border-glow`, `border-marching`, `border-breathe`, `border-neon` (static) · `arrow-draw`, `arrow-travel`, `arrow-glow`, plus `drawArrow` styles `taper`/`arc` · `label-slam`, `label-typewriter`, `label-fade`.
+
+**Scene keys (W13):** `format: "vertical"` (1080×1920), `idle_drift`, `atmosphere` (fog), `terrain`, `polish` (vignette/grain/haze). See `map_renderer/docs/SKILL.md` for the full authoring guide.
 
 ### Render modes
 

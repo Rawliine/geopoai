@@ -1,3 +1,7 @@
+# SKILL.md — Authoring B-roll shot specs
+
+Authoring reference for the b-roll layer. See `recap.md` for the why and `AGENT.md` for working rules.
+
 # W18 — B-roll expansion fragment
 
 Merged into `broll/docs/SKILL.md` at integration.
