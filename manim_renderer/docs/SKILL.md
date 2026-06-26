@@ -1045,3 +1045,59 @@ Every Manim render writes two sidecars next to the MP4
   `sample_hz` (2) grid over the clip, captured at every composition change.
   Feeds W15 occupancy-aware captions.
 
+Escape-hatch clips also write **`<clip>.meta.json`** (`reason`, `file_hash`,
+`duration`, `class`) and **skip `layout.json`** (no slot occupancy).
+
+---
+
+## Escape hatch — guarded custom Manim (last resort)
+
+Use only when **no component action** can express the visual (e.g. a bespoke
+circular flywheel with curved inter-node arrows). The component-JSON path
+(`slots` / `overlays` / `timeline`) stays the default; an escape scene
+**replaces** that model — do not mix them.
+
+```json
+{
+  "renderer": "manim",
+  "format": "horizontal",
+  "quality": "preview",
+  "scene": { "duration": 8 },
+  "escape_hatch": {
+    "file": "escape_hatch/custom_scenes/<name>.py",
+    "class": "<SceneClassName>",
+    "reason": "Mandatory — why components were insufficient"
+  }
+}
+```
+
+Optional `escape_hatch.timeout_s` (default 300). Render and outputs are normal:
+`python pipeline/render.py scripts/manim/<scene>.json <clip>` →
+`output/manim/<clip>.mp4` + `.events.json` + `.meta.json`.
+
+**Author** `manim_renderer/escape_hatch/custom_scenes/<name>.py`:
+
+- Subclass `EscapeHatchScene` (`manim_renderer.escape_hatch.base`).
+- Implement `build()` — **not** `construct()`; scene start/end chapter cues are
+  automatic. Use Manim mobjects/animations (`Circle`, `CurvedArrow`, `FadeIn`, …).
+- Colors via `manim_renderer.theme.palette` (`UI`, `SEMANTIC`) — **no hex literals**.
+- Fonts via `manim_renderer.theme.typography.FONTS` — **no font-name strings**.
+- Timing via `manim_renderer.theme.timing.TIMING`.
+- Extra sound cues: `self.emit("insight", 0.6, id="my-cue")`.
+
+**Guard** (`guard.py`) statically lints the file before render and hard-fails on
+hex/font literals, a class that doesn't subclass `EscapeHatchScene`, or any import
+outside `{manim, manim_renderer.theme, manim_renderer.escape_hatch, tools.tokens,
+math, numpy, json}` (bans `os`, `sys`, `subprocess`, `pathlib`, networking, …). The
+scene then renders in a subprocess (temp cwd, `timeout_s` cap) and each use is logged
+to `escape_hatch/usage_log.jsonl` (`reason` + file hash).
+
+> The guard enforces brand discipline + hygiene; it is **not** an adversarial
+> sandbox — author escape scenes yourself, don't run untrusted code through it.
+
+**Promotion rule:** if the same bespoke pattern recurs in **3+ episodes**, promote
+it to a real component — don't keep growing the hatch.
+
+Example: `scripts/manim/qa_escape.json` → `escape_hatch/custom_scenes/incentive_flywheel.py`.
+Full operator notes: `manim_renderer/escape_hatch/README.md`.
+
