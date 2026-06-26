@@ -374,6 +374,16 @@ def _build_parser() -> argparse.ArgumentParser:
                    help="Reference ingest: write contact sheet + candidates.json and exit awaiting brain.")
     p.add_argument("--pick", metavar="SEGMENT_ID",
                    help="Reference ingest: complete shot using the chosen segment id from a prior --ask run.")
+    p.add_argument(
+        "--provided",
+        metavar="URL|PATH",
+        help="Operator-supplied media URL or local path (license required in shot spec provided.license).",
+    )
+    p.add_argument(
+        "--trust-provided",
+        action="store_true",
+        help="Skip the verifier gate for provided media (integrity probe still runs).",
+    )
     return p
 
 
@@ -386,8 +396,23 @@ def main(argv: list[str] | None = None) -> int:
     with spec_path.open("r", encoding="utf-8") as fp:
         spec = json.load(fp)
 
+    provided_payload: dict[str, Any] = dict(spec.pop("provided", None) or {})
+    if args.provided:
+        if args.provided.startswith(("http://", "https://")):
+            provided_payload["url"] = args.provided
+        else:
+            provided_payload["path"] = args.provided
+    provided_arg = provided_payload or None
+
     try:
-        meta = run_shot(spec, dry_run=args.dry_run, ask=args.ask, pick=args.pick)
+        meta = run_shot(
+            spec,
+            dry_run=args.dry_run,
+            ask=args.ask,
+            pick=args.pick,
+            provided=provided_arg,
+            trust_provided=args.trust_provided,
+        )
     except SchemaValidationError as exc:
         log.error("invalid shot spec: %s", exc)
         return 2
