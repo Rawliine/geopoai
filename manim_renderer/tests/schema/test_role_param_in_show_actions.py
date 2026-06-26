@@ -37,6 +37,7 @@ _COMPONENT_ACTIONS = [
     "showPayoffMatrix",
     "showIcon",
     "showImageCard",
+    "showMedia",
 ]
 
 
