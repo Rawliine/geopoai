@@ -39,6 +39,7 @@ from manim_renderer.components.data_viz.stat_block import StatBlock
 from manim_renderer.components.game_theory.game_tree import GameTree
 from manim_renderer.components.game_theory.payoff_matrix import PayoffMatrix
 from manim_renderer.components.geopolitical.alliance_web import AllianceWeb
+from manim_renderer.components.media_frame import MediaFrame
 from manim_renderer.components.narrative.callout_box import CalloutBox
 from manim_renderer.components.narrative.icon import Icon
 from manim_renderer.components.narrative.image_card import ImageCard
@@ -58,6 +59,7 @@ COMPONENT_REGISTRY: dict = {
     "showPayoffMatrix":  PayoffMatrix,
     "showIcon":          Icon,
     "showImageCard":     ImageCard,
+    "showMedia":         MediaFrame,
 }
 
 ACTION_REGISTRY: dict[str, Callable[[ActionContext], Optional[Animation]]] = {
@@ -67,6 +69,8 @@ ACTION_REGISTRY: dict[str, Callable[[ActionContext], Optional[Animation]]] = {
     "bestResponseArrow":   best_response_arrow,
     "setLayout":           set_layout,
     "setRole":             set_role,
+    "hideMedia":           remove_component,
+    "removeMedia":         remove_component,
 }
 
 # Back-compat alias — same dict identity. Will be removed once nothing imports it.
