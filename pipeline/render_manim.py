@@ -79,6 +79,10 @@ def _final_movie_path(scene_obj, media_dir: Path) -> Path:
 
 
 def render_manim_sync(scene: dict, clip_name: str) -> Path:
+    if scene.get("escape_hatch"):
+        from manim_renderer.escape_hatch.runner import render_escape_hatch_sync
+        return render_escape_hatch_sync(scene, clip_name)
+
     from manim_renderer.schema.validator import validate
     ok, errors = validate(scene)
     if not ok:

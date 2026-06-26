@@ -1,0 +1,13 @@
+{
+  "renderer": "manim",
+  "format": "horizontal",
+  "quality": "preview",
+  "scene": {
+    "duration": 8
+  },
+  "escape_hatch": {
+    "file": "escape_hatch/custom_scenes/incentive_flywheel.py",
+    "class": "IncentiveFlywheelScene",
+    "reason": "Circular feedback flywheel with curved inter-node arrows is not expressible with current components"
+  }
+}
