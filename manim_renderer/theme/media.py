@@ -25,6 +25,7 @@ _RATIOS: dict[str, float] = {
 }
 
 # Default frame heights (Manim units) by size role, per format.
+# Consumed by MediaFrame.measure() and build() when width/height omitted.
 FRAME_HEIGHT: dict[str, dict[str, float]] = {
     "horizontal": {"small": 3.0, "medium": 4.5, "large": 6.0},
     "vertical":   {"small": 4.0, "medium": 6.0, "large": 8.0},
