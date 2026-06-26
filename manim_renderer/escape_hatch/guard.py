@@ -92,6 +92,8 @@ def _check_imports(tree: ast.AST, path: Path) -> None:
                     )
         elif isinstance(node, ast.ImportFrom):
             module = node.module or ""
+            if module == "__future__":
+                continue
             if node.level and node.level > 0:
                 raise GuardViolation(
                     f"{path}: relative imports are not allowed in escape scenes"

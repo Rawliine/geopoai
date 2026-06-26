@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -106,12 +107,19 @@ def render_escape_hatch_sync(scene: dict, clip_name: str) -> Path:
             encoding="utf-8",
         )
 
+        env = os.environ.copy()
+        py_path = str(ROOT)
+        if env.get("PYTHONPATH"):
+            py_path = py_path + os.pathsep + env["PYTHONPATH"]
+        env["PYTHONPATH"] = py_path
+
         proc = subprocess.run(
             [sys.executable, "-m", "manim_renderer.escape_hatch.worker", str(config_path)],
             cwd=str(tmp_dir),
             timeout=timeout_s,
             capture_output=True,
             text=True,
+            env=env,
         )
         if proc.returncode != 0:
             detail = proc.stderr.strip() or proc.stdout.strip() or "unknown error"

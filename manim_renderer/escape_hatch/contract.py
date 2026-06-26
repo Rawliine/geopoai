@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-_MANIM_ROOT = Path(__file__).resolve().parent.parent
+_MANIM_PKG = Path(__file__).resolve().parent.parent
 _CUSTOM_SCENES = Path(__file__).resolve().parent / "custom_scenes"
 _FILE_PATTERN = re.compile(
     r"^escape_hatch/custom_scenes/[A-Za-z0-9_\-]+\.py$"
@@ -51,7 +51,7 @@ def parse_escape_hatch(scene: dict) -> EscapeHatchSpec:
             "'escape_hatch/custom_scenes/<name>.py'"
         )
 
-    scene_path = (_MANIM_ROOT / file_ref).resolve()
+    scene_path = (_MANIM_PKG / file_ref).resolve()
     custom_root = _CUSTOM_SCENES.resolve()
     try:
         scene_path.relative_to(custom_root)
