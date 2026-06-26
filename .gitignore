@@ -1,6 +1,9 @@
 .env
 .env.bak
 
+# Escape-hatch runtime audit log (written per render; not a tracked artifact)
+manim_renderer/escape_hatch/usage_log.jsonl
+
 # Terraform local state (may contain secrets from startup script interpolation)
 infra/terraform.tfstate
 infra/terraform.tfstate.backup
