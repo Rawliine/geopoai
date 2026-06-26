@@ -38,20 +38,14 @@ def extract_first_json_object(text: str) -> dict[str, Any]:
     try:
         parsed = json.loads(stripped)
         if isinstance(parsed, dict):
-            return parsed
-    except json.JSONDecodeError:
-        pass
-
-    # Claude Code --output-format json wraps the model reply.
-    try:
-        wrapper = json.loads(stripped)
-        if isinstance(wrapper, dict):
             for key in ("result", "content", "text", "message"):
-                val = wrapper.get(key)
+                val = parsed.get(key)
                 if isinstance(val, str) and val.strip():
-                    inner = extract_first_json_object(val)
-                    if inner:
-                        return inner
+                    try:
+                        return extract_first_json_object(val)
+                    except ValueError:
+                        continue
+            return parsed
     except json.JSONDecodeError:
         pass
 
