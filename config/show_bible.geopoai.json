@@ -1,0 +1,54 @@
+{
+  "show_id": "geopoai",
+  "positioning": "Show the incentives — explain geopolitics and conflict as game theory: actors, options, payoffs, and the equilibrium they fall into.",
+  "default_brain": "halt",
+  "default_formats": ["horizontal", "vertical"],
+  "tone": "Analytical and plain-spoken; dry wit allowed only in callouts, never in the core explanation.",
+  "hook_grammar": [
+    {
+      "name": "broken-cooperation",
+      "familiar_schema": "Allies on the same side always pull together.",
+      "broken_variable": "They defect the moment the payoff for defecting beats the payoff for cooperating.",
+      "example": "Two allied states publicly aligned — privately each is one incentive away from cutting a separate deal."
+    },
+    {
+      "name": "rational-escalation",
+      "familiar_schema": "Nobody wants war, so war is irrational.",
+      "broken_variable": "Each step is individually rational even when the destination is ruinous for everyone.",
+      "example": "Every move was a sensible response to the last one; the sum was a war no one chose."
+    },
+    {
+      "name": "costly-signal",
+      "familiar_schema": "Talk is cheap, so threats are bluffs.",
+      "broken_variable": "A threat that is expensive to make is exactly the one that is believed.",
+      "example": "The buildup wasn't preparation for war — it was the only way to make the threat credible."
+    }
+  ],
+  "beat_templates": [
+    { "beat": "hook", "intent": "Break a familiar schema with one sharp anomaly." },
+    { "beat": "context", "intent": "Name the actors and the stakes in plain terms." },
+    { "beat": "incentive-model", "intent": "Lay out options and payoffs — the game underneath." },
+    { "beat": "resolution", "intent": "Show the equilibrium the incentives force." },
+    { "beat": "implication", "intent": "What this predicts next; the durable takeaway." }
+  ],
+  "component_palette": {
+    "preferred_map_actions": ["applyFill", "applyBorder", "drawArrow", "advanceFront", "reserveRegion"],
+    "preferred_manim_components": ["payoff_matrix", "bar_chart", "callout_box", "image_card"],
+    "notes": "Lead with the map for territory/movement; switch to manim for payoff structure and numbers."
+  },
+  "caption_policy": { "burn_in": "broll_only", "sidecar": true },
+  "thresholds": {
+    "target_duration_s": 90,
+    "reading_words_per_s": 2.6,
+    "duration_tolerance_ratio": 0.2,
+    "max_consecutive_same_renderer": 3,
+    "callout_overlap_ratio_max": 0.6,
+    "static_max_s": 4.0,
+    "loudness_lufs_target": -14.0,
+    "loudness_lufs_tolerance": 1.0
+  },
+  "platform_metadata": {
+    "yt_long": { "title_max": 100, "description_max": 5000, "tags_max": 15 },
+    "shorts": { "title_max": 100, "description_max": 5000, "tags_max": 15 }
+  }
+}
