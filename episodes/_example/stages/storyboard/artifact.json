@@ -1,0 +1,8 @@
+{
+  "entries": [
+    { "beat_id": "b1", "clip_id": "e1", "renderer": "map", "duration": 5, "scene_ref": "scenes/e1.json" },
+    { "beat_id": "b2", "clip_id": "e2", "renderer": "manim", "duration": 6, "scene_ref": "scenes/e2.json" },
+    { "beat_id": "b3", "clip_id": "e3", "renderer": "map", "duration": 6, "scene_ref": "scenes/e3.json", "media_ref": "m_region" },
+    { "beat_id": "b4", "clip_id": "e4", "renderer": "broll", "duration": 5, "scene_ref": "scenes/e4.json", "media_ref": "m_broll" }
+  ]
+}

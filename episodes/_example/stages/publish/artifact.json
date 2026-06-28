@@ -1,0 +1,15 @@
+{
+  "platforms": {
+    "yt_long": {
+      "title": "Why Allies Defect: The Incentive Behind the Separate Deal",
+      "description": "Two aligned neighbors look like a bloc — until the payoffs pull them apart. A short game-theory read on cooperation and defection.",
+      "tags": ["game theory", "incentives", "alliances", "strategy"]
+    },
+    "shorts": {
+      "title": "Allies defect when the math says so",
+      "description": "The incentive that quietly splits a public alliance.",
+      "tags": ["gametheory", "incentives", "strategy"]
+    }
+  },
+  "thumbnail_brief": "Two flags side by side with a widening crack between them; one word: DEFECT."
+}

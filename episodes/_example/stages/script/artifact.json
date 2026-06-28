@@ -1,0 +1,28 @@
+{
+  "beats": [
+    {
+      "beat_id": "b1",
+      "vo_text": "Allies always pull one direction, until the **payoff** for breaking ranks beats the payoff for holding them.",
+      "intent": "hook",
+      "evidence_refs": []
+    },
+    {
+      "beat_id": "b2",
+      "vo_text": "Two neighboring states share a frontier and a rival, and in public they coordinate closely.",
+      "intent": "context",
+      "evidence_refs": ["src1"]
+    },
+    {
+      "beat_id": "b3",
+      "vo_text": "Each can cooperate or defect, and defection quietly pays more whenever the other stays committed.",
+      "intent": "incentive-model",
+      "evidence_refs": ["src1"]
+    },
+    {
+      "beat_id": "b4",
+      "vo_text": "So both drift toward the separate bargain that their own incentives reward.",
+      "intent": "resolution",
+      "evidence_refs": ["src1"]
+    }
+  ]
+}

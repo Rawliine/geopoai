@@ -1,0 +1,39 @@
+{
+  "scenes": {
+    "e1": {
+      "renderer": "mapbox",
+      "format": "horizontal",
+      "map_style": "dark",
+      "duration": 5,
+      "camera": { "center": [10, 32], "zoom": 3.2, "pitch": 30, "duration": 1.0 },
+      "timeline": [
+        { "at": 0.5, "action": "showLabel", "params": { "id": "t1", "text": "TWO CAPITALS", "position": { "x": 0.5, "y": 0.2, "unit": "frac" }, "style": "title", "duration": 0.5 } }
+      ]
+    },
+    "e2": {
+      "renderer": "manim",
+      "duration": 6,
+      "title": "THE MODEL",
+      "components": [
+        { "type": "payoff_matrix", "players": ["A", "B"], "strategies": ["hold", "deal"] }
+      ]
+    },
+    "e3": {
+      "renderer": "mapbox",
+      "format": "horizontal",
+      "map_style": "dark",
+      "duration": 6,
+      "camera": { "center": [12, 33], "zoom": 4.0, "pitch": 60, "duration": 1.0 },
+      "timeline": [
+        { "at": 0.5, "action": "showLabel", "params": { "id": "t3", "text": "MATRIX", "position": { "x": 0.5, "y": 0.8, "unit": "frac" }, "style": "soft", "duration": 0.5 } },
+        { "at": 1.0, "action": "reserveRegion", "params": { "id": "media-top", "region": "top", "duration": 4, "ramp": 0.5 } }
+      ]
+    },
+    "e4": {
+      "renderer": "broll",
+      "query": "border checkpoint at dusk",
+      "duration": 5,
+      "license": "CC0"
+    }
+  }
+}

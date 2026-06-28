@@ -1,0 +1,13 @@
+{
+  "angle": "Two publicly aligned neighbors are each one incentive away from cutting a separate deal.",
+  "incentive_structure": {
+    "actors": ["State A", "State B", "Shared rival"],
+    "options": ["hold the alliance", "cut a separate deal"],
+    "payoffs": "Defection pays more for whichever neighbor moves first while the other stays committed."
+  },
+  "hook": {
+    "name": "broken-cooperation",
+    "familiar_schema": "Allies on the same side always pull together.",
+    "broken_variable": "They defect the moment the payoff for defecting beats the payoff for cooperating."
+  }
+}

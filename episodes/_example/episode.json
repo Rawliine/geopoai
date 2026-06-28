@@ -1,0 +1,24 @@
+{
+  "show_id": "geopoai",
+  "episode_id": "_example",
+  "brain": "halt",
+  "caption_policy": { "burn_in": "broll_only", "sidecar": true },
+  "format_targets": ["horizontal", "vertical"],
+  "inputs": [
+    { "id": "src1", "type": "article", "url": "https://example.org/brief", "use": "content" },
+    { "id": "m_region", "type": "video", "path": "episodes/_example/media/region.mp4", "use": "map_region", "region": "top" },
+    { "id": "m_broll", "type": "video", "path": "episodes/_example/media/broll.mp4", "use": "broll" }
+  ],
+  "stages": {
+    "ingest": { "status": "pending" },
+    "angle": { "status": "pending" },
+    "script": { "status": "pending" },
+    "storyboard": { "status": "pending" },
+    "scenes": { "status": "pending" },
+    "voice": { "status": "pending" },
+    "render": { "status": "pending" },
+    "compose": { "status": "pending" },
+    "qc": { "status": "pending" },
+    "publish": { "status": "pending" }
+  }
+}
