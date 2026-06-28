@@ -83,6 +83,31 @@ edge padding) and edge-anchored — the media is contain-fit inside that padded 
 > (e.g. a high pitch so land sits low and the box floats over sky) — otherwise the
 > media overlaps the globe.
 
+## Authoring — framing the globe around a reserved region
+What the renderer does **for** you and what you must **author** are different:
+
+| | Who handles it |
+|---|---|
+| Screen-fixed **text** (titles/labels) clearing the band | **Automatic** — the reproject enforcement pass eases it out and back |
+| Where the **globe / subject geography** sits | **You** — set it on the scene `camera`; the renderer never moves the map |
+
+The reserved band is screen space, so frame the camera to push the *subject* into
+the complementary band. Recipes:
+
+- **`top` box (media up top):** raise `pitch` to **~60–70°** so land sinks to the
+  lower half and the top becomes sky/atmosphere; `center` on the subject, `zoom`
+  ~4–6. The box then floats over sky, not land. (See `qa_reserve_region_v.json`:
+  `pitch: 68`.)
+- **`bottom` / `lower-third` box (media down low):** keep the subject in the
+  **upper** half — a flatter `pitch` (~30–45°) with the subject at/above `center`,
+  or a tighter `zoom` so it fills the top; the low band then covers foreground you
+  don't mind hiding.
+
+The media box is **screen-anchored** — a `flyTo`/`rotateAround` during the window
+pans the map *under* a fixed box (the box does not track the camera), which reads
+as intentional. QC can flag geography that bleeds into the band (layout sidecar),
+but it will not move the camera for you.
+
 ## Demo
 - `scripts/map/qa_reserve_region.json` — horizontal; a `top` reserve window `[2, 6]`,
   text easing out of the band and re-flowing, window in `qa_reserve_region.regions.json`.
