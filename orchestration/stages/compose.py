@@ -71,13 +71,13 @@ def _build_spec(ctx: StageContext) -> dict:
         acc += float(e["duration"])
 
     clips = []
-    for e in entries:
+    for i, e in enumerate(entries):
         rec = records.get(e["clip_id"], {})
         outputs = rec.get("outputs", {})
         clip_ref = {
             "clip_id": e["clip_id"],
             "path": outputs.get("video", f"output/{e['clip_id']}.mp4"),
-            "offset_s": round(offsets[entries.index(e)], 3),
+            "offset_s": round(offsets[i], 3),
             "renderer": "broll" if e["renderer"] == "broll" else "mapbox" if e["renderer"] == "map" else e["renderer"],
         }
         if outputs.get("events"):

@@ -107,7 +107,11 @@ def run_stage(ctx: StageContext, stage_name: str) -> str:
         status = _run_brain_stage(ctx, stage) if stage.is_brain else _run_mechanical_stage(ctx, stage)
     except Exception:
         M.set_status(ctx.manifest, stage_name, "failed")
-        M.save(ctx.ep_dir, ctx.manifest)
+        # Best-effort: never let a save/validation error mask the real failure.
+        try:
+            M.save(ctx.ep_dir, ctx.manifest)
+        except Exception:
+            log.exception("could not persist failed-stage manifest for %s", stage_name)
         raise
     M.save(ctx.ep_dir, ctx.manifest)
     return status

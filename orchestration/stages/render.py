@@ -57,7 +57,8 @@ def _default_render_clip(entry: dict, ctx: StageContext) -> dict[str, str]:
     scene = json.loads((ctx.ep_dir / scene_ref).read_text(encoding="utf-8"))
     out = asyncio.run(render(scene, clip_id))
     outputs = {"video": str(out)}
-    for kind in ("events", "layout"):
+    # `regions` is required for the map_region → media_overlays routing in compose.
+    for kind in ("events", "layout", "regions"):
         side = repo_root / "output" / f"{clip_id}.{kind}.json"
         if side.exists():
             outputs[kind] = str(side)
