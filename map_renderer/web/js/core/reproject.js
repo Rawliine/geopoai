@@ -104,6 +104,79 @@ function reproject(map, overlayEl) {
 
   // W13.T6 — sample overlay box occupancy into the layout sidecar.
   _maybeSnapshotLayout(overlayEl);
+
+  // W26.T2 — keep screen-fixed text out of any active reserved media band.
+  _enforceReservedBands(overlayEl);
+}
+
+/**
+ * W26.T2 — active safe-area enforcement.
+ *
+ * Runs every reproject (deterministic stepTo + realtime camera moves). For each
+ * screen-fixed text overlay (.effect-label that is not geo-pinned), shift its
+ * inline `top` so it clears any active reserved band, eased by the band ramp;
+ * restore the authored top once no band is active. Only `top` is touched —
+ * scenes animate entrances via transform/translate, never top — so this never
+ * fights label/title-card animations. Geo-pinned overlays (data-lng) are handled
+ * by reprojection above and skipped here.
+ */
+function _enforceReservedBands(overlayEl) {
+  var M = window.MapEffects;
+  if (!M || !M.layoutHints || !M.layoutHints.activeBands) return;
+  var t = Math.max(0, Number(M._currentT || 0));
+  var bands = M.layoutHints.activeBands(t);
+  var els = overlayEl.querySelectorAll('.effect-label:not([data-lng])');
+  if (!els.length) return;
+  var orect = overlayEl.getBoundingClientRect();
+  var MARGIN = 18;
+
+  els.forEach(function (el) {
+    // Remember the authored top once (scenes never animate top).
+    var baseTop = el.dataset.reserveBaseTop;
+    if (baseTop === undefined) {
+      var parsed = parseFloat(el.style.top);
+      baseTop = isFinite(parsed) ? parsed : el.offsetTop;
+      el.dataset.reserveBaseTop = String(baseTop);
+    } else {
+      baseTop = parseFloat(baseTop);
+    }
+
+    if (!bands.length) {
+      if (el.dataset.reserveShifted === '1') {
+        el.style.top = baseTop + 'px';
+        el.dataset.reserveShifted = '0';
+      }
+      return;
+    }
+
+    // Measure the natural box at the authored position.
+    el.style.top = baseTop + 'px';
+    var r = el.getBoundingClientRect();
+    var top = r.top - orect.top;
+    var bottom = r.bottom - orect.top;
+
+    var down = 0; // push toward +y to clear a top band
+    var up = 0;   // push toward -y to clear a bottom band
+    bands.forEach(function (bd) {
+      var depth = bd.rectPx.h * bd.ramp;
+      if (depth <= 0) return;
+      if (bd.edge === 'top') {
+        var need = (bd.rectPx.y + depth + MARGIN) - top;
+        if (need > down) down = need;
+      } else {
+        var room = bottom - (bd.rectPx.y + bd.rectPx.h - depth - MARGIN);
+        if (room > up) up = room;
+      }
+    });
+
+    var shift = down > 0 ? down : (up > 0 ? -up : 0);
+    if (shift !== 0) {
+      el.style.top = (baseTop + shift) + 'px';
+      el.dataset.reserveShifted = '1';
+    } else if (el.dataset.reserveShifted === '1') {
+      el.dataset.reserveShifted = '0';
+    }
+  });
 }
 
 /**
