@@ -378,6 +378,22 @@ def compose(
         light_leak=bool(compose_spec.get("light_leak", False)),
     )
 
+    # W26 — composite reserved-region media boxes onto the assembled timeline
+    # (post; never decoded in the browser). Once, before the per-profile loop.
+    media_overlays = compose_spec.get("media_overlays", [])
+    if media_overlays and flags.get("media") is not False:
+        from composition import media_overlay
+
+        fw, fh = _probe_video_size(assembled_path)
+        assembled_path = media_overlay.apply_media_overlays(
+            assembled_path,
+            media_overlays,
+            workdir,
+            tokens=tokens,
+            repo_root=root,
+            frame_size=(fw, fh),
+        )
+
     profile_defs = export.profiles(tokens)
     export_profiles = compose_spec["export"]["profiles"]
     outputs: dict[str, Path] = {}
