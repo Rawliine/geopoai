@@ -73,12 +73,20 @@ applied by `composition/media_overlay.py`):
 ]
 ```
 
-`start`/`end` are **episode-time** seconds; `region` (or an explicit `rect`)
-resolves to the same pixel rect at the assembled frame size. Contain-fit +
-letterbox + token-styled border; `flags.media: false` skips the pass.
+`start`/`end` are **episode-time** seconds. A named `region` is **inset** (side +
+edge padding) and edge-anchored — the media is contain-fit inside that padded box
+(no stretch) and the **map shows around it** (no black letterbox). An explicit
+`rect` is used verbatim, centered. The token border is **off by default**
+(`"border": true` to draw it). `flags.media: false` skips the pass.
+
+> Pair the box with a camera that frames the globe into the complementary area
+> (e.g. a high pitch so land sits low and the box floats over sky) — otherwise the
+> media overlaps the globe.
 
 ## Demo
-`scripts/map/qa_reserve_region.json` — a deterministic clip with a `top` reserve
-window `[2, 6]`; the title eases out of the top band during the window and re-flows
-after, and the window appears in `qa_reserve_region.regions.json`. Overlay a video
-into it with a compose spec carrying the matching `media_overlays[]` entry.
+- `scripts/map/qa_reserve_region.json` — horizontal; a `top` reserve window `[2, 6]`,
+  text easing out of the band and re-flowing, window in `qa_reserve_region.regions.json`.
+- `scripts/map/qa_reserve_region_v.json` — vertical; globe pitched low, a `flyTo`
+  panning the map *under* the screen-anchored box, one label easing out.
+
+Overlay media with a compose spec carrying the matching `media_overlays[]` entry.

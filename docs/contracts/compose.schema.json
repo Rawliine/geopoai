@@ -116,7 +116,7 @@
         "start": { "type": "number", "minimum": 0, "description": "Episode-time seconds." },
         "end": { "type": "number", "minimum": 0, "description": "Episode-time seconds." },
         "fit": { "type": "string", "enum": ["contain"], "description": "Contain-fit only (letterboxed, no stretch)." },
-        "border": { "type": "boolean", "description": "Draw the token-styled border (default true)." },
+        "border": { "type": "boolean", "description": "Draw the token-styled border (default false)." },
         "caption": { "type": "string", "description": "Optional caption rendered under the box." }
       }
     }

@@ -18,7 +18,7 @@ from typing import Any
 log = logging.getLogger(__name__)
 
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
-_DEFAULT_BORDER_W = 6
+_DEFAULT_BORDER_W = 4
 
 
 def _resolve(repo_root: Path, path_str: str) -> Path:
@@ -87,19 +87,41 @@ def apply_media_overlays(
         x, y, w, h = resolve_region_rect(overlay, frame_w, frame_h)
         start = float(overlay["start"])
         end = float(overlay["end"])
-        border = "" if overlay.get("border") is False else (
-            f",drawbox=x=0:y=0:w={w}:h={h}:color={border_color}:t={_DEFAULT_BORDER_W}"
+
+        # Named regions get inset padding (sides + edge) and edge-anchoring so the
+        # media reads as a framed inset with breathing room, not a full-bleed wall.
+        # Explicit rects are used verbatim (the author controls the geometry).
+        if overlay.get("rect"):
+            fit_w, fit_h = w, h
+            ox = f"{x}+({w}-overlay_w)/2"
+            oy = f"{y}+({h}-overlay_h)/2"
+        else:
+            mx = round(0.06 * frame_w)
+            my = round(0.05 * frame_h)
+            bx, bw = x + mx, w - 2 * mx
+            by, bh = y + my, h - 2 * my
+            fit_w, fit_h = bw, bh
+            ox = f"{bx}+({bw}-overlay_w)/2"  # centered horizontally
+            region = str(overlay.get("region", "top"))
+            oy = f"{by}+{bh}-overlay_h" if region in ("bottom", "lower-third") else f"{by}"
+
+        # Border off by default; opt in with "border": true.
+        border = (
+            f",drawbox=t={_DEFAULT_BORDER_W}:color={border_color}"
+            if overlay.get("border") is True else ""
         )
 
         box = f"m{idx}"
         out = f"v{idx}"
-        # contain-fit into the box (letterbox), then optional border.
+        # Contain-fit *within* the padded box (no black letterbox); the map shows
+        # around the media.
         filters.append(
-            f"[{idx}:v]scale={w}:{h}:force_original_aspect_ratio=decrease,"
-            f"pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=black,setsar=1{border}[{box}]"
+            f"[{idx}:v]scale={fit_w}:{fit_h}:force_original_aspect_ratio=decrease,"
+            f"setsar=1{border}[{box}]"
         )
         filters.append(
-            f"[{last}][{box}]overlay={x}:{y}:enable='between(t,{start},{end})'[{out}]"
+            f"[{last}][{box}]overlay=x='{ox}':y='{oy}':"
+            f"enable='between(t,{start},{end})'[{out}]"
         )
         last = out
 
