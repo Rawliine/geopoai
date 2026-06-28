@@ -17,7 +17,6 @@ from typing import Any
 
 log = logging.getLogger(__name__)
 
-_IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".webp", ".bmp"}
 _DEFAULT_BORDER_W = 4
 
 
@@ -50,10 +49,6 @@ def resolve_region_rect(overlay: dict[str, Any], frame_w: int, frame_h: int) -> 
     return 0, 0, frame_w, frame_h // 2
 
 
-def _is_image(path: Path) -> bool:
-    return path.suffix.lower() in _IMAGE_EXTS
-
-
 def apply_media_overlays(
     assembled: Path,
     overlays: list[dict[str, Any]],
@@ -79,10 +74,10 @@ def apply_media_overlays(
         src = _resolve(repo_root, overlay["src"])
         if not src.exists():
             raise FileNotFoundError(f"media_overlay src not found: {src}")
-        if _is_image(src):
-            inputs += ["-loop", "1", "-i", str(src)]
-        else:
-            inputs += ["-i", str(src)]
+        # A still image is a single frame; overlay's default eof_action=repeat
+        # holds it for the whole window. (Never `-loop 1` — an infinite input
+        # makes the encode hang, since output length is driven by the map below.)
+        inputs += ["-i", str(src)]
 
         x, y, w, h = resolve_region_rect(overlay, frame_w, frame_h)
         start = float(overlay["start"])

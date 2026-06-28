@@ -329,6 +329,10 @@ MapEffects.resetLayout = function resetLayout() {
   MapEffects._layoutFrames = [];
   MapEffects._lastLayoutT = -Infinity;
   MapEffects._currentT = 0;
+  // W26 — drop reserved bands so they never leak into the next scene on a reused page.
+  if (MapEffects.layoutHints && MapEffects.layoutHints.clearBands) {
+    MapEffects.layoutHints.clearBands();
+  }
 };
 MapEffects.getLayoutFrames = function getLayoutFrames() {
   return MapEffects._layoutFrames.slice();
