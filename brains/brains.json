@@ -1,0 +1,17 @@
+{
+  "halt": {},
+  "claude-cli": {
+    "command_key": "claude_cli",
+    "timeout": 180
+  },
+  "gemini-cli": {
+    "command_key": "gemini_cli",
+    "timeout": 180
+  },
+  "api": {
+    "provider": "anthropic",
+    "model": "claude-sonnet-4-6",
+    "temperature": 0,
+    "max_repairs": 2
+  }
+}

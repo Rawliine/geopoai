@@ -6,3 +6,6 @@ manim==0.20.1
 jsonschema>=4.20.0
 Pillow>=10.0.0
 stable-ts==2.19.1
+anthropic>=0.49.0
+langgraph>=0.4.0
+google-generativeai>=0.8.0
