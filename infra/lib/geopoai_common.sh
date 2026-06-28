@@ -128,8 +128,13 @@ geopoai_rsync_repo_to_vm() {
   echo "[geopoai] rsync ${repo_root} -> ${remote_user}@${ip}:${remote_path}" >&2
   ssh "${ssh_opts[@]}" "${remote_user}@${ip}" "mkdir -p '${remote_path}'"
 
+  local rsync_opts=(-az --delete)
+  if [[ "${GEOPOAI_RSYNC_PROGRESS:-}" != "0" ]]; then
+    rsync_opts+=(--info=progress2)
+  fi
+
   # shellcheck disable=SC2029
-  rsync -az --delete \
+  rsync "${rsync_opts[@]}" \
     -e "ssh -i '${identity}' -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new" \
     --exclude '.env' \
     --exclude '.git/' \
@@ -139,7 +144,9 @@ geopoai_rsync_repo_to_vm() {
     --exclude 'infra/terraform.tfstate.*' \
     --exclude 'output/' \
     --exclude 'data/' \
+    --exclude 'tmp/' \
     --exclude '__pycache__/' \
+    --exclude '.pytest_cache/' \
     --exclude '.cursor/' \
     --exclude 'media/' \
     "${repo_root}/" "${remote_user}@${ip}:${remote_path}/"
