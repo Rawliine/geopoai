@@ -1,0 +1,48 @@
+{
+  "renderer": "manim",
+  "format": "horizontal",
+  "quality": "preview",
+  "scene": {
+    "layout": "hero",
+    "duration": 12,
+    "theme": "dark"
+  },
+  "slots": {
+    "main": {
+      "at": 0.0,
+      "action": "showMedia",
+      "params": {
+        "id": "media-portrait",
+        "src": "manim_renderer/assets/images/test_portrait.png",
+        "fit": "contain",
+        "caption": "Portrait · contain-fit",
+        "attribution": "GeoPoAI test",
+        "size": "medium",
+        "timing": "normal",
+        "effect": "fade-in",
+        "role": "primary"
+      }
+    }
+  },
+  "overlays": [
+    { "at": 3.0, "action": "hideMedia",
+      "params": { "target": "media-portrait", "effect": "fade-out", "timing": "fast" } },
+    { "at": 3.5, "action": "showMedia",
+      "params": {
+        "id": "media-landscape", "slot": "main",
+        "src": "manim_renderer/assets/images/test_landscape.png",
+        "fit": "contain", "attribution": "Landscape test",
+        "size": "medium", "timing": "normal", "effect": "fade-in", "role": "primary"
+      } },
+    { "at": 6.5, "action": "hideMedia",
+      "params": { "target": "media-landscape", "effect": "fade-out", "timing": "fast" } },
+    { "at": 7.0, "action": "showMedia",
+      "params": {
+        "id": "media-video", "slot": "main",
+        "src": "manim_renderer/assets/videos/test_clip.mp4",
+        "fit": "contain", "caption": "Video · contain-fit",
+        "size": "medium", "timing": "normal", "effect": "fade-in", "role": "primary"
+      } }
+  ],
+  "timeline": []
+}

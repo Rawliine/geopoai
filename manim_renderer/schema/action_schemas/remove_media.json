@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "removeMedia.params",
+  "description": "Alias of hideMedia — clean exit for a showMedia frame.",
+  "type": "object",
+  "required": ["target"],
+  "properties": {
+    "target": { "$ref": "../scene_schema.json#/definitions/id_string" },
+    "effect": { "$ref": "../scene_schema.json#/definitions/exit_effect" },
+    "timing": { "$ref": "../scene_schema.json#/definitions/timing_name" }
+  },
+  "additionalProperties": false
+}

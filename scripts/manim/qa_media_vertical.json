@@ -1,0 +1,47 @@
+{
+  "renderer": "manim",
+  "format": "vertical",
+  "quality": "preview",
+  "scene": {
+    "layout": "hero",
+    "duration": 12,
+    "theme": "dark"
+  },
+  "slots": {
+    "main": {
+      "at": 0.0,
+      "action": "showMedia",
+      "params": {
+        "id": "v-portrait",
+        "src": "manim_renderer/assets/images/test_portrait.png",
+        "fit": "contain",
+        "attribution": "Portrait",
+        "size": "small",
+        "timing": "normal",
+        "effect": "fade-in",
+        "role": "primary"
+      }
+    }
+  },
+  "overlays": [
+    { "at": 3.0, "action": "removeMedia",
+      "params": { "target": "v-portrait", "timing": "fast" } },
+    { "at": 3.5, "action": "showMedia",
+      "params": {
+        "id": "v-landscape", "slot": "main",
+        "src": "manim_renderer/assets/images/test_landscape.png",
+        "fit": "contain", "size": "small",
+        "timing": "normal", "effect": "fade-in", "role": "primary"
+      } },
+    { "at": 6.5, "action": "hideMedia",
+      "params": { "target": "v-landscape", "timing": "fast" } },
+    { "at": 7.0, "action": "showMedia",
+      "params": {
+        "id": "v-video", "slot": "main",
+        "src": "manim_renderer/assets/videos/test_clip.mp4",
+        "fit": "contain", "caption": "Clip",
+        "size": "small", "timing": "normal", "effect": "fade-in", "role": "primary"
+      } }
+  ],
+  "timeline": []
+}
