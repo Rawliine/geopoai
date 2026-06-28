@@ -1,0 +1,50 @@
+{
+  "renderer": "mapbox",
+  "format": "vertical",
+  "map_style": "dark",
+  "duration": 7,
+  "_deterministic": true,
+  "_fps": 20,
+  "camera": {
+    "center": [10.0, 34.0],
+    "zoom": 4.0,
+    "pitch": 68,
+    "bearing": 0,
+    "duration": 1.4
+  },
+  "atmosphere": { "fog": true },
+  "timeline": [
+    {
+      "at": 0.4,
+      "action": "showLabel",
+      "params": {
+        "id": "stray",
+        "text": "this label eases out of the box",
+        "position": { "x": 0.5, "y": 0.2, "unit": "frac" },
+        "style": "soft",
+        "duration": 0.6
+      }
+    },
+    {
+      "at": 0.6,
+      "action": "showLabel",
+      "params": {
+        "id": "title",
+        "text": "INCENTIVES, NOT INTENTIONS",
+        "position": { "x": 0.5, "y": 0.82, "unit": "frac" },
+        "style": "title",
+        "duration": 0.6
+      }
+    },
+    {
+      "at": 2.0,
+      "action": "reserveRegion",
+      "params": { "id": "media-top", "region": "top", "duration": 4, "ramp": 0.5 }
+    },
+    {
+      "at": 3.2,
+      "action": "flyTo",
+      "params": { "center": [14.0, 35.5], "zoom": 4.3, "pitch": 68, "bearing": -8, "duration": 2.2, "easing": "easeInOut" }
+    }
+  ]
+}

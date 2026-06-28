@@ -1,5 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "map scene",
-  "type": "object"
+  "type": "object",
+  "$comment": "Permissive stub. W26 adds two timeline actions that draw nothing and reserve a screen band for post-composition media: reserveRegion { id, region: 'top'|'bottom'|'lower-third'|{rect:{x,y,w,h}}, at, duration, ramp? } and releaseRegion { id }. The reserved windows are emitted to the {clip}.regions.json sidecar; the actual media is overlaid by composition/media_overlay.py via compose.schema.json media_overlays[]. See map_renderer/docs/fragments/w26-map-media.md."
 }

@@ -1,0 +1,56 @@
+{
+  "renderer": "mapbox",
+  "format": "horizontal",
+  "map_style": "dark",
+  "duration": 7,
+  "_deterministic": true,
+  "_fps": 20,
+  "camera": {
+    "center": [2.3, 46.2],
+    "zoom": 4.1,
+    "pitch": 35,
+    "bearing": 0,
+    "duration": 1.2
+  },
+  "atmosphere": { "fog": true },
+  "timeline": [
+    {
+      "at": 0.3,
+      "action": "showLabel",
+      "params": {
+        "id": "title",
+        "text": "REGION BRIEFING",
+        "position": { "x": 0.5, "y": 0.16, "unit": "frac" },
+        "style": "title",
+        "duration": 0.6
+      }
+    },
+    {
+      "at": 0.5,
+      "action": "showLabel",
+      "params": {
+        "id": "subtitle",
+        "text": "incentives, not intentions",
+        "position": { "x": 0.5, "y": 0.27, "unit": "frac" },
+        "style": "soft",
+        "duration": 0.6
+      }
+    },
+    {
+      "at": 0.7,
+      "action": "showLabel",
+      "params": {
+        "id": "footer",
+        "text": "lower band — should not move",
+        "position": { "x": 0.5, "y": 0.72, "unit": "frac" },
+        "style": "soft",
+        "duration": 0.6
+      }
+    },
+    {
+      "at": 2.0,
+      "action": "reserveRegion",
+      "params": { "id": "media-top", "region": "top", "duration": 4, "ramp": 0.5 }
+    }
+  ]
+}

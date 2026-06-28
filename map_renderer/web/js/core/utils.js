@@ -191,12 +191,28 @@ MapEffects.layoutHints = {
     var topFrac = Number(m.top) || 0;
     // Usable bottom = whichever is higher: bottom margin or caption band top.
     var bottomFrac = Math.min(1 - (Number(m.bottom) || 0), band[0]);
-    return {
+    var rect = {
       x: Math.round(leftFrac * size.w),
       y: Math.round(topFrac * size.h),
       w: Math.round((1 - leftFrac - rightFrac) * size.w),
       h: Math.round(Math.max(0, bottomFrac - topFrac) * size.h),
     };
+    // W26 — subtract any active reserved bands (media regions) from the usable
+    // rect so safe-area-based placement also avoids the media box.
+    var active = this.activeBands ? this.activeBands() : [];
+    active.forEach(function (bd) {
+      var depth = bd.rectPx.h * bd.ramp;
+      if (depth <= 0) return;
+      if (bd.edge === 'top') {
+        var newTop = bd.rectPx.y + depth;
+        var dTop = newTop - rect.y;
+        if (dTop > 0) { rect.y += dTop; rect.h -= dTop; }
+      } else if (bd.edge === 'bottom') {
+        var bandTop = bd.rectPx.y + bd.rectPx.h - depth;
+        if (bandTop < rect.y + rect.h) rect.h = Math.max(0, bandTop - rect.y);
+      }
+    });
+    return rect;
   },
   // Resolve a scene position: {x,y,unit:'frac'} → px; {x,y} px and [lng,lat]
   // geo are passed through unchanged (geo is handled by reprojection).
@@ -208,6 +224,92 @@ MapEffects.layoutHints = {
     }
     return pos;
   },
+};
+
+/* ============================================================
+   Reserved bands (W26.T1)
+   A reserved band is a time-windowed screen region (top half,
+   lower third, …) that the renderer keeps its own screen-fixed
+   overlays out of; the actual media is composited in post. Bands
+   draw nothing — they only expose geometry (px) + a time-driven
+   ramp (in/out), so safeRect() and the reproject enforcement pass
+   (W26.T2) can avoid them and runner.py can emit them (W26.T3).
+   The ramp is a pure function of MapEffects._currentT → deterministic.
+   ============================================================ */
+MapEffects.layoutHints._bands = MapEffects.layoutHints._bands || {};
+
+// Eased 0→1 (matches the cubic in-out used elsewhere).
+function _reservedEase(p) {
+  p = Math.max(0, Math.min(1, p));
+  return p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+}
+
+// Current ramp (0..1) of a band at scene time t: in-ramp, hold, out-ramp.
+function _reservedBandRamp(b, t) {
+  var start = b.start;
+  var end = b.start + b.duration;
+  var ramp = b.ramp;
+  if (t <= start || t >= end + ramp) return 0;
+  if (t < start + ramp) return _reservedEase((t - start) / ramp);
+  if (t < end) return 1;
+  return _reservedEase(1 - (t - end) / ramp);
+}
+
+MapEffects.layoutHints.reserveBand = function reserveBand(id, band) {
+  this._bands[String(id)] = {
+    id: String(id),
+    edge: band.edge === 'bottom' ? 'bottom' : 'top',
+    rectPx: band.rectPx,
+    start: Number(band.start) || 0,
+    duration: Math.max(0.01, Number(band.duration) || 3),
+    ramp: Math.max(0.001, Number(band.ramp) || 0.4),
+    region: band.region || 'custom',
+  };
+};
+
+MapEffects.layoutHints.releaseBand = function releaseBand(id, atT) {
+  var b = this._bands[String(id)];
+  if (!b) return;
+  var rel = Number(atT) || 0;
+  if (rel < b.start + b.duration) b.duration = Math.max(0, rel - b.start);
+};
+
+MapEffects.layoutHints.clearBands = function clearBands() {
+  this._bands = {};
+};
+
+// Bands with ramp > 0 at time t (default: the current scene clock).
+MapEffects.layoutHints.activeBands = function activeBands(t) {
+  if (t == null) t = Number(MapEffects._currentT || 0);
+  var out = [];
+  var bands = this._bands;
+  Object.keys(bands).forEach(function (k) {
+    var b = bands[k];
+    var r = _reservedBandRamp(b, t);
+    if (r > 0.001) out.push({ id: b.id, edge: b.edge, rectPx: b.rectPx, ramp: r });
+  });
+  return out;
+};
+
+// All reserved windows with resolved pixel rects + [start,end] — sidecar (W26.T3).
+MapEffects.layoutHints.getReservedWindows = function getReservedWindows() {
+  var out = [];
+  var bands = this._bands;
+  Object.keys(bands).forEach(function (k) {
+    var b = bands[k];
+    var rc = b.rectPx;
+    out.push({
+      id: b.id,
+      region: b.region,
+      edge: b.edge,
+      rect: [Math.round(rc.x), Math.round(rc.y), Math.round(rc.w), Math.round(rc.h)],
+      start: b.start,
+      end: b.start + b.duration,
+      ramp: b.ramp,
+    });
+  });
+  out.sort(function (a, c) { return a.start - c.start; });
+  return out;
 };
 
 /* ============================================================
@@ -227,6 +329,10 @@ MapEffects.resetLayout = function resetLayout() {
   MapEffects._layoutFrames = [];
   MapEffects._lastLayoutT = -Infinity;
   MapEffects._currentT = 0;
+  // W26 — drop reserved bands so they never leak into the next scene on a reused page.
+  if (MapEffects.layoutHints && MapEffects.layoutHints.clearBands) {
+    MapEffects.layoutHints.clearBands();
+  }
 };
 MapEffects.getLayoutFrames = function getLayoutFrames() {
   return MapEffects._layoutFrames.slice();

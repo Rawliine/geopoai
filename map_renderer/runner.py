@@ -424,6 +424,18 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
             log.warning("Could not read layout frames: %s", exc)
             layout_frames = []
 
+        # W26.T3 — reserved media windows (screen regions kept clear for the
+        # post-composition media-overlay pass). Read off layoutHints directly.
+        try:
+            reserved_windows = await page.evaluate(
+                "() => (window.MapEffects && MapEffects.layoutHints "
+                "&& MapEffects.layoutHints.getReservedWindows "
+                "? MapEffects.layoutHints.getReservedWindows() : [])"
+            )
+        except Exception as exc:  # noqa: BLE001 — emission is best-effort
+            log.warning("Could not read reserved windows: %s", exc)
+            reserved_windows = []
+
         await context.close()
         await browser.close()
 
@@ -457,6 +469,26 @@ async def render_scene(scene: dict, clip_name: str) -> Path:
         encoding="utf-8",
     )
     log.info("Wrote %d layout frames → %s", len(layout_frames), layout_path.name)
+
+    # ── Sidecar: regions.json — reserved media windows for composition (W26.T3) ──
+    if isinstance(reserved_windows, list):
+        reserved_windows.sort(key=lambda r: float(r.get("start", 0)))
+    else:
+        reserved_windows = []
+    regions_path = OUTPUT_DIR / f"{clip_name}.regions.json"
+    regions_path.write_text(
+        json.dumps(
+            {
+                "clip_id": clip_name,
+                "format": scene_format,
+                "frame": [frame_w, frame_h],
+                "regions": reserved_windows,
+            },
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    log.info("Wrote %d reserved regions → %s", len(reserved_windows), regions_path.name)
 
     output_path = OUTPUT_DIR / f"{clip_name}.mp4"
     if deterministic:
