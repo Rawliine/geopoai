@@ -1,5 +1,24 @@
 # W22 — Map: 3D models on the map (tanks, ships, missiles, resource icons)
 
+> **DEFERRED (2026-06-28) — do not dispatch.** Moved to `plans/PLAN.md` Backlog.
+> The three.js custom-layer approach below was attempted and **thrashed**: it ran a
+> *parallel renderer* in the Mapbox GL context (MercatorCoordinate placement, its own
+> projection matrix, terrain-altitude anchoring, lighting) instead of the renderer's one
+> proven primitive — store lng/lat, reproject to screen pixels via `map.project()` every
+> frame. Every failure lived in that coordinate-space gap: models km-wide or sub-pixel
+> (mercator scale), under-ground / in-sky (sea-level altitude vs. `queryTerrainElevation ×
+> exaggeration`, plus un-normalized model pivot), and sliding during camera moves (stale
+> per-frame matrix + a `triggerRepaint` loop fighting the camera animation).
+>
+> **If revisited:** do it as **billboard sprites** — pre-render each glTF to a transparent
+> PNG (optionally an N-angle sheet for heading/orbit), place it as an `<img>` in the labels
+> layer with `data-lng`/`data-lat`, reproject like every other overlay, size = f(zoom).
+> Anchoring + determinism then come from the existing primitive for free; the trade is no
+> live parallax under pitch/orbit (acceptable for small icons in short-form). The spec below
+> is retained for the asset list, action shapes, and acceptance ideas only.
+
+---
+
 Branch: `agents/w22-map3d` · Depends on: W13 (camera/runtime emission landed).
 Heaviest map lane — last of the genre-grammar items.
 

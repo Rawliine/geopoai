@@ -334,7 +334,7 @@ Commits: ONE per checklist item, in the 3-part format from "Commit format" above
 
 Discipline: read plans/PLAN.md, plans/W24-brain-layer.md, and ALL of docs/contracts/*.schema.json first. Touch ONLY your allowlist (orchestration/, pipeline/orchestrate.py, config/show_bible.geopoai.json, tests/test_orchestration.py). Import the brain from the `brains` package (W24) — do NOT implement brains here. No placeholders: the example episode must actually walk every stage to compose with stub clips; QC rules must actually fire on the deliberately-failing fixtures. Run acceptance; paste output.
 
-Context: the brain is PLUGGABLE, chosen once per episode via `episode.json.brain` (default from the bible) and resolved through `brains.select_brain` (W24): `halt` stops with an instruction + schema for Claude Code to author then validate; `claude-cli`/`gemini-cli`/`api` author + validate inline. Rich `inputs[]`: article link(s) → content; image/video links routed by `use` to broll (W27 --provided), manim media (W25 showMedia), or map media (W26 maskMedia/showMediaFrame). Zero geopolitics hardcoded in orchestration/ — everything genre-flavored reads from the show bible (a grep for "geopoli" in stages/ must hit nothing). Show bible default `caption_policy: { burn_in: broll_only, sidecar: true }`; operator sets per-episode override before `script`; compose stage propagates to compose spec. Selective re-render via content hashing.
+Context: the brain is PLUGGABLE, chosen once per episode via `episode.json.brain` (default from the bible) and resolved through `brains.select_brain` (W24): `halt` stops with an instruction + schema for Claude Code to author then validate; `claude-cli`/`gemini-cli`/`api` author + validate inline. Rich `inputs[]`: article link(s) → content; image/video links routed by `use` to broll (W27 --provided), manim media (W25 showMedia), or map media (W26: `map_mask` → maskImage clip-to-border; `map_region` → reserveRegion window + compose media_overlays in post). Zero geopolitics hardcoded in orchestration/ — everything genre-flavored reads from the show bible (a grep for "geopoli" in stages/ must hit nothing). Show bible default `caption_policy: { burn_in: broll_only, sidecar: true }`; operator sets per-episode override before `script`; compose stage propagates to compose spec. Selective re-render via content hashing.
 ```
 
 ---
@@ -362,7 +362,11 @@ Context: this is a CAGED pressure valve. Guard must hard-fail on disallowed impo
 
 ---
 
-## W22 — Map 3D models (three.js custom layer) — WAIT for W13 merged
+## W22 — Map 3D models (three.js custom layer) — DEFERRED, do not dispatch
+
+> Moved to `plans/PLAN.md` Backlog (the three.js custom-layer approach thrashed on
+> coordinate-space/anchoring; revisit as billboard sprites). The dispatch block below is
+> retained for history only — do not run it.
 
 ```text
 Read plans/W22-map-3d.md and execute it exactly, checklist items in order.
@@ -431,25 +435,25 @@ Context: rework manim_renderer/components/narrative/image_card.py (Ken Burns + a
 
 ---
 
-## W26 — Map media frames (reserved-region box + clip-to-border) — independent (W11/W14 merged)
+## W26 — Map media: reserved-region box in post + active safe-area — RE-SCOPED (W11/W14/W17 merged)
 
 ```text
-Read plans/W26-map-media-frames.md and execute it exactly, checklist items in order.
+Read plans/W26-map-media.md and execute it exactly, checklist items in order.
 
-Branch (first action): target agents/w26-map-media-frames. Run `git branch --show-current`.
-  • agents/w26-map-media-frames → continue.
-  • main → `git checkout -b agents/w26-map-media-frames`.
-  • cursor/* or anything else → `git branch -m agents/w26-map-media-frames` (rename ONLY; never checkout -b).
+Branch (first action): target agents/w26-map-media. Run `git branch --show-current`.
+  • agents/w26-map-media → continue.
+  • main → `git checkout -b agents/w26-map-media`.
+  • cursor/* or anything else → `git branch -m agents/w26-map-media` (rename ONLY; never checkout -b).
   Do not run git worktree. Worktree folder name is irrelevant.
 Never work on main.
 
 Env: prefix every Python/render/test command with `conda run -n geopo`. Link .env for renders if missing: ln -sf /home/rawline/GeoPoAI/.env ./.env
 
-Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(map): reserved-region media frame` (NO marker), then a per-file bullet body, then `(W26.T1)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
+Commits: ONE per checklist item, in the 3-part format from "Commit format" above — subject `feat(map): time-windowed reserveRegion action` (NO marker), then a per-file bullet body, then `(W26.T1)` alone on the final line. Types: feat, fix, docs, refactor, test, chore. NEVER use the marker as the prefix or glue it to the subject. No Co-authored-by. Do NOT push.
 
-Discipline: read plans/PLAN.md + map_renderer/docs/SKILL.md first. Touch ONLY your allowlist (NEW web/js/effects/media.js, web/css/media.css, docs/fragments/w26-map-media.md, scripts/map/). DO NOT edit fills.js/borders.js/arrows.js/labels.js — reuse maskImage's ring/clip approach in your own file. The lead has pre-added the media.js <script> tag in map.html and a media stub in scene.schema.json — fill the schema stub, never add a script tag yourself (rule 3; STOP and report if the tag is missing). All colors/border/letterbox from design tokens via CSS vars. No placeholders: a DETERMINISTIC demo must show a video in a top box with the globe below AND media clipped to Morocco; verify frames yourself. Run acceptance; paste screenshots.
+Discipline: read plans/PLAN.md + map_renderer/docs/SKILL.md + composition/README.md first. This is a CROSS-LAYER lane (map + composition) — that is intended; you own both sides of the renderer→composition seam. Allowlist: web/js/effects/media.js (fill the stub), web/css/media.css, the map safe-area/sidecar touchpoints in web/js/core/ + map_renderer/runner.py, composition/media_overlay.py (new), pipeline/compose.py (wire the pass), scripts/map/, docs/fragments/w26-map-media.md. DO NOT edit fills.js/maskImage — the clip-to-border IMAGE path (2b) ships as-is. The lead has pre-added the media.js <script> tag in map.html, the reserveRegion stub in scene.schema.json, and media_overlays[] in docs/contracts/compose.schema.json — fill the stubs; never add a script tag or edit a frozen contract yourself (rule 3; STOP and report if missing). All colors/border/letterbox/timing from design tokens. NO box is drawn in the browser — no placeholder rectangle. No placeholders elsewhere either: a DETERMINISTIC map render must keep on-screen text out of the reserved band during its window (re-flow after), the sidecar must list the window, and a compose run must overlay a video into that window (contain-fit, no stretch) over [start,end] only. Verify frames yourself. Run acceptance; paste screenshots.
 
-Context: two actions — showMediaFrame (screen region box, contain-fit, safe-area aware) and maskMedia (clip image/video to a resolver geometry; add video, which maskImage lacks; reproject on camera move, deterministic-safe). removeMediaFrame/removeMask for clean exits.
+Context: reserveRegion/releaseRegion are time-windowed, deterministic (driven by t under stepTo), draw nothing — they activate a caption-band-style exclusion so titles/labels/captions ease out of the reserved band. runner.py emits the active windows {id,rect,start,end} to a sidecar. composition/media_overlay.py composites the actual image/video into those windows in post via ffmpeg. The globe staying out of the band is the camera's job (authored). 3D models (W22) are DEFERRED; clip-to-border VIDEO (old 2c) is DROPPED.
 ```
 
 ---

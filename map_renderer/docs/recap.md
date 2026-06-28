@@ -138,8 +138,10 @@ effects (glow, marching ants, breathe) run correctly in both.
 - **Schema depth.** `schema/scene.schema.json` is currently a stub; how strict
   per-action validation should become (vs. the Manim validator's three tiers) is
   open.
-- **3D and atmosphere.** `models3d.js` / `atmosphere.js` are stubs awaiting
-  W13/W22; their interaction with the deterministic `stepTo` loop needs care.
+- **Atmosphere / 3D.** `atmosphere.js` landed in W13. `models3d.js` remains an
+  **inert** stub — 3D models (W22) are deferred (see `plans/PLAN.md` Backlog: the
+  three.js custom-layer approach thrashed on coordinate-space anchoring; revisit as
+  billboard sprites on the reproject primitive).
 - **Resolver ambiguity.** Largest-area name matching is a heuristic; rare
   collisions (same name across datasets) may need explicit disambiguation.
 

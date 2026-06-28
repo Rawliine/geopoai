@@ -44,10 +44,11 @@ Entry points: the unified dispatcher `pipeline/render.py` routes `"renderer":
 names at load; `runtime.js` dispatches timeline actions via registry lookup.
 
 - `map.html` already has `<script>` tags for vendor + all core + **all** effects
-  modules (including the `atmosphere`/`models3d` stubs). **Never edit `map.html`
-  to add a module** — add your action registrations inside the existing module
-  file for your family. This is what lets W11–W22 work in parallel without
-  touching shared files.
+  modules (including the `models3d` stub, which is **inert** — 3D models / W22 are
+  deferred; see `plans/PLAN.md` Backlog). **Never edit `map.html` to add a module**
+  — add your action registrations inside the existing module file for your family.
+  This is what lets the map effect families work in parallel without touching
+  shared files.
 - Add a new effect by registering it in the right family module and adding its
   CSS class to the matching `web/css/<family>.css`. Keep deterministic
   (`stepTo`) behavior working, not just realtime.

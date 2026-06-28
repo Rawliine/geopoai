@@ -80,10 +80,14 @@ grep stages/ for "geopoli" must hit nothing).
   `"captions": false` on a row to suppress burn-in for that clip (subtractive
   override). **Media placement:** each media item from media_pool.json is placed
   per its `use` — `broll` → a provided-source clip (W27 `--provided`); `manim_media`
-  → a `showMedia` action in a manim scene (W25); `map_mask`/`map_region` →
-  `maskMedia`/`showMediaFrame` in a map scene (W26); `hook` → the opening clip. The
+  → a `showMedia` action in a manim scene (W25); `map_mask` → a `maskImage`
+  clip-to-border in a map scene (W11); `map_region` → a `reserveRegion` window in
+  the map scene **plus** a `media_overlays[]` entry in the compose spec — the box is
+  composited in post, not drawn by the map (W26); `hook` → the opening clip. The
   brain may re-route a media item to a different renderer; the validator checks the
-  chosen action exists for that renderer. Validator: durations sum ≈ VO; renderer
+  chosen action (or compose overlay, for `map_region`) exists for that renderer, and
+  that a `map_region` item's reserve window is paired with a camera move framing the
+  globe into the complementary area. Validator: durations sum ≈ VO; renderer
   exists; max consecutive same-renderer (bible threshold); every media_pool item
   referenced exactly once.
 - `scenes` (BRAIN): per-clip scene JSONs / shot specs authored into
@@ -98,8 +102,9 @@ grep stages/ for "geopoli" must hit nothing).
   path in the instruction.
 - `compose`: build compose spec from storyboard (transitions: bible default
   whoosh on camera-adjacent boundaries, else cut); copy episode `caption_policy`
-  into spec; set per-clip `renderer` + optional `captions` on each `clip_ref`
-  → pipeline/compose.py.
+  into spec; set per-clip `renderer` + optional `captions` on each `clip_ref`;
+  carry each `map_region` item's `media_overlays[]` entry (src, region, start/end)
+  onto its clip so the W26 media-overlay pass composites it → pipeline/compose.py.
 - `qc`: see T4. - `publish`: see T5.
 
 ### T4 — QC stage

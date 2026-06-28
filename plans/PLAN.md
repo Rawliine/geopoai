@@ -9,7 +9,8 @@ Commit-per-checklist-item.
 ## Goal
 
 Close the gap to genre-standard production value on the map engine (full
-visual grammar incl. invasion-front modeling and 3D), bring the manim engine
+visual grammar incl. invasion-front modeling; 3D models deferred — see
+Backlog), bring the manim engine
 to brand-quality, unify the brand (tokens: palette/fonts/timing/safe-areas),
 build the composition layer (assembly + policy-driven caption burn-in +
 automatic sound pass), expand b-roll (sources, link ingest, eval), automate GPU infra
@@ -44,10 +45,11 @@ WAVE 1 (parallel lanes; all depend on W00+W02; W01 independent)
 
 WAVE 2 (parallel; depend on Wave 1 contracts being exercised)
   W21 escape-hatch             (guarded custom-Manim path)
-  W22 map-3d                   (glTF models on map via three.js custom layer)
+  W22 map-3d                   DEFERRED — glTF models via three.js custom layer (see Backlog)
   W24 brain-layer              (swappable authoring brains: halt / CLI agent / LLM API)
   W25 manim-media              (fitted image/video box component)
-  W26 map-media-frames         (reserved-region box + clip-to-border media)
+  W26 map-media                (reserved-region box composited in post + active safe-area;
+                                clip-to-border image ships via W11 maskImage)
   W27 broll-provided-media     (supplied URL/file as a forced b-roll source)
 
 WAVE 3 (integrator; depends on Wave 1 + W24 + W25 + W26 + W27)
@@ -83,11 +85,11 @@ INTEGRATION (lead-driven, no lane file)
 | W19  | agents/w19-infra         | infra/, pipeline/gpu_session.py                                                                                                          | —          |
 | W20  | agents/w20-orchestration | orchestration/, pipeline/orchestrate.py, config/show_bible.*.json                                                                        | Wave 1, W24–W27 |
 | W21  | agents/w21-escape        | manim_renderer/escape_hatch/                                                                                                             | W10        |
-| W22  | agents/w22-map3d         | map_renderer/web/js/effects/models3d.js, web/vendor/ (three only)                                                                        | W13        |
+| ~~W22~~ | ~~agents/w22-map3d~~   | **DEFERRED** — glTF models via three.js custom layer; thrashed on coordinate-space/anchoring. Revisit as billboard sprites (see Backlog)  | W13        |
 | W23  | agents/w23-interactive-sessions | pipeline/gpu_session.py, infra/ (sessions.json, startup_scripts, *.tf)                                                            | W19 (merged) |
 | W24  | agents/w24-brain-layer   | brains/, tests/test_brains.py, requirements.txt + .env.example (append)                                                                 | —          |
 | W25  | agents/w25-manim-media   | manim_renderer/{components,registry.py,schema,theme,docs/fragments,tests}, scripts/manim/                                                | W10 (merged) |
-| W26  | agents/w26-map-media-frames | map_renderer/web/js/effects/media.js, web/css/media.css, docs/fragments/, scripts/map/ (lead pre-adds map.html tag + schema stub)     | W11, W14 (merged) |
+| W26  | agents/w26-map-media     | map_renderer/web/js/effects/media.js + css, core safe-area/sidecar touchpoints, runner.py; composition/media_overlay.py + pipeline/compose.py; scripts/map/, docs/fragments/ (lead pre-adds map.html tag + scene & compose schema stubs) | W11, W14, W17 (merged) |
 | W27  | agents/w27-broll-provided-media | broll/lib/provided_source.py, pipeline/broll.py, broll/docs/fragments/, tests/test_broll_provided.py                              | W18 (merged) |
 
 
@@ -158,11 +160,13 @@ W13 + W10 + W18 first (W13 lands the emission machinery other lanes' outputs
 get verified against; W10/W18 are independent), then W11 + W12 + W14, then
 W15 + W16 + W17, then W19.
 
-Wave-2/3 (Wave 1 + W23 all merged): **W24 + W25 + W26 + W27 run fully in parallel**
-— disjoint allowlists, every dependency already merged (lead pre-creates the
-`media.js` script tag in map.html + the `media` schema stub for W26 first). Then
-**W20** alone as the integrator once W24–W27 land. W21 + W22 are independent of this
-set and can run anytime in Wave 2.
+Wave-2/3 (Wave 1 + W23 all merged): **W24 + W25 + W27 run fully in parallel** —
+disjoint allowlists, every dependency already merged. **W26** (re-scoped) is a
+single cross-layer lane (map + composition); the lead pre-creates its contract
+first — the `media.js` script tag in map.html, the `reserveRegion` scene-schema
+stub, and the `media_overlays[]` compose-schema stub — then one agent owns both
+sides of the renderer→composition seam. Then **W20** alone as the integrator once
+W24–W27 land. W21 was independent and is merged; **W22 is deferred** (Backlog).
 
 ## Definition of done (plan-wide)
 
@@ -177,4 +181,11 @@ set and can run anytime in Wave 2.
 
 Presenter integration beyond the events/tokens contract · platform upload
 automation · self-hosted LLM · second show bible · occupancy v2 (saliency-aware) ·
-fine-tuned CLIP verifier.
+fine-tuned CLIP verifier · **3D map models (was W22)** — the three.js custom-layer
+approach thrashed on coordinate-space mismatch (mercator scale, terrain-altitude
+anchoring, per-frame camera sync) because it ran a parallel renderer off the proven
+reproject primitive. If revisited, do it as **billboard sprites** (pre-rendered glTF
+→ transparent PNG, placed/reprojected like labels) so anchoring + determinism come
+from the existing primitive, not a second coordinate system · clip-to-border
+**video** on the map (old W26 "2c") — needs a per-frame screen-polygon track exported
+to post; deferred.
