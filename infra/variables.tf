@@ -30,6 +30,11 @@ variable "project_slug" {
 variable "run_id" {
   type        = string
   description = "Unique token for this machine (episode id, timestamp, experiment name). Drives hostname + OS volume name uniqueness."
+
+  validation {
+    condition     = can(regex("^[a-zA-Z0-9-]+$", var.run_id))
+    error_message = "run_id must contain only alphanumeric characters and dashes (Verda hostname rule)."
+  }
 }
 
 variable "gpu_type" {

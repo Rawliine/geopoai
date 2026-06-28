@@ -76,11 +76,19 @@ def test_state_lifecycle(state_path: Path) -> None:
 
 
 def test_generate_run_id_increments(state_path: Path) -> None:
-  state = {"comfyui_setup": _sample_session(run_id="comfyui_setup-2025-06-25-1")}
+  state = {"comfyui_setup": _sample_session(run_id="comfyui-setup-2025-06-25-1")}
   gs.save_state(state, state_path)
   with mock.patch.object(gs, "_utc_now", return_value=datetime(2025, 6, 25, 9, 0, tzinfo=timezone.utc)):
     rid = gs.generate_run_id("comfyui_setup", gs.load_state(state_path))
-  assert rid == "comfyui_setup-2025-06-25-2"
+  assert rid == "comfyui-setup-2025-06-25-2"
+
+
+def test_sanitize_run_id() -> None:
+  assert gs.sanitize_run_id("comfyui_setup-2026-06-28-1") == "comfyui-setup-2026-06-28-1"
+  assert gs.sanitize_run_id("setup-001") == "setup-001"
+  assert gs.sanitize_run_id("  broll_ep017  ") == "broll-ep017"
+  with pytest.raises(ValueError):
+    gs.sanitize_run_id("___")
 
 
 def test_cost_math() -> None:

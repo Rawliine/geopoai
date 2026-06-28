@@ -753,6 +753,7 @@ def terraform_base_args(
     run_id: str,
     profile: GpuProfile | None = None,
 ) -> list[str]:
+    run_id = sanitize_run_id(run_id)
     args = [
         f"-var=run_id={run_id}",
         f"-var=max_session_hours={workload.max_session_hours}",
@@ -1137,14 +1138,26 @@ def is_session_live(
     return bool(instance_id)
 
 
+_VERDA_NAME_RE = re.compile(r"[^a-zA-Z0-9-]+")
+
+
+def sanitize_run_id(run_id: str) -> str:
+    """Normalize run_id for Verda hostnames (alphanumeric + dash only)."""
+    cleaned = _VERDA_NAME_RE.sub("-", run_id.strip().replace("_", "-"))
+    cleaned = re.sub(r"-+", "-", cleaned).strip("-")
+    if not cleaned:
+        raise ValueError("run_id must contain at least one alphanumeric character")
+    return cleaned
+
+
 def generate_run_id(workload: str, state: dict[str, dict[str, Any]]) -> str:
     today = _utc_now().strftime("%Y-%m-%d")
-    prefix = f"{workload}-{today}-"
-    existing = [
-        s["run_id"]
+    prefix = f"{sanitize_run_id(workload)}-{today}-"
+    existing = {
+        sanitize_run_id(s["run_id"])
         for s in state.values()
-        if isinstance(s.get("run_id"), str) and s["run_id"].startswith(prefix)
-    ]
+        if isinstance(s.get("run_id"), str)
+    }
     n = 1
     while f"{prefix}{n}" in existing:
         n += 1
@@ -1369,9 +1382,14 @@ def cmd_up(
         )
         return 1
 
-    run_id = args.run_id
-    if run_id == "auto":
+    if args.run_id == "auto":
         run_id = generate_run_id(args.workload, state)
+    else:
+        try:
+            run_id = sanitize_run_id(args.run_id)
+        except ValueError as exc:
+            log.error("%s", exc)
+            return 1
 
     try:
         chain, _catalog_rates, location, _avail, catalog = prepare_deploy_chain(
@@ -1722,9 +1740,15 @@ def cmd_interactive(
             use_spot = False
 
         profile = offering_to_profile(offering, use_spot=use_spot)
-        run_id = input_fn("run_id [auto]: ").strip() or "auto"
-        if run_id == "auto":
+        run_id_input = input_fn("run_id [auto]: ").strip() or "auto"
+        if run_id_input == "auto":
             run_id = generate_run_id(workload_name, load_state())
+        else:
+            try:
+                run_id = sanitize_run_id(run_id_input)
+            except ValueError as exc:
+                print(f"Invalid run_id: {exc}")
+                return 1
 
         vol_rc = _interactive_resolve_volume(
             offering, workload, run_id, profile, storage, token, input_fn=input_fn
