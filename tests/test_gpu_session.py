@@ -147,6 +147,24 @@ def test_run_terraform_never_passes_volume(monkeypatch: pytest.MonkeyPatch, regi
   assert "verda_volume" not in joined
 
 
+def test_terraform_output_omits_var_args(
+  monkeypatch: pytest.MonkeyPatch,
+  registry_path: Path,
+) -> None:
+  captured: list[list[str]] = []
+
+  def fake_run(cmd: list[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+    captured.append(cmd)
+    return subprocess.CompletedProcess(cmd, 0, stdout="10.0.0.1", stderr="")
+
+  monkeypatch.setattr(gs.subprocess, "run", fake_run)
+  _, _, workloads = gs.load_registry(registry_path)
+  workload = workloads["comfyui_setup"]
+  ip = gs.terraform_output("instance_ip", workload, "setup-001", None)
+  assert ip == "10.0.0.1"
+  assert captured == [["terraform", "output", "-raw", "instance_ip"]]
+
+
 def test_cmd_up_refuses_live_duplicate(
   registry_path: Path,
   state_path: Path,

@@ -32,8 +32,9 @@ verda_image = "ubuntu-22.04-cuda-12.4-docker"
 # Setup: on-demand so long bootstrap/download is not interrupted by spot eviction.
 use_spot = false
 
-# GeoPoAI repo (HTTPS public clone works without deploy keys).
-geopoai_git_repo = "https://github.com/Rawliine/geopoai.git"
+# GeoPoAI on the VM: leave empty — gpu_session / repair_comfyui_setup.sh rsync your
+# local checkout (private repos cannot HTTPS-clone on first boot).
+geopoai_git_repo = ""
 
 # Hugging Face token: set TF_VAR_huggingface_token in ../.env (not in this file).
 # Accept licenses on huggingface.co for Lightricks/LTX-2.3 before first boot.

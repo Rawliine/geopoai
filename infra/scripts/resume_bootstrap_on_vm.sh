@@ -43,7 +43,9 @@ elif [[ "${GEOPOAI_REPO_PRELOADED:-}" == "1" ]]; then
   exit 1
 elif [[ ! -d "${GEOPOAI_REPO}/.git" ]]; then
   if [[ -z "${GEOPOAI_GIT_REPO:-}" ]]; then
-    GEOPOAI_GIT_REPO="${GEOPOAI_GIT_REPO_DEFAULT:-https://github.com/Rawliine/geopoai.git}"
+    echo "[geopoai:resume] ERROR: GeoPoAI repo missing and GEOPOAI_GIT_REPO unset." >&2
+    echo "  From your laptop: cd infra && ./repair_comfyui_setup.sh <run_id>" >&2
+    exit 1
   fi
   echo "[geopoai:resume] cloning GeoPoAI from ${GEOPOAI_GIT_REPO}" >&2
   mkdir -p "$(dirname "${GEOPOAI_REPO}")"

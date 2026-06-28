@@ -898,6 +898,27 @@ def models_download_complete(ip: str, marker: str) -> bool:
     return result.returncode == 0
 
 
+def run_repair_on_vm(
+    workload: WorkloadSpec,
+    run_id: str,
+    profile: GpuProfile | None,
+    *,
+    watch: bool = False,
+) -> int:
+    """Rsync local checkout + resume ComfyUI bootstrap (private-repo safe path)."""
+    _load_dotenv_into_environ()
+    os.environ["GEOPOAI_TF_REFRESH_ARGS"] = " ".join(terraform_base_args(workload, run_id, profile))
+    script = _INFRA_DIR / "repair_comfyui_setup.sh"
+    if not script.is_file():
+        log.error("missing %s", script)
+        return 1
+    args = [str(script), sanitize_run_id(run_id)]
+    if watch:
+        args.append("--watch")
+    proc = subprocess.run(args, cwd=_INFRA_DIR)
+    return proc.returncode
+
+
 def run_download_on_vm(
     workload: WorkloadSpec,
     run_id: str,
@@ -931,6 +952,15 @@ def finish_session_after_deploy(
     hourly_usd: float | None = None,
 ) -> tuple[int, dict[str, Any] | None]:
     ip = wait_for_instance_ip(workload, run_id, profile)
+    if workload_name == "comfyui_setup":
+        log.info(
+            "comfyui_setup: rsyncing local checkout + resuming bootstrap "
+            "(may take 1–3 h for model downloads)"
+        )
+        repair_rc = run_repair_on_vm(workload, run_id, profile, watch=verbose)
+        if repair_rc != 0:
+            log.error("repair_comfyui_setup failed (exit %s)", repair_rc)
+            return repair_rc, None
     instance_id = terraform_output("instance_id", workload, run_id, profile) or ""
     session: dict[str, Any] = {
         "workload": workload_name,
@@ -1026,9 +1056,9 @@ def terraform_output(
     run_id: str,
     profile: GpuProfile | None = None,
 ) -> str | None:
-    result = run_terraform(
-        ["output", "-raw", name, *terraform_base_args(workload, run_id, profile)],
-    )
+    # terraform output accepts only the output name — not -var/-var-file (see wait_for_instance_ip.sh).
+    _ = (workload, run_id, profile)
+    result = run_terraform(["output", "-raw", name])
     if result.returncode != 0:
         return None
     value = (result.stdout or "").strip()
