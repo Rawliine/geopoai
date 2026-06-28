@@ -24,6 +24,14 @@ Each pass is idempotent and individually skippable via compose `flags` or CLI:
 
 1. **Assemble video** — `composition/transitions.py` concatenates clips and
    applies boundary transitions (`cut`, `crossfade`, `whoosh`).
+1b. **Media overlays** (W26) — `composition/media_overlay.py` composites each
+   `media_overlays[]` box (a top-half video, lower-third, …) onto the assembled
+   timeline: contain-fit + letterbox (no stretch), token-styled border, gated to
+   its `[start, end]` episode-time window. Runs once before the profile loop;
+   skipped when there are no overlays or `flags.media: false`. The map renderer
+   keeps its own screen-fixed text out of the reserved band and emits the matching
+   window in `{clip}.regions.json` (cross-check); media is never decoded in the
+   browser.
 2. **`captions.build`** — W15 generates ASS from VO + layouts (stub in W17 lane).
 3. **Burn ASS** — ffmpeg subtitles filter; limited to `burn_windows` (see below).
 4. **`sound.build`** — W16 mixes SFX from shifted `events.json` files (stub in W17).
