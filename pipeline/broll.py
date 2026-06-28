@@ -47,6 +47,10 @@ from broll.lib.errors import (  # noqa: E402
     SourceError,
     VerificationError,
 )
+from broll.lib.provided_source import (  # noqa: E402
+    ProvidedSourceError,
+    ingest_provided,
+)
 from broll.sources import AI_SOURCES  # noqa: E402
 from broll.sources import reference as reference_source  # noqa: E402
 from broll.sources._ai_base import AIGenerationError  # noqa: E402
@@ -97,6 +101,38 @@ def _write_log(shot_id: str, payload: dict[str, Any]) -> None:
     tmp = path.with_suffix(".json.tmp")
     tmp.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
     tmp.replace(path)
+
+
+# ── Provided media path ──────────────────────────────────────────────────────
+def _run_provided(
+    spec: dict[str, Any],
+    provided: dict[str, Any],
+    log_payload: dict[str, Any],
+    *,
+    trust_provided: bool = False,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Ingest operator-supplied media; bypass cascade/ranking (forced pick)."""
+    log_payload["provided"] = {
+        "url": provided.get("url"),
+        "path": provided.get("path"),
+        "trust_provided": trust_provided,
+    }
+    if dry_run:
+        log_payload["provided"]["outcome"] = "dry_run"
+        return {"dry_run": True, "provided": provided}
+
+    target = _target_path(spec["shot_id"])
+    meta = ingest_provided(
+        spec,
+        target,
+        provided,
+        trust_provided=trust_provided,
+        output_dir=_OUTPUT_DIR,
+    )
+    log_payload["provided"]["outcome"] = "ingested"
+    log_payload["asset_path"] = meta["asset_path"]
+    return meta
 
 
 # ── Reference ingest path ────────────────────────────────────────────────────
@@ -226,6 +262,8 @@ def run_shot(
     dry_run: bool = False,
     ask: bool = False,
     pick: str | None = None,
+    provided: dict[str, Any] | None = None,
+    trust_provided: bool = False,
 ) -> dict[str, Any]:
     """End-to-end Phase 2 flow for a single shot spec."""
     load_dotenv(_REPO_ROOT / ".env")
@@ -246,8 +284,18 @@ def run_shot(
     ai_allowed = decision["ai_allowed"]
 
     try:
+        # Provided media short-circuits keyword search + ranking (forced pick).
+        if provided:
+            meta = _run_provided(
+                spec,
+                provided,
+                log_payload,
+                trust_provided=trust_provided,
+                dry_run=dry_run,
+            )
+            log_payload["outcome"] = "provided"
         # Reference URLs take precedence over stock cascade / AI routing.
-        if spec.get("reference_urls"):
+        elif spec.get("reference_urls"):
             meta = _run_reference(spec, log_payload, ask=ask, pick=pick, dry_run=dry_run)
             log_payload["outcome"] = "reference"
         elif strategy == "ai_only":
@@ -326,6 +374,16 @@ def _build_parser() -> argparse.ArgumentParser:
                    help="Reference ingest: write contact sheet + candidates.json and exit awaiting brain.")
     p.add_argument("--pick", metavar="SEGMENT_ID",
                    help="Reference ingest: complete shot using the chosen segment id from a prior --ask run.")
+    p.add_argument(
+        "--provided",
+        metavar="URL|PATH",
+        help="Operator-supplied media URL or local path (license required in shot spec provided.license).",
+    )
+    p.add_argument(
+        "--trust-provided",
+        action="store_true",
+        help="Skip the verifier gate for provided media (integrity probe still runs).",
+    )
     return p
 
 
@@ -338,8 +396,23 @@ def main(argv: list[str] | None = None) -> int:
     with spec_path.open("r", encoding="utf-8") as fp:
         spec = json.load(fp)
 
+    provided_payload: dict[str, Any] = dict(spec.pop("provided", None) or {})
+    if args.provided:
+        if args.provided.startswith(("http://", "https://")):
+            provided_payload["url"] = args.provided
+        else:
+            provided_payload["path"] = args.provided
+    provided_arg = provided_payload or None
+
     try:
-        meta = run_shot(spec, dry_run=args.dry_run, ask=args.ask, pick=args.pick)
+        meta = run_shot(
+            spec,
+            dry_run=args.dry_run,
+            ask=args.ask,
+            pick=args.pick,
+            provided=provided_arg,
+            trust_provided=args.trust_provided,
+        )
     except SchemaValidationError as exc:
         log.error("invalid shot spec: %s", exc)
         return 2
@@ -362,6 +435,9 @@ def main(argv: list[str] | None = None) -> int:
         if exc.candidates_json:
             log.info("candidates: %s", exc.candidates_json)
         return EXIT_AWAITING_BRAIN
+    except ProvidedSourceError as exc:
+        log.error("provided source error: %s", exc)
+        return 2
     except BrollError as exc:
         log.error("broll error: %s", exc)
         return 1
