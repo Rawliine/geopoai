@@ -19,7 +19,12 @@
     },
     "audio": { "$ref": "#/$defs/audio_inputs" },
     "export": { "$ref": "#/$defs/export_block" },
-    "flags": { "$ref": "#/$defs/compose_flags" }
+    "flags": { "$ref": "#/$defs/compose_flags" },
+    "media_overlays": {
+      "type": "array",
+      "description": "W26 — screen-region media composited over the assembled timeline (post). Times are episode-time seconds; rect is in assembled-frame pixels.",
+      "items": { "$ref": "#/$defs/media_overlay" }
+    }
   },
   "$defs": {
     "clip_ref": {
@@ -84,7 +89,35 @@
       "properties": {
         "captions": { "type": "boolean" },
         "sound": { "type": "boolean" },
-        "grade": { "type": "boolean" }
+        "grade": { "type": "boolean" },
+        "media": { "type": "boolean" }
+      }
+    },
+    "media_overlay": {
+      "type": "object",
+      "required": ["src", "start", "end"],
+      "additionalProperties": false,
+      "description": "One screen-region media box. Provide either a named `region` or an explicit pixel `rect`.",
+      "properties": {
+        "id": { "type": "string" },
+        "src": { "type": "string", "minLength": 1, "description": "Image or video path." },
+        "region": {
+          "type": "string",
+          "enum": ["top", "bottom", "lower-third"],
+          "description": "Named screen region; resolved to a pixel rect at the assembled frame size."
+        },
+        "rect": {
+          "type": "array",
+          "items": { "type": "number" },
+          "minItems": 4,
+          "maxItems": 4,
+          "description": "[x, y, w, h] in assembled-frame pixels (overrides region)."
+        },
+        "start": { "type": "number", "minimum": 0, "description": "Episode-time seconds." },
+        "end": { "type": "number", "minimum": 0, "description": "Episode-time seconds." },
+        "fit": { "type": "string", "enum": ["contain"], "description": "Contain-fit only (letterboxed, no stretch)." },
+        "border": { "type": "boolean", "description": "Draw the token-styled border (default true)." },
+        "caption": { "type": "string", "description": "Optional caption rendered under the box." }
       }
     }
   }
