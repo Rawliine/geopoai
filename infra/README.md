@@ -24,6 +24,7 @@ Three **workloads** share the same Terraform code; you pick one via `-var-file`:
 | `comfyui` | `comfyui.tfvars` | Installs ComfyUI under `/home/ubuntu/ComfyUI`, symlinks heavy model dirs to `/mnt/models/*`, starts **tmux** session `comfyui` listening on `0.0.0.0:8188`. |
 | `lora_train` | `lora_train.tfvars` | Mounts `/mnt/models`, installs dev basics (`git`, `python3`, `tmux`, `nvtop`, …). **You** install ai-toolkit / kohya after SSH so you can pin revisions. |
 | `blender_render` | `blender_render.tfvars` | Mounts `/mnt/models`, `apt install`s **Blender**, prepares `~/outputs` + `~/renders` for batch jobs. |
+| `s2pro` | `s2pro.tfvars` | Clones `fishaudio/fish-speech`, `uv`-installs it, downloads `fishaudio/s2-pro` to `/mnt/models/checkpoints/s2-pro`, serves the TTS `/v1/tts` API in **tmux** session `s2pro` on `0.0.0.0:8888`. Self-contained — does not touch the ComfyUI bootstrap. License: Fish Audio Research (non-commercial). |
 
 ---
 

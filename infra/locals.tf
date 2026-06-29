@@ -16,6 +16,7 @@ locals {
     comfyui        = "comfyui"
     lora_train     = "lora-train"
     blender_render = "blender"
+    s2pro          = "s2pro"
   }[var.workload]
 
   hostname_prefix = var.hostname_prefix != "" ? var.hostname_prefix : local.default_hostname_prefix
@@ -54,9 +55,18 @@ locals {
     file("${path.module}/startup_scripts/comfyui_bootstrap.sh"),
   ])
 
+  # S2-Pro TTS workload: only the HF token + listen port; the bootstrap is
+  # self-contained (own apt deps + clone + uv install + download + serve).
+  s2pro_env_exports = var.workload == "s2pro" ? join("\n", compact([
+    "export S2PRO_LISTEN_PORT=${jsonencode(tostring(var.s2pro_listen_port))}",
+    var.huggingface_token != "" ? "export HF_TOKEN=${jsonencode(var.huggingface_token)}" : "",
+    var.huggingface_token != "" ? "export HUGGING_FACE_HUB_TOKEN=\"$${HF_TOKEN}\"" : "",
+  ])) : ""
+
   workload_body = (
     var.workload == "comfyui" ? local.comfyui_body :
     var.workload == "lora_train" ? file("${path.module}/startup_scripts/lora_bootstrap.sh") :
+    var.workload == "s2pro" ? file("${path.module}/startup_scripts/s2pro_bootstrap.sh") :
     file("${path.module}/startup_scripts/render_blender.sh")
   )
 
@@ -81,6 +91,7 @@ locals {
     "geopoai_install_ssh_authorized_key",
     local.deadman_library,
     local.comfyui_env_exports,
+    local.s2pro_env_exports,
     local.workload_body,
     "echo \"[geopoai] bootstrap finished OK $(date -Is)\"",
   ])

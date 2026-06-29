@@ -94,6 +94,19 @@
       "gpu_preference": ["h100_spot", "a6000_spot", "a100_fin03_ondemand"],
       "idle_minutes": 15,
       "max_session_hours": 16
+    },
+    "s2pro": {
+      "tfvars": ["workloads/s2pro.tfvars"],
+      "health": {
+        "type": "http",
+        "port": 8888,
+        "path": "/"
+      },
+      "env_export": "GEOPOAI_TTS_URL",
+      "default_gpu_profile": "1A6000.10V",
+      "gpu_preference": ["a6000_spot", "a100_fin03_ondemand", "h100_spot"],
+      "idle_minutes": 20,
+      "max_session_hours": 6
     }
   }
 }

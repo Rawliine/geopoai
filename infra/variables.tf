@@ -13,11 +13,12 @@ variable "workload" {
       - comfyui        — ComfyUI + persistent /mnt/models (LTX / Wan / FLUX workflows)
       - lora_train     — Lightweight GPU box: volume mounted, you install ai-toolkit / kohya manually
       - blender_render — CPU/GPU Blender batch helpers (apt installs blender; you rsync projects + run renders)
+      - s2pro          — Fish Audio S2-Pro TTS API server (voice-over generation); weights on /mnt/models
   EOT
 
   validation {
-    condition     = contains(["comfyui", "lora_train", "blender_render"], var.workload)
-    error_message = "workload must be one of: comfyui, lora_train, blender_render."
+    condition     = contains(["comfyui", "lora_train", "blender_render", "s2pro"], var.workload)
+    error_message = "workload must be one of: comfyui, lora_train, blender_render, s2pro."
   }
 }
 
@@ -123,6 +124,12 @@ variable "comfyui_listen_port" {
   type        = number
   description = "ComfyUI --listen port (exposed on the instance LAN; secure with SSH tunnel or Verda firewall rules as appropriate)."
   default     = 8188
+}
+
+variable "s2pro_listen_port" {
+  type        = number
+  description = "Fish Audio S2-Pro api_server --listen port (TTS /v1/tts; secure with SSH tunnel or Verda firewall as appropriate)."
+  default     = 8888
 }
 
 variable "huggingface_token" {
