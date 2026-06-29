@@ -66,6 +66,10 @@ fi
 sudo -u "${RUN_USER}" -H bash -lc "mkdir -p '${APP_DIR}/checkpoints' && ln -sfn '${CKPT}' '${APP_DIR}/checkpoints/s2-pro'"
 sudo -u "${RUN_USER}" -H tmux kill-session -t s2pro 2>/dev/null || true
 sudo -u "${RUN_USER}" -H tmux new-session -d -s s2pro \
-  "cd '${APP_DIR}' && '${UV}' run python tools/api_server.py --listen 0.0.0.0:${PORT} --compile 2>&1 | tee -a /home/${RUN_USER}/s2pro_server.log"
+  "cd '${APP_DIR}' && '${UV}' run python tools/api_server.py \
+     --llama-checkpoint-path checkpoints/s2-pro \
+     --decoder-checkpoint-path checkpoints/s2-pro/codec.pth \
+     --listen 0.0.0.0:${PORT} --half --compile \
+     2>&1 | tee -a /home/${RUN_USER}/s2pro_server.log"
 
 echo "[geopoai:s2pro] api_server launching on :${PORT} (tmux 's2pro'); model=${CKPT}"
