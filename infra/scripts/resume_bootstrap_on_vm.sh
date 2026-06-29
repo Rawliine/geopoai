@@ -34,6 +34,8 @@ geopoai_source_libs_from_repo() {
   source "${STARTUP}/lib_ssh_access.sh"
   # shellcheck source=/dev/null
   source "${STARTUP}/lib_apt_comfyui.sh"
+  # shellcheck source=/dev/null
+  source "${STARTUP}/lib_deadman.sh"
 }
 
 if [[ -d "${GEOPOAI_REPO}/infra/startup_scripts" ]]; then

@@ -67,6 +67,9 @@ GEOPOAI_GIT_REPO="${GEOPOAI_GIT_REPO:-$(terraform console -json <<< 'var.geopoai
   printf 'export COMFYUI_LISTEN_PORT=%q\n' "${COMFYUI_LISTEN_PORT}"
   printf 'export HF_TOKEN=%q\n' "${HF_TOKEN}"
   printf 'export HUGGING_FACE_HUB_TOKEN=%q\n' "${HF_TOKEN}"
+  printf 'export GEOPOAI_MAX_SESSION_HOURS=%q\n' "${GEOPOAI_MAX_SESSION_HOURS:-6}"
+  printf 'export VERDA_CLIENT_ID=%q\n' "${VERDA_CLIENT_ID:-${TF_VAR_verda_client_id:-}}"
+  printf 'export VERDA_CLIENT_SECRET=%q\n' "${VERDA_CLIENT_SECRET:-${TF_VAR_verda_client_secret:-}}"
   cat "${INFRA_DIR}/scripts/resume_bootstrap_on_vm.sh"
 } | GEOPOAI_SSH_USER=root "${INFRA_DIR}/verda_ssh.sh" -- bash -s
 
