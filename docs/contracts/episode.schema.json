@@ -83,7 +83,14 @@
           "type": "string",
           "enum": ["content", "hook", "broll", "manim_media", "map_mask", "map_region"]
         },
-        "region": { "type": "string" }
+        "region": { "type": "string" },
+        "clip": {
+          "type": "array",
+          "items": { "type": "number", "minimum": 0 },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "[start, end] seconds — use only this part of the source video (trimmed at ingest)."
+        }
       }
     },
     "media_pool_item": {

@@ -26,16 +26,39 @@ returns exit code **3** when a brain stage stops at `awaiting_brain`.
 
 | Stage | Kind | Does |
 |---|---|---|
-| `ingest` | mechanical | `inputs[]` → `evidence[]` (content) + `media_pool[]` (media), routed by `use`. Offline. |
+| `ingest` | mechanical | `inputs[]` → `evidence[]` (content) + `media_pool[]` (media), routed by `use`. Downloads `url` media (yt-dlp / file://) and trims `clip: [start,end]` parts; local `path` with no clip passes through (offline). |
 | `angle` | **brain** | Chosen angle, incentive structure, hook (familiar_schema + broken_variable). |
 | `script` | **brain** | VO `beats[]` with emphasis; factual beats cite evidence; reading-time sanity. |
 | `storyboard` | **brain** | Beats → clips (renderer, duration, scene_ref, media_ref). Validates durations ≈ script, max consecutive renderer, every media item placed once. |
 | `scenes` | **brain** | Per-clip scene JSONs → `scenes/`; validated per renderer. |
-| `voice` | mechanical | Verify `vo.wav` is present (S2-pro TTS later). |
+| `voice` | mechanical | Synthesize `vo.wav` from the script via S2-Pro (`GEOPOAI_TTS_URL`) when none is supplied; verify-only when one is. |
 | `render` | mechanical | Dispatch each clip; content-hash skip (scene + renderer version). |
 | `compose` | mechanical | Build the compose spec (transitions, caption policy, `map_region`→`media_overlays`) → `pipeline/compose.py`. |
 | `qc` | mechanical | callout-duplication, pacing, caption collisions, loudness, clip integrity → `qc_report.md`; failures block. |
 | `publish` | **brain** | Per-platform metadata + thumbnail brief (no uploads); platform-limit checks. |
+
+## Inputs (`inputs[]`)
+
+Everything you supply enters via `episode.json.inputs[]` (or `new --inputs file.json`).
+Each item: `{ id, type: article|image|video, url|path, use, region?, clip? }`. `use`
+routes it: `content` → evidence; `hook`/`broll`/`manim_media`/`map_mask`/`map_region`
+→ media_pool (placed by the storyboard). Stock + AI b-roll are **not** inputs — the
+brain authors those as shot specs; only **provided** media is an input.
+
+**Using part of a video.** Add `clip: [start, end]` (seconds) to take only that part.
+The same `url` downloads once (cached) — so one video can feed several parts with
+different uses:
+
+```json
+[
+  { "id": "hook1",  "type": "video", "url": "https://youtu.be/X", "use": "hook",  "clip": [12, 18] },
+  { "id": "brollA", "type": "video", "url": "https://youtu.be/X", "use": "broll", "clip": [45, 52] }
+]
+```
+
+Standalone (download / cut by hand): `pipeline/media_fetch.py` —
+`media_fetch.py <url> [out.mp4] [--clip START-END]` (yt-dlp for YouTube/TikTok/IG/X/
+news embeds, `file://` for local).
 
 ## The brain protocol (W24)
 
