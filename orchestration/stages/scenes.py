@@ -65,7 +65,10 @@ def check(ctx: StageContext, artifact: dict) -> list[str]:
             errors.append(f"scene for {clip_id!r} is not an object")
             continue
         if entry["renderer"] in _TIMED:
+            # map scenes carry top-level `duration`; manim nests it under `scene`.
             dur = scene.get("duration")
+            if dur is None and isinstance(scene.get("scene"), dict):
+                dur = scene["scene"].get("duration")
             if not isinstance(dur, (int, float)) or dur <= 0:
                 errors.append(f"scene for {clip_id!r} needs a positive duration")
     for clip_id in scenes:
