@@ -128,10 +128,11 @@ class HeuristicPrefilter:
         doc_freq: dict[str, int] = {}
         per_cand_tokens: list[set[str]] = []
         for c in candidates:
-            blob = " ".join([c.title or "", c.description or "", c.attribution_text or "",
-                             " ".join(map(str, c.source_metadata.get("tags", [])
-                                          if isinstance(c.source_metadata.get("tags"), list)
-                                          else [c.source_metadata.get("tags", "")])) ])
+            _tags = c.source_metadata.get("tags", [])
+            _tags = _tags if isinstance(_tags, list) else [_tags]
+            # Any field can come back as a list from a stock API — str-ify all.
+            blob = " ".join(str(x) for x in [c.title or "", c.description or "",
+                                             c.attribution_text or "", *_tags])
             toks = set(_tokens(blob))
             per_cand_tokens.append(toks)
             for t in toks:
