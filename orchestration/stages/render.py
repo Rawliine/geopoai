@@ -35,11 +35,24 @@ def _scene_hash(ctx: StageContext, entry: dict) -> str:
 def _default_render_clip(entry: dict, ctx: StageContext) -> dict[str, str]:
     """Real dispatch (not exercised by the mocked tests)."""
     import asyncio
+    from pathlib import Path
 
     clip_id = entry["clip_id"]
     renderer = entry["renderer"]
     repo_root = ctx.repo_root
     scene_ref = entry.get("scene_ref")
+
+    # Provided-media clip (a supplied hook / b-roll): no scene to render — the
+    # materialized media file from ingest IS the clip.
+    media_ref = entry.get("media_ref")
+    if not scene_ref and media_ref:
+        item = next((m for m in ctx.manifest.get("media_pool", []) if m["id"] == media_ref), None)
+        if item and item.get("path"):
+            src = Path(item["path"])
+            if not src.is_absolute():
+                src = repo_root / item["path"]
+            if src.exists():
+                return {"video": str(src)}
 
     if renderer == "broll":
         import subprocess
