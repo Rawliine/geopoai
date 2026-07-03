@@ -399,9 +399,15 @@ def compose(
     outputs: dict[str, Path] = {}
 
     vo_path = _resolve(root, compose_spec["audio"]["vo"])
+    words_path = vo_path.with_suffix(".words.json")
     layout_paths = [
         _resolve(root, c["layout_path"])
         for c in clips
+        if c.get("layout_path")
+    ]
+    layout_offsets = [
+        entry["start_s"]
+        for entry, c in zip(timeline, clips)
         if c.get("layout_path")
     ]
 
@@ -421,10 +427,13 @@ def compose(
         if not skip_captions:
             ass_path = captions.build(
                 vo_path,
-                None,
+                words_path if words_path.exists() else None,
                 layout_paths,
                 tokens,
                 fmt,
+                clip_offsets=layout_offsets,
+                burn_windows=burn_windows,
+                caption_policy=caption_policy,
             )
             captioned = workdir / f"captions_{profile_name}.mp4"
             if ass_path.exists() and burn_windows:
@@ -434,17 +443,25 @@ def compose(
             _emit_sidecar_srt(workdir)
 
         if not skip_sound:
-            offsets = [entry["start_s"] for entry in timeline]
-            event_paths = transitions.write_merged_events(
-                merged_events,
-                timeline,
-                events_docs,
-                workdir / f"merged_events_{profile_name}.json",
-            )
-            mix_path = sound.build(event_paths, offsets, vo_path, tokens)
-            muxed = workdir / f"muxed_{profile_name}.mp4"
-            _mux_audio(staged, mix_path, muxed)
-            staged = muxed
+            # collect_events wants clip-local events.json paired 1:1 with the
+            # clip's episode offset (it shifts each itself) — feed it those,
+            # not the pre-shifted merged output.
+            sound_pairs = [
+                (_resolve(root, c["events_path"]), entry["start_s"])
+                for c, entry in zip(clips, timeline)
+                if c.get("events_path")
+            ]
+            if sound_pairs:
+                event_paths = [p for p, _ in sound_pairs]
+                sound_offsets = [o for _, o in sound_pairs]
+                mix_path = sound.build(event_paths, sound_offsets, vo_path, tokens)
+                muxed = workdir / f"muxed_{profile_name}.mp4"
+                _mux_audio(staged, mix_path, muxed)
+                staged = muxed
+            else:
+                muxed = workdir / f"muxed_{profile_name}.mp4"
+                _mux_audio(staged, vo_path, muxed)
+                staged = muxed
         else:
             muxed = workdir / f"muxed_{profile_name}.mp4"
             _mux_audio(staged, vo_path, muxed)

@@ -32,9 +32,16 @@ Each pass is idempotent and individually skippable via compose `flags` or CLI:
    keeps its own screen-fixed text out of the reserved band and emits the matching
    window in `{clip}.regions.json` (cross-check); media is never decoded in the
    browser.
-2. **`captions.build`** — W15 generates ASS from VO + layouts (stub in W17 lane).
+2. **`captions.build`** — W15 generates ASS from the VO forced-alignment
+   (`<vo>.words.json`, produced by `tools/align_vo.py`) plus per-clip layout
+   occupancy. The engine passes `words_json`, `clip_offsets` (parallel to the
+   layout paths), `burn_windows`, and `caption_policy`; it falls back to
+   `words_json=None` (skip) when the words sidecar is absent.
 3. **Burn ASS** — ffmpeg subtitles filter; limited to `burn_windows` (see below).
-4. **`sound.build`** — W16 mixes SFX from shifted `events.json` files (stub in W17).
+4. **`sound.build`** — W16 mixes SFX + ambient bed. The engine feeds it each
+   clip's **clip-local** `events.json` paired 1:1 with that clip's episode
+   offset (`collect_events` shifts each itself — do not pre-shift); when no clip
+   emits events it muxes the VO alone.
 5. **Mux audio** — replace/add `mix.wav` (or VO when sound is skipped).
 6. **Grade** — optional `lut3d` when `tokens.grading.lut` is set; vignette/grain
    from tokens. Skipped with `--no-grade` or `flags.grade: false`.
