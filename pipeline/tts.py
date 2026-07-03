@@ -54,7 +54,7 @@ def synthesize(
     temperature: float = 0.8,
     repetition_penalty: float = 1.1,
     seed: int | None = None,
-    timeout: float = 600.0,
+    timeout: float = 1800.0,
 ) -> Path:
     """Synthesize *text* to *out_wav* via the S2-Pro `/v1/tts` server. Returns the path."""
     base = (url or os.environ.get("GEOPOAI_TTS_URL") or DEFAULT_URL).rstrip("/")

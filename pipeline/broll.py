@@ -169,7 +169,7 @@ def _run_stock(spec: dict[str, Any], log_payload: dict[str, Any], *, dry_run: bo
     Raises only for unrecoverable failures (auth errors are converted into
     skipped sources by cascade.walk, not raised).
     """
-    report = _cascade.walk(spec, min_candidates=3, max_candidates=12)
+    report = _cascade.walk(spec, min_candidates=12, max_candidates=18)
     log.info(
         "cascade: total=%d sources_used=%s skipped=%s",
         report.total(), report.by_source, report.skipped,
