@@ -46,7 +46,7 @@
         "body": 36,
         "label": 28,
         "caption": 22,
-        "callout": 24,
+        "callout": 22,
         "subtitle": 34
       },
       "vertical": {
@@ -54,7 +54,7 @@
         "body": 48,
         "label": 36,
         "caption": 28,
-        "callout": 30,
+        "callout": 28,
         "subtitle": 48
       }
     }
