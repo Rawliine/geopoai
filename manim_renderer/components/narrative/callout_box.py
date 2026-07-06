@@ -55,6 +55,15 @@ from manim_renderer.theme.timing import TIMING
 from manim_renderer.theme.typography import FONTS, FONT_SCALE
 
 
+def _callout_font_size(format: str) -> int:
+    """Callout body text size. Uses the dedicated `callout` token, falling back
+    to `caption` for older token files. Callouts are annotations, not subtitles —
+    keeping them off the `caption` token means bumping burned-in caption size for
+    short-form legibility doesn't balloon on-screen callout boxes."""
+    scale = FONT_SCALE[format]
+    return int(scale.get("callout", scale["caption"]))
+
+
 # Visual defaults shared with `_callout_styles.py`.
 _BUBBLE_PADDING_X = 0.35
 _BUBBLE_PADDING_Y = 0.20
@@ -94,7 +103,7 @@ class CalloutBox(BaseComponent):
         the validator's slot-fit check tolerates some slack."""
         text = str(params.get("text", ""))
         max_w = float(params.get("width", 4.0))
-        caption_size = FONT_SCALE[format]["caption"]
+        caption_size = _callout_font_size(format)
         char_w = caption_size / 130.0
         line_h = caption_size / 70.0  # caption lines a bit taller relative to chars
 
@@ -200,7 +209,7 @@ class CalloutBox(BaseComponent):
         self._text_mob = Text(
             self._text_str,
             font=FONTS["primary"],
-            font_size=FONT_SCALE[self.format]["caption"],
+            font_size=_callout_font_size(self.format),
         )
         self._text_mob.set_color(text_color)
         # Wrap text if it exceeds max_width — Manim's Text doesn't auto-wrap.
@@ -227,7 +236,7 @@ class CalloutBox(BaseComponent):
             probe = Text(
                 trial,
                 font=FONTS["primary"],
-                font_size=FONT_SCALE[self.format]["caption"],
+                font_size=_callout_font_size(self.format),
             )
             if probe.width <= self._max_width or not current:
                 current.append(w)
@@ -239,7 +248,7 @@ class CalloutBox(BaseComponent):
         wrapped = Text(
             "\n".join(lines),
             font=FONTS["primary"],
-            font_size=FONT_SCALE[self.format]["caption"],
+            font_size=_callout_font_size(self.format),
             line_spacing=0.85,
         )
         wrapped.set_color(text_color)

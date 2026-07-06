@@ -187,7 +187,11 @@ def _ass_time(seconds: float) -> str:
 
 
 def _caption_font_size(tokens: dict[str, Any], fmt: str) -> int:
-    return int(tokens["typography"]["scale"][fmt]["caption"])
+    # Burned-in subtitles use the dedicated `subtitle` size (large, for short-form
+    # legibility) — distinct from the manim `caption` role (small chart/timeline
+    # labels), so bumping one never balloons the other. Fall back to caption.
+    scale = tokens["typography"]["scale"][fmt]
+    return int(scale.get("subtitle", scale["caption"]))
 
 
 def _play_res(fmt: str) -> tuple[int, int]:
