@@ -317,6 +317,11 @@ def plan_cues(events: list[CollectedEvent], palette: dict[str, Any]) -> CuePlan:
 
 def _bed_spec(palette: dict[str, Any]) -> BedSpec | None:
     spec = palette["families"]["ambient_bed"]
+    # The ambient bed is a constant under-bed; opt-in only. Off by default because
+    # the placeholder asset (a looped UI blip) reads as constant background noise
+    # under the VO. Curate a real ambient pad and set `enabled: true` to use it.
+    if not spec.get("enabled", False):
+        return None
     entries = _family_entries(palette, "ambient_bed")
     for entry in entries:
         if entry["file"] != "TODO_CURATE":

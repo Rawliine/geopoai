@@ -222,6 +222,15 @@ def test_demo_fixture_mix_audible_and_loudness(tmp_path: Path, tokens: dict) -> 
         check=True,
         capture_output=True,
     )
+    # ambient bed is opt-in (off by default) — enable it via a temp palette so
+    # this test still covers bed rendering + loudness.
+    palette = sound._load_palette(tokens)
+    palette["families"]["ambient_bed"]["enabled"] = True
+    pal_path = tmp_path / "palette_bed_on.json"
+    pal_path.write_text(json.dumps(palette), encoding="utf-8")
+    tokens = {**tokens, "sound": {**tokens.get("sound", {}),
+                                  "palette_manifest": str(pal_path)}}
+
     mix = sound.build([ROOT / "docs/contracts/fixtures/events.min.json"], [0.0], vo, tokens)
     assert mix.exists() and mix.stat().st_size > 10_000
     cues = json.loads((tmp_path / "mix.cues.json").read_text())

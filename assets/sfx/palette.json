@@ -76,6 +76,7 @@
       ]
     },
     "ambient_bed": {
+      "enabled": false,
       "file": "assets/sfx/kenney-ui-audio/rollover2.wav",
       "gain_db": -22,
       "cooldown_s": 0,
