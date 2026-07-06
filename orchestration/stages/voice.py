@@ -11,6 +11,7 @@ is available the duration is logged against the script reading estimate.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -105,6 +106,46 @@ def _default_synth(text: str, out_wav, ctx: StageContext) -> None:
     )
 
 
+def _default_align(vo_wav, script_text: str) -> list[dict]:
+    """Forced-align the VO to word timestamps via tools/align_vo (stable-ts)."""
+    from tools.align_vo import align_vo
+
+    return align_vo(Path(vo_wav), script_text or None)
+
+
+def _build_timing(ctx: StageContext, vo: "Path") -> None:
+    """Align the VO and store the per-beat/per-sentence timing map on the manifest.
+
+    This makes the measured voice the master clock: storyboard/scenes derive clip
+    durations from these spans (see orchestration.timing). Alignment is behind
+    ctx.hooks['align_vo'] so tests stub the heavy whisper call.
+    """
+    from orchestration import timing as timing_mod
+
+    beats = ctx.manifest.get("script", {}).get("beats", [])
+    if not beats:
+        return
+    script_text = script_to_vo_text(ctx.manifest)
+    align = ctx.hooks.get("align_vo", _default_align)
+    try:
+        words = align(vo, script_text)
+    except Exception as exc:  # noqa: BLE001 — alignment is best-effort
+        log.warning("voice: alignment failed (%s) — no timing map; clip durations "
+                    "will fall back to storyboard values", exc)
+        return
+    if not words:
+        log.warning("voice: alignment produced no words — skipping timing map")
+        return
+    (ctx.ep_dir / "vo.words.json").write_text(
+        json.dumps(words, indent=2) + "\n", encoding="utf-8"
+    )
+    ctx.manifest["timing"] = timing_mod.build_timing(beats, words)
+    log.info(
+        "voice: timing map for %d beats (vo_duration %.1fs)",
+        len(beats), ctx.manifest["timing"]["vo_duration"],
+    )
+
+
 def execute(ctx: StageContext) -> None:
     vo = ctx.ep_dir / "vo.wav"
 
@@ -129,6 +170,10 @@ def execute(ctx: StageContext) -> None:
         )
         est = words / wps if words else 0.0
         log.info("voice: vo.wav %.1fs (script estimate %.1fs)", dur, est)
+
+    # Master clock: align the VO and build the timing map the storyboard/scenes
+    # derive clip durations from.
+    _build_timing(ctx, vo)
 
 
 STAGE = Stage(name="voice", is_brain=False, execute=execute)

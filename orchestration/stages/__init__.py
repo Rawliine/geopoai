@@ -38,13 +38,15 @@ from orchestration.stages import (  # noqa: E402
 )
 
 # Sequence order matches manifest.STAGE_SEQUENCE.
+# voice runs before storyboard: the measured VO is the master clock, so clip
+# durations are derived from real audio timing rather than guessed by the brain.
 _ORDERED = [
     ingest.STAGE,
     angle.STAGE,
     script.STAGE,
+    voice.STAGE,
     storyboard.STAGE,
     scenes.STAGE,
-    voice.STAGE,
     render.STAGE,
     compose.STAGE,
     qc.STAGE,

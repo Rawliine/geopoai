@@ -74,11 +74,21 @@ def test_synthesize_includes_reference_voice(tmp_path, monkeypatch):
 
 # ── voice stage ──────────────────────────────────────────────────────────────
 
+def _stub_align(vo, script_text):
+    """Synthetic word timestamps — avoids the heavy whisper alignment in tests."""
+    import re
+    ws = re.findall(r"\b\w+\b", script_text or "")
+    return [{"word": w, "start": i * 0.5, "end": i * 0.5 + 0.4, "confidence": 1.0}
+            for i, w in enumerate(ws)] or [{"word": "x", "start": 0.0, "end": 0.5,
+                                            "confidence": 1.0}]
+
+
 def _ctx(tmp_path, manifest, hooks=None):
+    hooks = {"align_vo": _stub_align, **(hooks or {})}
     return StageContext(
         repo_root=tmp_path, ep_dir=tmp_path, manifest=manifest,
         bible={"thresholds": {"reading_words_per_s": 2.6}},
-        brain_name="halt", hooks=hooks or {},
+        brain_name="halt", hooks=hooks,
     )
 
 

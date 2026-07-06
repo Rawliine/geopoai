@@ -44,6 +44,21 @@ def _render_hook(calls, regions_for=None, regions_dir=None):
     return render_clip
 
 
+def _align_hook(vo, script_text):
+    """Stub forced-alignment: one synthetic word every 0.5s (no whisper)."""
+    import re
+    words = re.findall(r"\b\w+\b", script_text or "")
+    if not words:
+        return [{"word": "x", "start": 0.0, "end": 0.5, "confidence": 1.0}]
+    return [{"word": w, "start": round(i * 0.5, 3), "end": round(i * 0.5 + 0.4, 3),
+             "confidence": 1.0} for i, w in enumerate(words)]
+
+
+def _hooks(calls, **kw):
+    """Standard stub hooks: fake render + synthetic alignment (skip whisper)."""
+    return {"render_clip": _render_hook(calls, **kw), "align_vo": _align_hook}
+
+
 # ── Full walk ────────────────────────────────────────────────────────────────
 
 def test_full_walk_to_publish(episode):
@@ -56,7 +71,7 @@ def test_full_walk_to_publish(episode):
                      "start": 1, "end": 5}],
     }))
     calls: list[str] = []
-    hooks = {"render_clip": _render_hook(calls, regions_for="e3")}
+    hooks = _hooks(calls, regions_for="e3")
 
     # walk every stage
     seen = []
@@ -77,11 +92,13 @@ def test_full_walk_to_publish(episode):
     # every clip rendered once
     assert sorted(calls) == ["e1", "e2", "e3", "e4"]
 
-    # map_region routed into compose media_overlays at episode time (offset 11s)
+    # map_region routed into compose media_overlays at episode time. e3 starts
+    # at the VO-derived offset e1(8.4)+e2(7.4)=15.8s; its region window [1,5]
+    # shifts to [16.8, 20.8].
     spec = json.loads((M.episode_dir(repo, ep_id) / "compose.json").read_text())
     overlays = spec.get("media_overlays", [])
     assert len(overlays) == 1
-    assert overlays[0]["start"] == 12 and overlays[0]["end"] == 16
+    assert overlays[0]["start"] == 16.8 and overlays[0]["end"] == 20.8
     assert overlays[0]["region"] == "top"
 
 
@@ -106,7 +123,7 @@ def test_invalidate_one_clip_rerenders_only_it(episode):
     repo, ep_id = episode
     (repo / "output").mkdir()
     first: list[str] = []
-    runner_hooks = {"render_clip": _render_hook(first)}
+    runner_hooks = _hooks(first)
     for _ in range(len(M.STAGE_SEQUENCE) + 1):
         stage, _status = runner.next_stage(ep_id, repo_root=repo, hooks=runner_hooks)
         if stage is None:

@@ -49,6 +49,11 @@
       "description": "Brain-authored: chosen angle, incentive structure, hook (familiar_schema + broken_variable)."
     },
     "script": { "$ref": "#/$defs/script" },
+    "timing": {
+      "type": "object",
+      "additionalProperties": true,
+      "description": "Voice stage: measured VO timing map (vo_duration + per-beat/per-sentence spans) that clip durations are derived from."
+    },
     "storyboard": { "$ref": "#/$defs/storyboard" },
     "clips": {
       "type": "array",

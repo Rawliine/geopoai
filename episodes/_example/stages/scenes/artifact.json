@@ -4,7 +4,7 @@
       "renderer": "mapbox",
       "format": "horizontal",
       "map_style": "dark",
-      "duration": 5,
+      "duration": 8.4,
       "camera": { "center": [10, 32], "zoom": 3.2, "pitch": 30, "duration": 1.0 },
       "timeline": [
         { "at": 0.5, "action": "showLabel", "params": { "id": "t1", "text": "TWO CAPITALS", "position": { "x": 0.5, "y": 0.2, "unit": "frac" }, "style": "title", "duration": 0.5 } }
@@ -12,7 +12,7 @@
     },
     "e2": {
       "renderer": "manim",
-      "duration": 6,
+      "duration": 7.4,
       "title": "THE MODEL",
       "components": [
         { "type": "payoff_matrix", "players": ["A", "B"], "strategies": ["hold", "deal"] }
@@ -22,7 +22,7 @@
       "renderer": "mapbox",
       "format": "horizontal",
       "map_style": "dark",
-      "duration": 6,
+      "duration": 7.4,
       "camera": { "center": [12, 33], "zoom": 4.0, "pitch": 60, "duration": 1.0 },
       "timeline": [
         { "at": 0.5, "action": "showLabel", "params": { "id": "t3", "text": "MATRIX", "position": { "x": 0.5, "y": 0.8, "unit": "frac" }, "style": "soft", "duration": 0.5 } },

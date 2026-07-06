@@ -63,7 +63,11 @@ def build(ctx: StageContext) -> tuple[str, dict]:
         "route by its `use`: broll→broll clip, manim_media→manim, "
         "map_mask→map maskImage, map_region→map reserveRegion + overlay, "
         "hook→opening clip.\n"
-        f"- Durations should sum near the script reading time; avoid more than "
+        f"- `duration` is a placeholder — the pipeline OVERWRITES it with each "
+        f"clip's share of the measured VO timing, so set a rough positive value "
+        f"and focus on the beat→clip breakdown. A beat with N clips splits its "
+        f"spoken span across them (roughly one sentence-group per clip). Avoid "
+        f"more than "
         f"{bible.get('thresholds', {}).get('max_consecutive_same_renderer', 3)} "
         "consecutive clips on the same renderer.\n\n"
         f"Component palette:\n{json.dumps(bible.get('component_palette', {}), indent=2)}\n\n"
@@ -86,15 +90,28 @@ def check(ctx: StageContext, artifact: dict) -> list[str]:
     errors: list[str] = []
     entries = artifact.get("entries", [])
 
-    # durations ~ script reading time
-    total = sum(float(e["duration"]) for e in entries)
-    target = _script_seconds(ctx)
-    tol = th.get("duration_tolerance_ratio", 0.2)
-    if target and (total < target * (1 - tol) or total > target * (1 + tol)):
-        errors.append(
-            f"storyboard duration {total:.0f}s is outside ±{tol:.0%} of the "
-            f"script reading time {target:.0f}s"
-        )
+    # durations: with a VO timing map (voice-as-master-clock), clip durations are
+    # DERIVED from measured audio in merge() — so the brain's guesses are ignored;
+    # we only require every storyboard beat to have a timing span to derive from.
+    # Without a timing map (dry runs), fall back to the reading-time tolerance.
+    timing = ctx.manifest.get("timing")
+    if timing:
+        have = set(timing.get("beats", {}))
+        missing = [e["clip_id"] for e in entries if e["beat_id"] not in have]
+        if missing:
+            errors.append(
+                "no VO timing span for beat(s) behind clip(s) "
+                + ", ".join(repr(c) for c in missing)
+            )
+    else:
+        total = sum(float(e["duration"]) for e in entries)
+        target = _script_seconds(ctx)
+        tol = th.get("duration_tolerance_ratio", 0.2)
+        if target and (total < target * (1 - tol) or total > target * (1 + tol)):
+            errors.append(
+                f"storyboard duration {total:.0f}s is outside ±{tol:.0%} of the "
+                f"script reading time {target:.0f}s"
+            )
 
     # max consecutive same-renderer
     cap = th.get("max_consecutive_same_renderer", 3)
@@ -129,6 +146,17 @@ def check(ctx: StageContext, artifact: dict) -> list[str]:
 
 
 def merge(ctx: StageContext, artifact: dict) -> None:
+    # Voice-as-master-clock: overwrite each clip's duration with its share of the
+    # measured VO span for its beat, so durations come from real audio not guesses.
+    timing = ctx.manifest.get("timing")
+    if timing:
+        from orchestration import timing as timing_mod
+
+        entries = artifact.get("entries", [])
+        derived = timing_mod.derive_clip_durations(entries, timing)
+        for e in entries:
+            if e["clip_id"] in derived:
+                e["duration"] = derived[e["clip_id"]]
     ctx.manifest["storyboard"] = artifact
 
 
