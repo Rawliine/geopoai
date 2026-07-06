@@ -43,7 +43,13 @@ class FluxLTXVideoGenerator(BaseAIGenerator):
         """Generate FLUX still, upload to ComfyUI input, then LTX I2V to target mp4."""
         shot_id = shot_spec["shot_id"]
         target = Path(target_path)
-        comfy = client or comfyui_client.ComfyUIClient()
+        if client is None:
+            from ..lib import comfyui_lifecycle
+
+            comfy = comfyui_client.ComfyUIClient()
+            comfyui_lifecycle.ensure_up(comfy.url)
+        else:
+            comfy = client
 
         with tempfile.TemporaryDirectory(prefix="geopoai-flux-ltx-") as tmp:
             keyframe_path = Path(tmp) / f"{shot_id}-keyframe.png"
