@@ -55,8 +55,13 @@ def _align_hook(vo, script_text):
 
 
 def _hooks(calls, **kw):
-    """Standard stub hooks: fake render + synthetic alignment (skip whisper)."""
-    return {"render_clip": _render_hook(calls, **kw), "align_vo": _align_hook}
+    """Standard stub hooks: fake render + synthetic alignment (skip whisper) +
+    no-op compose (skip ffmpeg)."""
+    return {
+        "render_clip": _render_hook(calls, **kw),
+        "align_vo": _align_hook,
+        "run_compose": lambda *a, **k: None,
+    }
 
 
 # ── Full walk ────────────────────────────────────────────────────────────────
@@ -170,6 +175,22 @@ def test_qc_loudness_and_integrity():
     assert qc.check_loudness(-14.0, -14.0, 1.0) == []
     assert qc.check_loudness(None, -14.0, 1.0) == []
     assert qc.check_clip_integrity({"entries": [{"clip_id": "e1"}]}, [])
+
+
+def test_qc_integrity_flags_clip_dropped_from_final_cut():
+    storyboard = {"entries": [{"clip_id": "e1"}, {"clip_id": "e2"}]}
+    clips = [
+        {"id": "e1", "outputs": {"video": "output/e1.mp4"}},
+        {"id": "e2", "outputs": {"video": "output/e2.mp4"}},
+    ]
+    # both rendered, but e2 never made it into the compose spec (truncated)
+    compose_spec = {"clips": [{"clip_id": "e1"}]}
+    issues = qc.check_clip_integrity(storyboard, clips, compose_spec)
+    assert any("e2" in i and "compose" in i for i in issues)
+    # all present → clean
+    assert qc.check_clip_integrity(
+        storyboard, clips, {"clips": [{"clip_id": "e1"}, {"clip_id": "e2"}]}
+    ) == []
 
 
 # ── Discipline: no show-specific content in stages/ ──────────────────────────

@@ -115,17 +115,39 @@ def _build_spec(ctx: StageContext) -> dict:
     return spec
 
 
+def _default_run_compose(spec_path: Path, episode_id: str, repo_root: Path) -> None:
+    """Normalize clips to a uniform profile, then run the ffmpeg compose pass.
+
+    This is the mechanical tail that was done by hand for the first episode. Runs
+    when no run_compose hook is injected (tests stub it with a no-op).
+    """
+    from composition import engine, export, normalize
+
+    spec = json.loads(Path(spec_path).read_text(encoding="utf-8"))
+    tokens = engine.load_tokens()
+    profiles = export.profiles(tokens)
+    prof_names = spec.get("export", {}).get("profiles") or ["yt_long"]
+    profile = profiles[prof_names[0]]
+
+    ep_out = repo_root / "output" / "episodes" / episode_id
+    norm_spec = normalize.normalize_spec(
+        spec, profile=profile, out_dir=ep_out / "normalized", repo_root=repo_root
+    )
+    (ep_out / "compose_norm.json").write_text(
+        json.dumps(norm_spec, indent=2) + "\n", encoding="utf-8"
+    )
+    engine.compose(norm_spec, ep_out / "work", tokens=tokens, repo_root=repo_root)
+    log.info("compose: rendered episode masters under %s", ep_out)
+
+
 def execute(ctx: StageContext) -> None:
     spec = _build_spec(ctx)
     spec_path = ctx.ep_dir / "compose.json"
     spec_path.write_text(json.dumps(spec, indent=2) + "\n", encoding="utf-8")
     ctx.manifest["compose"] = {"spec_path": "compose.json"}
 
-    run_compose = ctx.hooks.get("run_compose")
-    if run_compose is not None:
-        run_compose(spec_path, ctx.manifest["episode_id"], ctx.repo_root)
-    else:
-        log.info("compose: spec written to %s (ffmpeg pass deferred)", spec_path)
+    run_compose = ctx.hooks.get("run_compose", _default_run_compose)
+    run_compose(spec_path, ctx.manifest["episode_id"], ctx.repo_root)
 
 
 STAGE = Stage(name="compose", is_brain=False, execute=execute)

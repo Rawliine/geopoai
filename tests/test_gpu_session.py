@@ -50,7 +50,7 @@ def _sample_session(workload: str = "comfyui_setup", **overrides: Any) -> dict[s
 
 def test_registry_parses_all_workloads(registry_path: Path) -> None:
   rates, profiles, workloads = gs.load_registry(registry_path)
-  assert set(workloads) == {"comfyui", "comfyui_setup", "blender_render", "lora_train"}
+  assert set(workloads) == {"comfyui", "comfyui_setup", "blender_render", "lora_train", "s2pro"}
   assert workloads["comfyui"].health.type == "http"
   assert workloads["blender_render"].health.type == "ssh"
   assert "h100_spot" in profiles

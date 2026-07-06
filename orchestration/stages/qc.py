@@ -97,12 +97,25 @@ def check_loudness(lufs: float | None, target: float, tol: float) -> list[str]:
     return []
 
 
-def check_clip_integrity(storyboard: dict, clips: list[dict]) -> list[str]:
+def check_clip_integrity(
+    storyboard: dict, clips: list[dict], compose_spec: dict | None = None
+) -> list[str]:
     have = {c["id"] for c in clips if c.get("outputs", {}).get("video")}
     issues = []
     for e in storyboard.get("entries", []):
         if e["clip_id"] not in have:
             issues.append(f"storyboard clip {e['clip_id']!r} has no rendered output")
+    # A clip can render to disk yet be dropped from the final cut (e.g. an
+    # over-long clip truncated by -shortest). Verify each storyboard clip also
+    # made it into the compose spec that produced the master.
+    if compose_spec is not None:
+        composed = {c.get("clip_id") for c in compose_spec.get("clips", [])}
+        for e in storyboard.get("entries", []):
+            if e["clip_id"] not in composed:
+                issues.append(
+                    f"storyboard clip {e['clip_id']!r} is missing from the final "
+                    f"compose (rendered but not in the cut)"
+                )
     return issues
 
 
@@ -167,7 +180,13 @@ def execute(ctx: StageContext) -> None:
         th.get("loudness_lufs_target", -14.0),
         th.get("loudness_lufs_tolerance", 1.0),
     )
-    issues["clip_integrity"] = check_clip_integrity(storyboard, ctx.manifest.get("clips", []))
+    compose_spec = None
+    compose_path = ctx.ep_dir / "compose.json"
+    if compose_path.exists():
+        compose_spec = json.loads(compose_path.read_text(encoding="utf-8"))
+    issues["clip_integrity"] = check_clip_integrity(
+        storyboard, ctx.manifest.get("clips", []), compose_spec
+    )
 
     failures = {k: v for k, v in issues.items() if v}
     lines = [f"# QC report — {ctx.manifest['episode_id']}", ""]
