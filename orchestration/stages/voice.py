@@ -16,7 +16,9 @@ import os
 import re
 import shutil
 import subprocess
+from pathlib import Path
 
+from orchestration import bible as bible_mod
 from orchestration.context import StageContext
 from orchestration.stages import Stage
 
@@ -49,8 +51,41 @@ def _probe_duration(path) -> float | None:
         return None
 
 
+def _resolve_reference(ctx: StageContext) -> tuple[str | None, str | None]:
+    """Resolve the pinned reference clip + transcript.
+
+    Bible `voice` block is the source of truth (one consistent cloned voice per
+    show); env vars are the fallback/override. A configured-but-missing clip logs
+    a warning and falls back to unreferenced synth so the run still completes.
+    """
+    voice_cfg = bible_mod.voice(ctx.bible)
+    ref_audio = voice_cfg.get("reference_audio") or os.environ.get("GEOPOAI_TTS_REFERENCE")
+    ref_text = voice_cfg.get("reference_text") or os.environ.get("GEOPOAI_TTS_REFERENCE_TEXT")
+    if ref_audio:
+        p = Path(ref_audio)
+        if not p.is_absolute():
+            p = ctx.repo_root / ref_audio
+        if p.exists():
+            return str(p), ref_text
+        log.warning(
+            "voice: reference_audio %s not found — synthesizing without a "
+            "reference; the cloned voice may vary. Register the clip (assets/"
+            "voice/) and set config bible `voice.reference_audio`.", p,
+        )
+        return None, None
+    log.warning(
+        "voice: no reference clip pinned (bible `voice.reference_audio` unset) — "
+        "S2-Pro will use a default voice that can vary between runs."
+    )
+    return None, None
+
+
 def _default_synth(text: str, out_wav, ctx: StageContext) -> None:
-    """Synthesize via the S2-Pro server configured by GEOPOAI_TTS_URL."""
+    """Synthesize via the S2-Pro server configured by GEOPOAI_TTS_URL.
+
+    One pass over the whole script (never per-beat) against the pinned reference
+    voice, so the output is a single consistent human-sounding narrator.
+    """
     url = os.environ.get("GEOPOAI_TTS_URL")
     if not url:
         raise RuntimeError(
@@ -60,12 +95,13 @@ def _default_synth(text: str, out_wav, ctx: StageContext) -> None:
         )
     from pipeline.tts import synthesize
 
+    ref_audio, ref_text = _resolve_reference(ctx)
     synthesize(
         text, out_wav,
         url=url,
         api_key=os.environ.get("GEOPOAI_TTS_API_KEY"),
-        reference_audio=os.environ.get("GEOPOAI_TTS_REFERENCE"),
-        reference_text=os.environ.get("GEOPOAI_TTS_REFERENCE_TEXT"),
+        reference_audio=ref_audio,
+        reference_text=ref_text,
     )
 
 

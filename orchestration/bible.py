@@ -46,3 +46,12 @@ def default_formats(bible: dict[str, Any]) -> list[str]:
 
 def thresholds(bible: dict[str, Any]) -> dict[str, Any]:
     return bible.get("thresholds", {})
+
+
+def voice(bible: dict[str, Any]) -> dict[str, Any]:
+    """Voice config: {engine, reference_audio, reference_text}.
+
+    The reference clip pins one consistent cloned voice so every synth sounds
+    like the same human — set once here rather than via a per-run env var.
+    """
+    return bible.get("voice", {}) or {}

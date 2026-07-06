@@ -115,3 +115,35 @@ def test_voice_errors_when_no_text_and_no_vo(tmp_path):
     manifest = {"episode_id": "ep", "script": {"beats": []}}
     with pytest.raises(ValueError, match="no VO text"):
         voice.execute(_ctx(tmp_path, manifest))
+
+
+# ── reference voice resolution ────────────────────────────────────────────────
+
+def _voice_ctx(tmp_path, voice_cfg):
+    return StageContext(
+        repo_root=tmp_path, ep_dir=tmp_path, manifest={"episode_id": "ep"},
+        bible={"voice": voice_cfg}, brain_name="halt", hooks={},
+    )
+
+
+def test_reference_from_bible_when_clip_exists(tmp_path):
+    ref = tmp_path / "assets" / "voice" / "narrator.wav"
+    ref.parent.mkdir(parents=True)
+    ref.write_bytes(b"RIFFref")
+    ctx = _voice_ctx(tmp_path, {
+        "reference_audio": "assets/voice/narrator.wav",
+        "reference_text": "a calm narrator sample",
+    })
+    audio, text = voice._resolve_reference(ctx)
+    assert audio == str(ref) and text == "a calm narrator sample"
+
+
+def test_reference_falls_back_when_clip_missing(tmp_path):
+    ctx = _voice_ctx(tmp_path, {"reference_audio": "assets/voice/missing.wav",
+                                "reference_text": "x"})
+    assert voice._resolve_reference(ctx) == (None, None)
+
+
+def test_reference_none_when_unpinned(tmp_path):
+    ctx = _voice_ctx(tmp_path, {})
+    assert voice._resolve_reference(ctx) == (None, None)
