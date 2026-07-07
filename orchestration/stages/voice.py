@@ -84,8 +84,11 @@ def _resolve_reference(ctx: StageContext) -> tuple[str | None, str | None]:
 def _default_synth(text: str, out_wav, ctx: StageContext) -> None:
     """Synthesize via the S2-Pro server configured by GEOPOAI_TTS_URL.
 
-    One pass over the whole script (never per-beat) against the pinned reference
-    voice, so the output is a single consistent human-sounding narrator.
+    Synthesizes in sentence-group chunks — all against the SAME pinned reference,
+    so the voice stays consistent — then concatenates. Chunking is required because
+    S2-Pro caps a single generation (~1024 tokens ≈ 47s); a long script synthesized
+    in one call gets truncated. (The original episode's per-beat calls were the
+    right shape but used NO reference, so each chunk drifted to a new voice.)
     """
     url = os.environ.get("GEOPOAI_TTS_URL")
     if not url:
@@ -97,13 +100,53 @@ def _default_synth(text: str, out_wav, ctx: StageContext) -> None:
     from pipeline.tts import synthesize
 
     ref_audio, ref_text = _resolve_reference(ctx)
-    synthesize(
-        text, out_wav,
-        url=url,
-        api_key=os.environ.get("GEOPOAI_TTS_API_KEY"),
-        reference_audio=ref_audio,
-        reference_text=ref_text,
-    )
+    api_key = os.environ.get("GEOPOAI_TTS_API_KEY")
+    chunks = _sentence_chunks(text)
+    out_wav = Path(out_wav)
+
+    if len(chunks) <= 1:
+        synthesize(text, out_wav, url=url, api_key=api_key,
+                   reference_audio=ref_audio, reference_text=ref_text)
+        return
+
+    import tempfile
+
+    with tempfile.TemporaryDirectory(prefix="geopoai-vo-") as td:
+        tmp = Path(td)
+        parts = []
+        for i, chunk in enumerate(chunks):
+            p = tmp / f"chunk_{i:03d}.wav"
+            synthesize(chunk, p, url=url, api_key=api_key,
+                       reference_audio=ref_audio, reference_text=ref_text)
+            parts.append(p)
+        log.info("voice: synthesized %d chunks against the pinned reference", len(parts))
+        listfile = tmp / "list.txt"
+        listfile.write_text("".join(f"file '{p}'\n" for p in parts), encoding="utf-8")
+        subprocess.run(
+            ["ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", str(listfile),
+             "-ar", "44100", "-ac", "1", "-c:a", "pcm_s16le", str(out_wav)],
+            check=True, capture_output=True,
+        )
+
+
+def _sentence_chunks(text: str, max_chars: int = 320) -> list[str]:
+    """Split VO text into sentence-groups under *max_chars* (keeps each synth
+    call inside S2-Pro's per-generation length so nothing truncates)."""
+    sentences = re.split(r"(?<=[.!?])\s+", text.strip())
+    chunks: list[str] = []
+    cur = ""
+    for s in sentences:
+        s = s.strip()
+        if not s:
+            continue
+        if cur and len(cur) + 1 + len(s) > max_chars:
+            chunks.append(cur)
+            cur = s
+        else:
+            cur = f"{cur} {s}".strip()
+    if cur:
+        chunks.append(cur)
+    return chunks
 
 
 def _default_align(vo_wav, script_text: str) -> list[dict]:

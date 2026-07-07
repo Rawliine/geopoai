@@ -83,6 +83,16 @@ def _stub_align(vo, script_text):
                                             "confidence": 1.0}]
 
 
+def test_sentence_chunks_splits_long_text_under_budget():
+    from orchestration.stages.voice import _sentence_chunks
+    long = "One two three four. " * 40
+    chunks = _sentence_chunks(long, max_chars=100)
+    assert len(chunks) > 1
+    assert all(len(c) <= 105 for c in chunks)
+    # short text stays a single chunk
+    assert _sentence_chunks("Hello world.") == ["Hello world."]
+
+
 def _ctx(tmp_path, manifest, hooks=None):
     hooks = {"align_vo": _stub_align, **(hooks or {})}
     return StageContext(
