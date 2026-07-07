@@ -168,10 +168,18 @@ def _merge_short_gaps(chunks: list[Chunk], min_s: float) -> list[Chunk]:
             )
         else:
             merged.append(chunk)
-    return [
-        Chunk(c.words, c.emphasis, c.start, max(c.end, c.start + min_s))
-        for c in merged
-    ]
+    # Give each chunk a minimum on-screen time, but never let it run into the
+    # next chunk's start (that puts two captions on screen at once). Cap the end
+    # a hair before the next start.
+    _CAP_GAP = 0.05
+    out: list[Chunk] = []
+    for i, c in enumerate(merged):
+        end = max(c.end, c.start + min_s)
+        if i + 1 < len(merged):
+            end = min(end, merged[i + 1].start - _CAP_GAP)
+        end = max(end, c.start + 0.1)  # never invert
+        out.append(Chunk(c.words, c.emphasis, c.start, end))
+    return out
 
 
 def _hex_to_ass_bgr(hex_color: str) -> str:
