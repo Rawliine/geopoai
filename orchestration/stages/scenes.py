@@ -66,6 +66,9 @@ def build(ctx: StageContext) -> tuple[str, dict]:
         "a `scene_ref`:\n"
         "- map → a mapbox scene JSON (renderer 'mapbox'); manim → a manim scene; "
         "broll → a shot spec.\n"
+        "- Always author at FULL quality: map scenes set `_fps` to 60; manim "
+        "scenes set `quality` to \"full\". Never use draft/preview quality or a "
+        "reduced frame rate — final renders are always full quality.\n"
         "- On-screen text is compression only — never transcribe the VO.\n"
         + timing_note +
         "- manim callouts on a large central component (payoff matrix, game tree, "
@@ -98,6 +101,15 @@ def check(ctx: StageContext, artifact: dict) -> list[str]:
         if not isinstance(scene, dict):
             errors.append(f"scene for {clip_id!r} is not an object")
             continue
+        # Full-quality rule (enforced): maps at 60fps, manim at "full".
+        if entry["renderer"] == "map":
+            fps = scene.get("_fps")
+            if fps is not None and int(fps) < 60:
+                errors.append(f"scene for {clip_id!r} must render full quality (_fps 60, got {fps})")
+        elif entry["renderer"] == "manim":
+            q = scene.get("quality")
+            if q is not None and q not in ("full", "high"):
+                errors.append(f"scene for {clip_id!r} must be full quality (quality 'full', got {q!r})")
         if entry["renderer"] in _TIMED:
             # map scenes carry top-level `duration`; manim nests it under `scene`.
             dur = scene.get("duration")
