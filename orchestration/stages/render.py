@@ -140,13 +140,16 @@ def execute(ctx: StageContext) -> None:
         if prev and prev.get("scene_hash") == scene_hash:
             records[clip_id] = prev  # unchanged → skip re-render
             continue
-        # Crash resume: adopt an already-rendered output if one is on disk.
-        adopted = _existing_output(entry, ctx)
-        if adopted is not None:
-            records[clip_id] = {"id": clip_id, "renderer": entry["renderer"],
-                                "scene_hash": scene_hash, "outputs": adopted}
-            log.info("render: adopted existing output for %s", clip_id)
-            continue
+        # Crash resume: adopt an on-disk output ONLY when there is no prior record
+        # (a crash lost it). If a record exists with a different hash the scene
+        # changed — re-render, never adopt the stale output.
+        if prev is None:
+            adopted = _existing_output(entry, ctx)
+            if adopted is not None:
+                records[clip_id] = {"id": clip_id, "renderer": entry["renderer"],
+                                    "scene_hash": scene_hash, "outputs": adopted}
+                log.info("render: adopted existing output for %s", clip_id)
+                continue
         outputs = render_clip(entry, ctx)
         records[clip_id] = {
             "id": clip_id,
