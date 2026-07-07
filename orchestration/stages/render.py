@@ -83,6 +83,13 @@ def _default_render_clip(entry: dict, ctx: StageContext) -> dict[str, str]:
     from pipeline.render import render
 
     scene = json.loads((ctx.ep_dir / scene_ref).read_text(encoding="utf-8"))
+    # Safety net: force the scene's render format to the episode's target so a
+    # scene that forgot `format` can't render sideways (map renderer otherwise
+    # defaults to horizontal → letterboxed strip in a vertical episode).
+    fmt = (ctx.manifest.get("format_targets") or ["horizontal"])[0]
+    if scene.get("format") != fmt:
+        scene["format"] = fmt
+        log.info("render: forced %s to episode format %r", clip_id, fmt)
     out = asyncio.run(render(scene, clip_id))
     outputs = {"video": str(out)}
     # `regions` is required for the map_region → media_overlays routing in compose.
