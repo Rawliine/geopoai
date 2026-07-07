@@ -79,7 +79,10 @@ def emphasis_words_from_script(script_text: str) -> set[str]:
 
 
 def _clean_token(token: str) -> str:
-    return token.strip().strip("*").strip()
+    # Remove ALL emphasis asterisks, not just leading/trailing — a token like
+    # "1994**," keeps interior markup that `.strip("*")` misses, so the caption
+    # would show the raw asterisks.
+    return token.replace("*", "").strip()
 
 
 def _is_number_unit_pair(left: str, right: str) -> bool:
