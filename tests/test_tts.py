@@ -74,11 +74,31 @@ def test_synthesize_includes_reference_voice(tmp_path, monkeypatch):
 
 # ── voice stage ──────────────────────────────────────────────────────────────
 
+def _stub_align(vo, script_text):
+    """Synthetic word timestamps — avoids the heavy whisper alignment in tests."""
+    import re
+    ws = re.findall(r"\b\w+\b", script_text or "")
+    return [{"word": w, "start": i * 0.5, "end": i * 0.5 + 0.4, "confidence": 1.0}
+            for i, w in enumerate(ws)] or [{"word": "x", "start": 0.0, "end": 0.5,
+                                            "confidence": 1.0}]
+
+
+def test_sentence_chunks_splits_long_text_under_budget():
+    from orchestration.stages.voice import _sentence_chunks
+    long = "One two three four. " * 40
+    chunks = _sentence_chunks(long, max_chars=100)
+    assert len(chunks) > 1
+    assert all(len(c) <= 105 for c in chunks)
+    # short text stays a single chunk
+    assert _sentence_chunks("Hello world.") == ["Hello world."]
+
+
 def _ctx(tmp_path, manifest, hooks=None):
+    hooks = {"align_vo": _stub_align, **(hooks or {})}
     return StageContext(
         repo_root=tmp_path, ep_dir=tmp_path, manifest=manifest,
         bible={"thresholds": {"reading_words_per_s": 2.6}},
-        brain_name="halt", hooks=hooks or {},
+        brain_name="halt", hooks=hooks,
     )
 
 
@@ -115,3 +135,35 @@ def test_voice_errors_when_no_text_and_no_vo(tmp_path):
     manifest = {"episode_id": "ep", "script": {"beats": []}}
     with pytest.raises(ValueError, match="no VO text"):
         voice.execute(_ctx(tmp_path, manifest))
+
+
+# ── reference voice resolution ────────────────────────────────────────────────
+
+def _voice_ctx(tmp_path, voice_cfg):
+    return StageContext(
+        repo_root=tmp_path, ep_dir=tmp_path, manifest={"episode_id": "ep"},
+        bible={"voice": voice_cfg}, brain_name="halt", hooks={},
+    )
+
+
+def test_reference_from_bible_when_clip_exists(tmp_path):
+    ref = tmp_path / "assets" / "voice" / "narrator.wav"
+    ref.parent.mkdir(parents=True)
+    ref.write_bytes(b"RIFFref")
+    ctx = _voice_ctx(tmp_path, {
+        "reference_audio": "assets/voice/narrator.wav",
+        "reference_text": "a calm narrator sample",
+    })
+    audio, text = voice._resolve_reference(ctx)
+    assert audio == str(ref) and text == "a calm narrator sample"
+
+
+def test_reference_falls_back_when_clip_missing(tmp_path):
+    ctx = _voice_ctx(tmp_path, {"reference_audio": "assets/voice/missing.wav",
+                                "reference_text": "x"})
+    assert voice._resolve_reference(ctx) == (None, None)
+
+
+def test_reference_none_when_unpinned(tmp_path):
+    ctx = _voice_ctx(tmp_path, {})
+    assert voice._resolve_reference(ctx) == (None, None)

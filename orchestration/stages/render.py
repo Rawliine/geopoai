@@ -58,12 +58,27 @@ def _default_render_clip(entry: dict, ctx: StageContext) -> dict[str, str]:
         import subprocess
         import sys
 
-        spec = ctx.ep_dir / scene_ref if scene_ref else None
-        if spec is None or not spec.exists():
+        spec_path = ctx.ep_dir / scene_ref if scene_ref else None
+        if spec_path is None or not spec_path.exists():
             raise FileNotFoundError(f"broll clip {clip_id!r} has no shot spec")
-        subprocess.run([sys.executable, "pipeline/broll.py", str(spec)],
+        subprocess.run([sys.executable, "pipeline/broll.py", str(spec_path)],
                        cwd=repo_root, check=True)
-        return {"video": str(repo_root / "output" / "broll" / f"{clip_id}.mp4")}
+        # broll names its output by the spec's shot_id, which may differ from
+        # clip_id (e.g. 'c06-establishing' vs 'c06_establishing'). Read shot_id
+        # and pick up the real asset path from the run log rather than guessing.
+        shot_spec = json.loads(spec_path.read_text(encoding="utf-8"))
+        shot_id = shot_spec.get("shot_id", clip_id)
+        video = repo_root / "output" / "broll" / f"{shot_id}.mp4"
+        log_path = repo_root / "output" / "broll" / f"{shot_id}.log.json"
+        if log_path.exists():
+            try:
+                asset_rel = json.loads(log_path.read_text(encoding="utf-8")).get("asset_path")
+            except (json.JSONDecodeError, OSError):
+                asset_rel = None
+            if asset_rel:
+                cand = Path(asset_rel)
+                video = cand if cand.is_absolute() else repo_root / cand
+        return {"video": str(video)}
 
     from pipeline.render import render
 

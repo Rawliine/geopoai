@@ -1,0 +1,18 @@
+{
+  "asset": "narrator_ref.wav",
+  "kind": "voice_reference",
+  "purpose": "S2-Pro zero-shot cloning seed — pins one consistent channel narrator voice. Not shipped in output; used only as a reference for synthesis.",
+  "license": "Public Domain",
+  "license_url": "https://librivox.org/pages/public-domain/",
+  "source": {
+    "name": "LibriVox",
+    "item": "history_julius_caesar_1102_librivox",
+    "work": "History of Julius Caesar (Jacob Abbott)",
+    "url": "https://archive.org/details/history_julius_caesar_1102_librivox",
+    "download_url": "https://archive.org/download/history_julius_caesar_1102_librivox/historyofjuliuscaesar_02_abbott_64kb.mp3"
+  },
+  "derivation": "chapter 2 mp3, segment [300s, 316s], mono 44.1kHz, loudnorm I=-18 TP=-2",
+  "reference_text": "until it was fairly choked up with its architectural magnificence, and it had at last to be partially cleared again as one would thin out two denser forests in order to make room for the assemblies, which it was its main function to contain. The people of Rome had a",
+  "sha256": "0ccc9d7086ad765e63adecd0d3437155baf8cf615e705730e718d7e9121a8cb1",
+  "retrieved_at": "2026-07-06"
+}

@@ -8812,6 +8812,21 @@
       "sha256": "e73add6035a50b51a654095b0cf8c2add846099b13f56accb7c5eb2a04e2ac42",
       "version": "1.20.0"
     },
+    "narrator-voice": {
+      "files": [
+        {
+          "path": "assets/voice/narrator/narrator_ref.wav",
+          "sha256": "0ccc9d7086ad765e63adecd0d3437155baf8cf615e705730e718d7e9121a8cb1"
+        }
+      ],
+      "kind": "model",
+      "license": "Public Domain",
+      "license_url": "https://librivox.org/pages/public-domain/",
+      "name": "narrator-voice",
+      "resolved_url": "https://archive.org/download/history_julius_caesar_1102_librivox/historyofjuliuscaesar_02_abbott_64kb.mp3",
+      "sha256": "0ccc9d7086ad765e63adecd0d3437155baf8cf615e705730e718d7e9121a8cb1",
+      "version": "librivox-jc02-seg300-316"
+    },
     "stix-two-math": {
       "_archive_prefix": "",
       "_dest_subdir": "",

@@ -936,3 +936,46 @@ nohup conda run -n geopo python pipeline/gpu_session.py watchdog comfyui > /tmp/
 ```
 
 Or a systemd user timer on the laptop (document your unit locally).
+
+## Run a full episode end-to-end on Verda
+
+Goal: every stage — map/manim renders, voice, b-roll (ComfyUI), and the compose
+pass — runs on the GPU box, not split with the laptop. The orchestrator
+(`pipeline/orchestrate.py`) already runs each stage in-process, so "everything on
+Verda" simply means running that process **on a box that serves ComfyUI + S2-Pro
+locally**.
+
+One-box recipe (a single GPU instance serves both models):
+
+1. Bring up a GPU box and get the repo onto it (rsync or clone), same as the
+   ComfyUI pattern above. The persistent models volume (`/mnt/models`) is shared
+   by both serves.
+2. Start both model servers in tmux on the box:
+   - **ComfyUI** on `:8188` — `tmux new-session -d -s comfyui "cd /home/ubuntu/ComfyUI && . .venv/bin/activate && exec python main.py --listen 0.0.0.0 --port 8188"`
+   - **S2-Pro** on `:8888` — the `s2pro_bootstrap.sh` serve line: `uv run python tools/api_server.py --llama-checkpoint-path checkpoints/s2-pro --decoder-checkpoint-path checkpoints/s2-pro/codec.pth --listen 0.0.0.0:8888 --half --compile`
+3. In the shell that runs the orchestrator, point the clients at the local serves:
+   ```bash
+   export BROLL_COMFYUI_URL=http://localhost:8188
+   export GEOPOAI_TTS_URL=http://localhost:8888
+   export MAPBOX_TOKEN=pk.eyJ1...            # in .env at repo root
+   ```
+   `GEOPOAI_TTS_REFERENCE`/`_REFERENCE_TEXT` are **not** needed — the pinned
+   narrator voice comes from the show bible (`config/show_bible.geopoai.json`
+   `voice`). The AI-b-roll path also auto-restarts ComfyUI if it dies (the
+   `comfyui` tmux session), or set `BROLL_COMFYUI_RESTART_CMD` to override.
+4. Run the pipeline. `next` walks one stage at a time; loop it to completion:
+   ```bash
+   python pipeline/orchestrate.py new geopoai <episode_id> --format vertical --brain api --inputs inputs.json
+   while python pipeline/orchestrate.py next <episode_id>; do :; done
+   python pipeline/orchestrate.py qc <episode_id>
+   ```
+   Final masters land under `output/episodes/<episode_id>/final_*.mp4`; the
+   normalized clips + `compose_norm.json` are written automatically (no hand step).
+
+Notes:
+- Renders (mapbox = headless Chromium via Playwright, manim) run in the
+  orchestrator process, so they use the box's GPU/CPU — nothing runs on the laptop.
+- With `--brain api`, the LangGraph brain authors the JSON stages; `--brain halt`
+  hands off for manual authoring. Either way the mechanical stages (voice, render,
+  compose, qc) run deterministically with no per-stage intervention.
+- S2-Pro is non-commercial licensed — fine for tests; revisit before monetizing.

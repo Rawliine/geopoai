@@ -37,6 +37,11 @@
     "notes": "Lead with the map for territory/movement; switch to manim for payoff structure and numbers."
   },
   "caption_policy": { "burn_in": "broll_only", "sidecar": true },
+  "voice": {
+    "engine": "s2pro",
+    "reference_audio": "assets/voice/narrator/narrator_ref.wav",
+    "reference_text": "until it was fairly choked up with its architectural magnificence, and it had at last to be partially cleared again as one would thin out two denser forests in order to make room for the assemblies, which it was its main function to contain. The people of Rome had a"
+  },
   "thresholds": {
     "target_duration_s": 90,
     "reading_words_per_s": 2.6,

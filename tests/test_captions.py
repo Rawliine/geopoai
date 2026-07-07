@@ -33,6 +33,14 @@ def tokens() -> dict:
     return load_tokens()
 
 
+def test_clean_token_strips_all_emphasis_asterisks() -> None:
+    from composition.captions import _clean_token
+    # interior asterisks (before punctuation) must go too, not just the ends
+    assert _clean_token("**signal**") == "signal"
+    assert _clean_token("1994**,") == "1994,"
+    assert _clean_token("Sahara**") == "Sahara"
+
+
 def test_chunker_punctuation_and_cadence(tokens: dict) -> None:
     words = [
         Word("Hello", 0.0, 0.3, 1.0),

@@ -79,7 +79,10 @@ def emphasis_words_from_script(script_text: str) -> set[str]:
 
 
 def _clean_token(token: str) -> str:
-    return token.strip().strip("*").strip()
+    # Remove ALL emphasis asterisks, not just leading/trailing — a token like
+    # "1994**," keeps interior markup that `.strip("*")` misses, so the caption
+    # would show the raw asterisks.
+    return token.replace("*", "").strip()
 
 
 def _is_number_unit_pair(left: str, right: str) -> bool:
@@ -187,7 +190,11 @@ def _ass_time(seconds: float) -> str:
 
 
 def _caption_font_size(tokens: dict[str, Any], fmt: str) -> int:
-    return int(tokens["typography"]["scale"][fmt]["caption"])
+    # Burned-in subtitles use the dedicated `subtitle` size (large, for short-form
+    # legibility) — distinct from the manim `caption` role (small chart/timeline
+    # labels), so bumping one never balloons the other. Fall back to caption.
+    scale = tokens["typography"]["scale"][fmt]
+    return int(scale.get("subtitle", scale["caption"]))
 
 
 def _play_res(fmt: str) -> tuple[int, int]:

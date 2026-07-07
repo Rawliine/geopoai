@@ -257,7 +257,21 @@ def _burn_ass(
     )
 
 
+# If the assembled video runs longer than the audio by more than this, `-shortest`
+# would silently drop the tail — a symptom of an un-trimmed clip. Surface it loudly.
+_MUX_TRUNCATE_WARN_S = 1.0
+
+
 def _mux_audio(video_in: Path, audio_in: Path, video_out: Path) -> None:
+    v_dur = _probe_duration(video_in)
+    a_dur = _probe_duration(audio_in)
+    if v_dur - a_dur > _MUX_TRUNCATE_WARN_S:
+        log.warning(
+            "mux_audio: assembled video (%.2fs) exceeds audio (%.2fs) by %.2fs — "
+            "`-shortest` will drop %.2fs of video. Likely an un-trimmed clip; "
+            "check broll durations and the storyboard timing map.",
+            v_dur, a_dur, v_dur - a_dur, v_dur - a_dur,
+        )
     _run_ffmpeg(
         [
             "ffmpeg",

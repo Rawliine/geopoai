@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import subprocess
 import sys
 import time
 from pathlib import Path
@@ -89,6 +90,101 @@ def validate_shot_spec(spec: dict[str, Any]) -> None:
 
 def _target_path(shot_id: str) -> Path:
     return _OUTPUT_DIR / f"{shot_id}.mp4"
+
+
+# ── Duration clamp ─────────────────────────────────────────────────────────────
+# Downloaded stock / AI / reference assets arrive at their native length (a
+# stock clip can be minutes long). The shot spec's `duration_seconds` is the
+# intended on-screen length; without clamping here, the full-length asset flows
+# into composition and the final mux's `-shortest` truncates everything after it.
+_TRIM_EPSILON_S = 0.15
+
+
+def _probe_duration(path: Path) -> float | None:
+    """Best-effort media duration in seconds; None if unreadable (e.g. a still image)."""
+    try:
+        proc = subprocess.run(
+            ["ffprobe", "-v", "error", "-select_streams", "v:0",
+             "-show_entries", "stream=duration", "-show_entries", "format=duration",
+             "-of", "default=nw=1:nk=1", str(path)],
+            capture_output=True, text=True, check=True,
+        )
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        return None
+    for line in proc.stdout.splitlines():
+        token = line.strip()
+        if not token or token == "N/A":
+            continue
+        try:
+            val = float(token)
+        except ValueError:
+            continue
+        if val > 0:
+            return val
+    return None
+
+
+def _trim_to_duration(path: Path, seconds: float) -> bool:
+    """Trim/loop *path* in place to exactly *seconds*. Returns True if rewritten.
+
+    A longer video is cut from the start; a shorter one is loop-padded then cut.
+    An unreadable/non-video file (probe → None) is left untouched — downloaded
+    b-roll is always a real video, so this only skips test placeholders and rare
+    stills (which the composition normalize pass handles). B-roll is silent —
+    clip audio is dropped (`-an`) since composition supplies the final audio.
+    """
+    seconds = float(seconds)
+    if seconds <= 0:
+        return False
+    current = _probe_duration(path)
+    if current is None:
+        log.warning("skip trim: cannot read a video duration from %s", path)
+        return False
+    if abs(current - seconds) <= _TRIM_EPSILON_S:
+        return False  # already the intended length (within a frame or so)
+
+    tmp = path.with_name(path.name + ".trim.mp4")
+    tail = ["-t", f"{seconds:.3f}", "-an", "-c:v", "libx264",
+            "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(tmp)]
+    if current >= seconds:
+        cmd = ["ffmpeg", "-y", "-i", str(path), *tail]
+    else:
+        cmd = ["ffmpeg", "-y", "-stream_loop", "-1", "-i", str(path), *tail]
+
+    res = subprocess.run(cmd, capture_output=True, text=True)
+    if res.returncode != 0 or not tmp.exists():
+        err = res.stderr[-1500:] if res.stderr else ""
+        raise BrollError(f"trim to {seconds}s failed for {path}:\n{err}")
+    tmp.replace(path)
+    return True
+
+
+def _clamp_asset_duration(meta: dict[str, Any], seconds: float) -> None:
+    """Trim the asset named in *meta* to *seconds* and record it in provenance.
+
+    Best-effort meta update — a provenance-write failure must not fail the shot.
+    """
+    from broll.lib import asset_wrapper
+
+    rel = meta.get("asset_path")
+    if not rel:
+        return
+    asset = Path(rel)
+    if not asset.is_absolute():
+        asset = _REPO_ROOT / asset
+    if not asset.exists():
+        return
+    if not _trim_to_duration(asset, seconds):
+        return
+    note = f"trimmed to {float(seconds):.3f}s"
+    meta.setdefault("modifications", []).append(note)
+    try:
+        on_disk = asset_wrapper.load_meta(asset)
+        on_disk.setdefault("modifications", []).append(note)
+        meta_path = asset_wrapper.meta_path_for(asset)
+        meta_path.write_text(json.dumps(on_disk, indent=2) + "\n", encoding="utf-8")
+    except Exception as exc:  # noqa: BLE001 — provenance is non-critical
+        log.warning("could not update meta modifications for %s: %s", asset, exc)
 
 
 def _log_path(shot_id: str) -> Path:
@@ -354,6 +450,21 @@ def run_shot(
     finally:
         log_payload["elapsed_seconds"] = round(time.time() - started_at, 2)
         _write_log(shot_id, log_payload)
+
+    # Clamp downloaded assets to the intended on-screen length. Provided media is
+    # already cut to its `clip:[start,end]` at ingest; dry runs fetch nothing.
+    if (
+        meta
+        and not dry_run
+        and not meta.get("dry_run")
+        and log_payload.get("outcome") != "provided"
+        and spec.get("duration_seconds")
+    ):
+        try:
+            _clamp_asset_duration(meta, spec["duration_seconds"])
+        except BrollError as exc:
+            log.error("duration clamp failed for %s: %s", shot_id, exc)
+            raise
 
     log.info(
         "wrote asset_path=%s outcome=%s elapsed=%.2fs",

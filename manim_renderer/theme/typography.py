@@ -12,8 +12,8 @@ _FONTS_FALLBACK = {
 }
 
 _FONT_SCALE_FALLBACK = {
-    "horizontal": {"title": 64, "body": 36, "label": 28, "caption": 22},
-    "vertical": {"title": 84, "body": 48, "label": 36, "caption": 28},
+    "horizontal": {"title": 64, "body": 36, "label": 28, "caption": 22, "callout": 22},
+    "vertical": {"title": 84, "body": 48, "label": 36, "caption": 28, "callout": 28},
 }
 
 

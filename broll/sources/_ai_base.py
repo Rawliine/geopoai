@@ -313,7 +313,16 @@ class BaseAIGenerator:
                 from_cache=True,
             )
 
-        comfy = client or comfyui_client.ComfyUIClient()
+        # Preflight: a whole episode has failed because ComfyUI wasn't running.
+        # Only when we own the connection (no injected client) — an injected
+        # client (tests, or the flux→ltx orchestration) manages its own liveness.
+        if client is None:
+            from ..lib import comfyui_lifecycle
+
+            comfy = comfyui_client.ComfyUIClient()
+            comfyui_lifecycle.ensure_up(comfy.url)
+        else:
+            comfy = client
         slots = cls._build_slots(
             positive=assembled.positive,
             negative=assembled.negative,

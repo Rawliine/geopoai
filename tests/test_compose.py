@@ -179,7 +179,7 @@ def compose_spec(compose_fixture_tree: Path) -> dict[str, Any]:
 def stub_captions_sound(monkeypatch: pytest.MonkeyPatch, tmp_path: Path):
     ass_path = tmp_path / "captions.ass"
 
-    def fake_captions_build(vo_wav, words_json, layout_jsons, tokens, fmt):
+    def fake_captions_build(vo_wav, words_json, layout_jsons, tokens, fmt, **kwargs):
         ass_path.write_text(
             "[Script Info]\nScriptType: v4.00+\n\n[V4+ Styles]\n"
             "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, "
