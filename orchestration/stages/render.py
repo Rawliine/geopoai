@@ -93,6 +93,32 @@ def _default_render_clip(entry: dict, ctx: StageContext) -> dict[str, str]:
     return outputs
 
 
+def _existing_output(entry: dict, ctx: StageContext) -> dict[str, str] | None:
+    """Resume support: if a clip's output already exists on disk (a prior run
+    rendered it before the stage crashed), return its outputs so we skip the
+    (expensive) re-render instead of starting over."""
+    from pathlib import Path
+
+    clip_id = entry["clip_id"]
+    renderer = entry["renderer"]
+    root = ctx.repo_root
+    if renderer == "manim":
+        video = root / "output" / "manim" / f"{clip_id}.mp4"
+    elif renderer == "map":
+        video = root / "output" / f"{clip_id}.mp4"
+    else:
+        return None  # broll paths vary by shot_id; let it re-render (cheap/cached)
+    if not video.exists():
+        return None
+    outputs = {"video": str(video)}
+    if renderer == "map":
+        for kind in ("events", "layout", "regions"):
+            side = root / "output" / f"{clip_id}.{kind}.json"
+            if side.exists():
+                outputs[kind] = str(side)
+    return outputs
+
+
 def execute(ctx: StageContext) -> None:
     entries = ctx.manifest.get("storyboard", {}).get("entries", [])
     render_clip = ctx.hooks.get("render_clip", _default_render_clip)
@@ -107,6 +133,13 @@ def execute(ctx: StageContext) -> None:
         if prev and prev.get("scene_hash") == scene_hash:
             records[clip_id] = prev  # unchanged → skip re-render
             continue
+        # Crash resume: adopt an already-rendered output if one is on disk.
+        adopted = _existing_output(entry, ctx)
+        if adopted is not None:
+            records[clip_id] = {"id": clip_id, "renderer": entry["renderer"],
+                                "scene_hash": scene_hash, "outputs": adopted}
+            log.info("render: adopted existing output for %s", clip_id)
+            continue
         outputs = render_clip(entry, ctx)
         records[clip_id] = {
             "id": clip_id,
@@ -115,6 +148,11 @@ def execute(ctx: StageContext) -> None:
             "outputs": outputs,
         }
         rendered += 1
+        # Persist progress after every render so a crash resumes here, not at 0.
+        ctx.manifest["clips"] = [
+            records[e["clip_id"]] for e in entries if e["clip_id"] in records
+        ]
+        M.save(ctx.ep_dir, ctx.manifest)
 
     # Preserve storyboard order; drop clips no longer in the storyboard.
     ctx.manifest["clips"] = [records[e["clip_id"]] for e in entries]
