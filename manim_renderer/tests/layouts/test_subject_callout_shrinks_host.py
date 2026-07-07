@@ -90,3 +90,22 @@ def test_subject_callout_packs_tight_vertical():
         (h_rect.cy + h_rect.height / 2.0) + (c_rect.cy - c_rect.height / 2.0)
     ) / 2.0
     assert pair_center == pytest.approx(slot.cy, abs=_TOL)
+
+
+def test_callout_stays_packed_after_setrole():
+    """A callout keeps packing against its host even when setRole changes its
+    role away from 'annotation' (regression: setRole to 'supporting' used to
+    drop the callout out of the pack, jumping it to the slot default)."""
+    layout = resolve_layout("hero", "horizontal")
+    host = CastMember(id="host", role="primary", slot="main",
+                      preferred_size=(6.0, 3.0))
+    # role is 'supporting', not 'annotation' — but it still carries the host link
+    callout = CastMember(id="c", role="supporting", slot="main",
+                         preferred_size=(3.0, 1.5), subject_host_id="host",
+                         anchor_side="above")
+    out = layout.solve([host, callout])
+    # both placed, host shrunk to make room (packed), not both at slot center
+    assert "c" in out and "host" in out
+    assert out["host"].width > 0.0  # host got a real packed rect, not sentinel
+    # callout is above the host (anchor_side respected)
+    assert out["c"].cy > out["host"].cy

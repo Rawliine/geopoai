@@ -287,9 +287,14 @@ class Layout:
             # split visible members into subject-bound annotations
             # vs everything else. The annotations reserve a side region;
             # the hosts flex-solve in the shrunken interior.
+            # A callout stays packed against its host regardless of role: only
+            # callouts carry `subject_host_id`, so keying on it (not role) keeps
+            # an anchored callout in place when setRole changes its prominence.
+            # Without this, setRole to a non-"annotation" role drops the callout
+            # out of the pack and it jumps to the slot default (leader stranded).
             subject_annotations = [
                 m for m in visible
-                if m.role == "annotation" and m.subject_host_id is not None
+                if m.subject_host_id is not None
                 and any(h.id == m.subject_host_id for h in visible)
             ]
             non_subject = [
