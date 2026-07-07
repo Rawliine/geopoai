@@ -32,10 +32,13 @@ def normalize_clip(src: Path, dst: Path, width: int, height: int, fps: int) -> P
         f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2:color=black,"
         f"setsar=1,fps={fps}"
     )
+    # Note: do NOT force -video_track_timescale here. The transitions pass
+    # (xfade) re-encodes intermediates at libx264's default 30fps timebase; a
+    # forced 90000 timescale mismatches them and xfade fails to configure.
     _run(
         ["ffmpeg", "-y", "-i", str(src), "-vf", vf, "-r", str(fps),
          "-c:v", "libx264", "-pix_fmt", "yuv420p", "-an",
-         "-video_track_timescale", "90000", "-movflags", "+faststart", str(dst)],
+         "-movflags", "+faststart", str(dst)],
         "normalize_clip",
     )
     return dst
