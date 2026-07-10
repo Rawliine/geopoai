@@ -101,7 +101,10 @@ def test_ingest_downloads_url_via_hook(tmp_path):
 
 
 def test_ingest_passthrough_local_without_clip(tmp_path):
+    (tmp_path / "media").mkdir()
+    (tmp_path / "media" / "local.mp4").write_bytes(b"x")
     inputs = [{"id": "m1", "type": "video", "path": "media/local.mp4", "use": "broll"}]
     ctx = _ctx(tmp_path, inputs)
     ingest.execute(ctx)
-    assert ctx.manifest["media_pool"][0]["path"] == "media/local.mp4"  # untouched
+    # local, no clip → resolved to its on-disk path (repo-relative here)
+    assert ctx.manifest["media_pool"][0]["path"] == str(tmp_path / "media" / "local.mp4")

@@ -13,17 +13,56 @@ ctx.hooks['materialize_media'] so tests stub it.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
 from orchestration.context import StageContext
 from orchestration.stages import Stage
 
+log = logging.getLogger(__name__)
+
 _MEDIA_USES = {"hook", "broll", "manim_media", "map_mask", "map_region"}
+
+# Repo-level drop folder: operators put media here and reference it by bare
+# filename in inputs[].path — no full path, no dependency on the episode folder
+# existing yet. Content is gitignored (see .gitignore).
+_MEDIA_INBOX = "media_input"
 
 
 def _now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def _resolve_local(name: str, ctx: StageContext) -> Path:
+    """Resolve a provided media `path` to an existing file.
+
+    Search order: the path as given (absolute or repo-relative), then this
+    episode's own ``assets/`` folder, then the repo-level ``media_input/`` inbox.
+    So a bare filename dropped in ``media_input/`` resolves without the operator
+    typing a path or the episode folder having to exist first.
+    """
+    p = Path(name)
+    if p.is_absolute():
+        candidates = [p]
+    else:
+        candidates = [
+            ctx.repo_root / name,
+            ctx.ep_dir / "assets" / name,
+            ctx.repo_root / _MEDIA_INBOX / name,
+        ]
+    for c in candidates:
+        if c.exists():
+            return c
+    # Not found anywhere. Warn and fall back to the path as given so offline dry
+    # runs (placeholder paths that are never read) still pass; a real read of a
+    # truly missing file fails later at cut/render with a clear ffmpeg error.
+    log.warning(
+        "ingest: media %r not found in %s/ or as a path — using %s; drop the file "
+        "in %s/ and reference it by filename if this was a bare name.",
+        name, _MEDIA_INBOX, candidates[0], _MEDIA_INBOX,
+    )
+    return candidates[0]
 
 
 def _default_materialize(item: dict, ctx: StageContext) -> str:
@@ -40,14 +79,12 @@ def _default_materialize(item: dict, ctx: StageContext) -> str:
         return str(out)
 
     if path:
-        src = Path(path)
-        if not src.is_absolute():
-            src = ctx.repo_root / path
+        src = _resolve_local(path, ctx)
         if clip:
             out = ctx.ep_dir / "media" / f"{item['id']}.mp4"
             media_fetch.cut(src, clip[0], clip[1], out)
             return str(out)
-        return path  # local, no clip → use as supplied
+        return str(src)  # local, no clip → use as resolved
 
     raise ValueError(f"input {item['id']!r} (use={item.get('use')!r}) needs a url or path")
 

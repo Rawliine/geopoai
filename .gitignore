@@ -33,6 +33,10 @@ map_renderer/web/episode_media/
 # Test-generated artifacts: demo render output + on-demand alignment cache
 tests/fixtures/demo_output/
 tests/fixtures/vo_sample.words.json
+# Operator media drop folder: ignore dropped files, keep the folder + docs
+media_input/*
+!media_input/.gitkeep
+!media_input/README.md
 
 # Claude Code workspace (per-developer plans, memory, settings)
 .claude/

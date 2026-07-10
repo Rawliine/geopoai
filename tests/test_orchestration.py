@@ -13,9 +13,11 @@ from pathlib import Path
 
 import pytest
 
+from types import SimpleNamespace
+
 from orchestration import manifest as M
 from orchestration import runner
-from orchestration.stages import qc
+from orchestration.stages import ingest, qc
 
 _REPO = Path(__file__).resolve().parent.parent
 _EXAMPLE = _REPO / "episodes" / "_example"
@@ -176,6 +178,26 @@ def test_qc_loudness_and_integrity():
     assert qc.check_loudness(-14.0, -14.0, 1.0) == []
     assert qc.check_loudness(None, -14.0, 1.0) == []
     assert qc.check_clip_integrity({"entries": [{"clip_id": "e1"}]}, [])
+
+
+def test_ingest_resolves_media_input_inbox(tmp_path):
+    repo = tmp_path
+    ep_dir = repo / "episodes" / "ep1"
+    (repo / "media_input").mkdir()
+    (repo / "media_input" / "walking.mp4").write_bytes(b"x")
+    ctx = SimpleNamespace(repo_root=repo, ep_dir=ep_dir)
+
+    # bare filename resolves against the repo-level inbox
+    assert ingest._resolve_local("walking.mp4", ctx) == repo / "media_input" / "walking.mp4"
+
+    # episode assets/ wins over the inbox (episode-specific override)
+    (ep_dir / "assets").mkdir(parents=True)
+    (ep_dir / "assets" / "walking.mp4").write_bytes(b"y")
+    assert ingest._resolve_local("walking.mp4", ctx) == ep_dir / "assets" / "walking.mp4"
+
+    # missing everywhere → falls back to the as-given path (dry-run placeholders
+    # stay valid; a real read fails later), not a hard error
+    assert ingest._resolve_local("nope.mp4", ctx) == repo / "nope.mp4"
 
 
 def test_qc_vo_coverage_flags_truncated_tail():

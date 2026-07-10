@@ -56,6 +56,21 @@ different uses:
 ]
 ```
 
+**Local files — the `media_input/` inbox.** Drop images/videos in the repo-level
+`media_input/` folder and reference them by **bare filename** in `path` — no full
+path, and the folder exists before any episode does. `ingest` resolves each `path`
+in order: (1) as given (absolute/repo-relative), (2) the episode's own
+`episodes/<id>/assets/`, (3) `media_input/`. `use`/`clip`/`region` still go in the
+input item (a folder can't express those). Video **URLs** are fetched automatically;
+the inbox is for local files and images (image URLs aren't fetched yet).
+
+```json
+[
+  { "id": "br1", "type": "video", "path": "walking.mp4",      "use": "broll" },
+  { "id": "m1",  "type": "image", "path": "morocco_mask.jpg", "use": "map_mask", "region": "Morocco" }
+]
+```
+
 Standalone (download / cut by hand): `pipeline/media_fetch.py` —
 `media_fetch.py <url> [out.mp4] [--clip START-END]` (yt-dlp for YouTube/TikTok/IG/X/
 news embeds, `file://` for local).
