@@ -52,6 +52,7 @@ SSH_IDENTITY="$(geopoai_resolve_ssh_private_key)" || {
 
 echo "[geopoai] waiting for instance_ip..." >&2
 IP="$(geopoai_wait_for_instance_ip)"
+geopoai_wait_for_ssh "${IP}" "${SSH_IDENTITY}" root
 
 echo "[geopoai] syncing local repo to VM (run_id=${RUN_ID})..." >&2
 # root@ — ubuntu@ may not have authorized_keys until after resume installs SSH key

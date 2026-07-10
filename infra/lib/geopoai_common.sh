@@ -111,6 +111,43 @@ geopoai_wait_for_instance_ip() {
   "${infra}/wait_for_instance_ip.sh" "${args[@]}"
 }
 
+# Poll until ssh auth succeeds. Verda assigns instance_ip before sshd listens.
+# Override: GEOPOAI_SSH_WAIT_SEC (default 300), GEOPOAI_SSH_POLL_SEC (default 10).
+geopoai_wait_for_ssh() {
+  local ip="$1"
+  local identity="$2"
+  local user="${3:-root}"
+  local max_wait="${GEOPOAI_SSH_WAIT_SEC:-300}"
+  local poll_sec="${GEOPOAI_SSH_POLL_SEC:-10}"
+  local deadline=$((SECONDS + max_wait))
+  local ssh_opts=(
+    -F /dev/null
+    -i "${identity}"
+    -o BatchMode=yes
+    -o ConnectTimeout=5
+    -o IdentitiesOnly=yes
+    -o StrictHostKeyChecking=accept-new
+  )
+
+  echo "[geopoai] waiting for SSH on ${user}@${ip} (max ${max_wait}s, poll every ${poll_sec}s)..." >&2
+  while (( SECONDS < deadline )); do
+    if ssh "${ssh_opts[@]}" "${user}@${ip}" true 2>/dev/null; then
+      echo "[geopoai] SSH ready on ${user}@${ip}" >&2
+      return 0
+    fi
+    if [[ "${user}" != root ]] \
+        && ssh "${ssh_opts[@]}" "root@${ip}" true 2>/dev/null; then
+      echo "[geopoai] SSH ready on root@${ip} (fallback)" >&2
+      return 0
+    fi
+    echo "[geopoai] SSH not ready on ${ip} (${SECONDS}s)..." >&2
+    sleep "${poll_sec}"
+  done
+
+  echo "error: timed out waiting for SSH on ${ip}" >&2
+  return 1
+}
+
 # Push this checkout to the VM (repair path — avoids HTTPS git auth on the server).
 geopoai_rsync_repo_to_vm() {
   local ip="$1"

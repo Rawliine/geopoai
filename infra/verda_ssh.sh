@@ -76,6 +76,9 @@ if [[ -z "${IP}" || "${IP}" == "null" ]]; then
   exit 1
 fi
 
+SSH_USER="${GEOPOAI_SSH_USER:-ubuntu}"
+geopoai_wait_for_ssh "${IP}" "${SSH_IDENTITY}" "${SSH_USER}"
+
 REMOTE_CMD=()
 if [[ "${1:-}" == "--" ]]; then
   shift
@@ -83,8 +86,6 @@ if [[ "${1:-}" == "--" ]]; then
 elif [[ $# -gt 0 ]]; then
   REMOTE_CMD=("$@")
 fi
-
-SSH_USER="${GEOPOAI_SSH_USER:-ubuntu}"
 
 geopoai_try_ssh() {
   local user="$1"

@@ -30,6 +30,7 @@ fi
 
 SSH_IDENTITY="$(geopoai_resolve_ssh_private_key)" || exit 1
 IP="$(geopoai_wait_for_instance_ip)"
+geopoai_wait_for_ssh "${IP}" "${SSH_IDENTITY}" root
 
 echo "[geopoai] syncing infra + broll to VM..." >&2
 geopoai_rsync_repo_to_vm "${IP}" "${SSH_IDENTITY}" root
