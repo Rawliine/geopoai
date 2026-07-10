@@ -16,9 +16,12 @@ from __future__ import annotations
 
 import argparse
 import logging
+import mimetypes
 import shutil
 import subprocess
 import sys
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parent.parent
@@ -26,6 +29,47 @@ if str(_ROOT) not in sys.path:
     sys.path.insert(0, str(_ROOT))
 
 log = logging.getLogger(__name__)
+
+# Image extensions we keep from a URL as-is; content-type maps for URLs without one.
+_IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff",
+               ".svg", ".avif"}
+_CTYPE_EXT = {
+    "image/jpeg": ".jpg", "image/jpg": ".jpg", "image/png": ".png",
+    "image/webp": ".webp", "image/gif": ".gif", "image/bmp": ".bmp",
+    "image/tiff": ".tif", "image/svg+xml": ".svg", "image/avif": ".avif",
+}
+
+
+def fetch_image(url: str, out_dir: str | Path, stem: str) -> Path:
+    """Download a still image from a plain ``http(s)://`` or ``file://`` URL — a
+    direct GET, no yt-dlp (which only does video). Writes ``out_dir/<stem><ext>``,
+    choosing the extension from the URL suffix, else the response Content-Type,
+    else ``.jpg``. Returns the written path.
+    """
+    out_dir = Path(out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    if url.startswith("file://"):
+        src = Path(urllib.parse.urlparse(url).path)
+        data = src.read_bytes()
+        url_suffix, ctype = src.suffix.lower(), ""
+    else:
+        req = urllib.request.Request(url, headers={"User-Agent": "geopoai-media-fetch"})
+        with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310 — operator-supplied URL
+            data = resp.read()
+            ctype = (resp.headers.get("Content-Type") or "").split(";")[0].strip().lower()
+        url_suffix = Path(urllib.parse.urlparse(url).path).suffix.lower()
+
+    if url_suffix in _IMAGE_EXTS:
+        ext = url_suffix
+    else:
+        ext = _CTYPE_EXT.get(ctype) or mimetypes.guess_extension(ctype or "") or ".jpg"
+        if ext == ".jpe":  # mimetypes maps image/jpeg → .jpe on some platforms
+            ext = ".jpg"
+
+    out = out_dir / f"{stem}{ext}"
+    out.write_bytes(data)
+    return out
 
 
 def fetch(url: str, *, force_refresh: bool = False) -> Path:

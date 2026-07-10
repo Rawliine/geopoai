@@ -25,6 +25,6 @@ Notes:
 - `use` (hook / broll / manim_media / map_mask / map_region), `clip: [start,end]`
   (trim a video), and `region` (mask target) still go in `inputs[]` — a folder
   can't express those.
-- **Video URLs** are downloaded automatically (yt-dlp); you only need this folder
-  for local files and for **images** (image URLs are not fetched yet).
+- **URLs are downloaded automatically** — videos via yt-dlp, images via a direct
+  GET. Use this folder for local files (or when you'd rather not pass a URL).
 - Contents are gitignored — only this README and `.gitkeep` are tracked.

@@ -4,11 +4,12 @@
 inputs (`hook`/`broll`/`manim_media`/`map_mask`/`map_region`) become media_pool
 rows routed later by `use`.
 
-Media is materialized here: a `url` is downloaded (yt-dlp / file:// — see
-pipeline/media_fetch), and a `clip: [start, end]` trims only that part of the
-source. A local `path` with no `clip` passes through untouched (so the offline
-dry episode needs no network). The download/trim step is behind
-ctx.hooks['materialize_media'] so tests stub it.
+Media is materialized here: a `url` is downloaded — videos via yt-dlp, images
+(`type: image`) via a direct GET (see pipeline/media_fetch) — and a
+`clip: [start, end]` trims only that part of a video. A local `path` resolves
+against `media_input/` (the drop folder) and the episode's `assets/` before
+passing through. The download/trim step is behind ctx.hooks['materialize_media']
+so tests stub it.
 """
 
 from __future__ import annotations
@@ -74,6 +75,10 @@ def _default_materialize(item: dict, ctx: StageContext) -> str:
     path = item.get("path")
 
     if url:
+        # Images are a direct GET (yt-dlp is video-only); videos go via yt-dlp
+        # with optional clip trimming.
+        if item.get("type") == "image":
+            return str(media_fetch.fetch_image(url, ctx.ep_dir / "media", item["id"]))
         out = ctx.ep_dir / "media" / f"{item['id']}.mp4"
         media_fetch.fetch_clip(url, out, clip=clip)
         return str(out)

@@ -61,8 +61,9 @@ different uses:
 path, and the folder exists before any episode does. `ingest` resolves each `path`
 in order: (1) as given (absolute/repo-relative), (2) the episode's own
 `episodes/<id>/assets/`, (3) `media_input/`. `use`/`clip`/`region` still go in the
-input item (a folder can't express those). Video **URLs** are fetched automatically;
-the inbox is for local files and images (image URLs aren't fetched yet).
+input item (a folder can't express those). **URLs are fetched automatically** —
+videos via yt-dlp, images (`type: image`) via a direct GET — so the inbox is for
+local files or when you'd rather not pass a URL.
 
 ```json
 [

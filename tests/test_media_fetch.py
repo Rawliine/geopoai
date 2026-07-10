@@ -108,3 +108,43 @@ def test_ingest_passthrough_local_without_clip(tmp_path):
     ingest.execute(ctx)
     # local, no clip → resolved to its on-disk path (repo-relative here)
     assert ctx.manifest["media_pool"][0]["path"] == str(tmp_path / "media" / "local.mp4")
+
+
+# ── image URL fetch (plain GET, no yt-dlp) ────────────────────────────────────
+
+def test_fetch_image_file_url_keeps_suffix(tmp_path):
+    src = tmp_path / "pic.png"
+    src.write_bytes(b"\x89PNG\r\n\x1a\nDATA")
+    out = media_fetch.fetch_image(f"file://{src}", tmp_path / "out", "m1")
+    assert out == tmp_path / "out" / "m1.png"
+    assert out.read_bytes() == src.read_bytes()
+
+
+def test_fetch_image_http_uses_content_type_extension(tmp_path, monkeypatch):
+    class _Resp:
+        headers = {"Content-Type": "image/png; charset=binary"}
+        def read(self):
+            return b"PNGBYTES"
+        def __enter__(self):
+            return self
+        def __exit__(self, *a):
+            return False
+
+    monkeypatch.setattr(media_fetch.urllib.request, "urlopen", lambda *a, **k: _Resp())
+    # URL has no extension → extension comes from Content-Type
+    out = media_fetch.fetch_image("https://x.test/image?id=9", tmp_path, "m2")
+    assert out.name == "m2.png"
+    assert out.read_bytes() == b"PNGBYTES"
+
+
+def test_ingest_downloads_image_url(tmp_path):
+    src = tmp_path / "mask.jpg"
+    src.write_bytes(b"JPEGDATA")
+    inputs = [{"id": "m1", "type": "image", "url": f"file://{src}",
+               "use": "map_mask", "region": "Morocco"}]
+    ctx = _ctx(tmp_path, inputs)
+    ingest.execute(ctx)
+    row = ctx.manifest["media_pool"][0]
+    assert row["use"] == "map_mask" and row["region"] == "Morocco"
+    p = Path(row["path"])
+    assert p.exists() and p.suffix == ".jpg" and p.read_bytes() == b"JPEGDATA"
