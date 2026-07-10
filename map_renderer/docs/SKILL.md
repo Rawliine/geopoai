@@ -239,6 +239,12 @@ Screen-fixed position (doesn't move with camera):
 "position": { "x": 960, "y": 60 }
 ```
 
+> **Don't cover an effect with its own label.** A geo-pinned `showLabel` placed at
+> (or very near) the same `[lng, lat]` as a `pulseRing` center, arrow endpoint, or
+> icon renders on top of that effect and hides it. When labeling a point effect,
+> either use a screen-fixed banner (`position: { x, y }`) or offset the label's
+> `[lng, lat]` clear of the effect's radius.
+
 Counter label:
 ```json
 {
@@ -427,6 +433,11 @@ Use Mapbox-style decimal degrees. No DMS notation.
 
 7. **Total duration.** Set `duration` (top-level) at least 0.5s beyond the last
    action's `at` + its animation duration. The clip cuts abruptly at `duration`.
+
+8. **Label ≠ effect coordinate.** Never place a geo-pinned `showLabel` at the same
+   `[lng, lat]` as a `pulseRing`, arrow endpoint, or icon — the label covers the
+   effect. Label point effects with a screen-fixed banner (`position: { x, y }`) or
+   offset the label clear of the effect's radius.
 
 ---
 
