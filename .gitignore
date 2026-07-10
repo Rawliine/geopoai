@@ -26,6 +26,14 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Generated episode runs (authored artifacts + rendered media; large binaries)
+episodes/
+# Episode media copied into the map renderer web root at render time
+map_renderer/web/episode_media/
+# Test-generated artifacts: demo render output + on-demand alignment cache
+tests/fixtures/demo_output/
+tests/fixtures/vo_sample.words.json
+
 # Claude Code workspace (per-developer plans, memory, settings)
 .claude/
 
