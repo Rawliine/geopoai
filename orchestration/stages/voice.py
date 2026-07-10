@@ -156,11 +156,13 @@ def _default_align(vo_wav, script_text: str) -> list[dict]:
     return align_vo(Path(vo_wav), script_text or None)
 
 
-def _build_timing(ctx: StageContext, vo: "Path") -> None:
+def _build_timing(ctx: StageContext, vo: "Path", audio_duration: float | None = None) -> None:
     """Align the VO and store the per-beat/per-sentence timing map on the manifest.
 
     This makes the measured voice the master clock: storyboard/scenes derive clip
-    durations from these spans (see orchestration.timing). Alignment is behind
+    durations from these spans (see orchestration.timing). *audio_duration* is the
+    ffprobe'd length of the VO file — the true tail target, since alignment ends at
+    the last spoken word and misses trailing decay. Alignment is behind
     ctx.hooks['align_vo'] so tests stub the heavy whisper call.
     """
     from orchestration import timing as timing_mod
@@ -182,7 +184,7 @@ def _build_timing(ctx: StageContext, vo: "Path") -> None:
     (ctx.ep_dir / "vo.words.json").write_text(
         json.dumps(words, indent=2) + "\n", encoding="utf-8"
     )
-    ctx.manifest["timing"] = timing_mod.build_timing(beats, words)
+    ctx.manifest["timing"] = timing_mod.build_timing(beats, words, audio_duration=audio_duration)
     log.info(
         "voice: timing map for %d beats (vo_duration %.1fs)",
         len(beats), ctx.manifest["timing"]["vo_duration"],
@@ -215,8 +217,9 @@ def execute(ctx: StageContext) -> None:
         log.info("voice: vo.wav %.1fs (script estimate %.1fs)", dur, est)
 
     # Master clock: align the VO and build the timing map the storyboard/scenes
-    # derive clip durations from.
-    _build_timing(ctx, vo)
+    # derive clip durations from. Pass the measured file length so the last clip
+    # covers the trailing audio past the final aligned word.
+    _build_timing(ctx, vo, audio_duration=dur)
 
 
 STAGE = Stage(name="voice", is_brain=False, execute=execute)
