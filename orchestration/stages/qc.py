@@ -97,6 +97,32 @@ def check_loudness(lufs: float | None, target: float, tol: float) -> list[str]:
     return []
 
 
+def check_vo_coverage(
+    vo_duration: float | None, video_duration: float | None, tolerance: float
+) -> list[str]:
+    """Fail when the assembled video length diverges from the VO beyond *tolerance*.
+
+    A video shorter than the VO means the final-mux ``-shortest`` truncates the
+    voice off the tail (the bug this guards); longer means dead air or a clip
+    dropped from the cut. Skips when either length is unknown — no rendered master
+    yet (dry run / pre-render) or no ffprobe.
+    """
+    if vo_duration is None or not video_duration:
+        return []
+    delta = video_duration - vo_duration
+    if abs(delta) <= tolerance:
+        return []
+    if delta < 0:
+        return [
+            f"assembled video {video_duration:.2f}s is {-delta:.2f}s shorter than the "
+            f"VO {vo_duration:.2f}s — `-shortest` cuts the voice tail"
+        ]
+    return [
+        f"assembled video {video_duration:.2f}s is {delta:.2f}s longer than the "
+        f"VO {vo_duration:.2f}s — dead air or a clip dropped from the cut"
+    ]
+
+
 def check_clip_integrity(
     storyboard: dict, clips: list[dict], compose_spec: dict | None = None
 ) -> list[str]:
@@ -120,6 +146,20 @@ def check_clip_integrity(
 
 
 # ── Stage ────────────────────────────────────────────────────────────────────
+
+def _probe_duration(path: Path) -> float | None:
+    if shutil.which("ffprobe") is None or not path.exists():
+        return None
+    try:
+        out = subprocess.run(
+            ["ffprobe", "-v", "error", "-show_entries", "format=duration",
+             "-of", "default=nw=1:nk=1", str(path)],
+            capture_output=True, text=True, check=True,
+        )
+        return float(out.stdout.strip())
+    except (subprocess.CalledProcessError, ValueError):
+        return None
+
 
 def _measure_lufs(path: Path) -> float | None:
     if shutil.which("ffmpeg") is None or not path.exists():
@@ -179,6 +219,15 @@ def execute(ctx: StageContext) -> None:
         _measure_lufs(final),
         th.get("loudness_lufs_target", -14.0),
         th.get("loudness_lufs_tolerance", 1.0),
+    )
+
+    # vo_coverage: the rendered master must span the whole VO, else the final-mux
+    # `-shortest` cut the voice tail. Ground truth is the post-mux master vs the VO
+    # file; skips (no master) on dry runs — timing.py unit tests lock the derive.
+    issues["vo_coverage"] = check_vo_coverage(
+        _probe_duration(ctx.ep_dir / "vo.wav"),
+        _probe_duration(final),
+        th.get("av_sync_tolerance_s", 0.75),
     )
     compose_spec = None
     compose_path = ctx.ep_dir / "compose.json"

@@ -272,6 +272,14 @@ def _mux_audio(video_in: Path, audio_in: Path, video_out: Path) -> None:
             "check broll durations and the storyboard timing map.",
             v_dur, a_dur, v_dur - a_dur, v_dur - a_dur,
         )
+    elif a_dur - v_dur > _MUX_TRUNCATE_WARN_S:
+        log.warning(
+            "mux_audio: audio (%.2fs) exceeds assembled video (%.2fs) by %.2fs — "
+            "`-shortest` will drop %.2fs of VOICE off the tail. The clip durations "
+            "sum short of the VO; check the storyboard timing map (derive_clip_"
+            "durations should tile the full audio).",
+            a_dur, v_dur, a_dur - v_dur, a_dur - v_dur,
+        )
     _run_ffmpeg(
         [
             "ffmpeg",

@@ -229,6 +229,16 @@ def test_legacy_flags_captions_false_means_never() -> None:
     assert policy["burn_in"] == "never"
 
 
+def test_mux_audio_warns_when_audio_exceeds_video(monkeypatch, tmp_path, caplog) -> None:
+    # audio longer than the assembled video → -shortest would cut the voice tail
+    durs = {"v.mp4": 104.0, "a.wav": 107.5}
+    monkeypatch.setattr(engine, "_probe_duration", lambda p: durs[Path(p).name])
+    monkeypatch.setattr(engine, "_run_ffmpeg", lambda *a, **k: None)
+    with caplog.at_level("WARNING"):
+        engine._mux_audio(Path("v.mp4"), Path("a.wav"), tmp_path / "out.mp4")
+    assert "VOICE" in caplog.text
+
+
 def test_select_transition_whoosh_falls_back_without_camera() -> None:
     recipe = transitions.select_transition(
         {"clip_id": "a", "fps": 30, "events": []},

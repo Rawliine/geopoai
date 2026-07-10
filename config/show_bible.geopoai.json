@@ -50,7 +50,8 @@
     "callout_overlap_ratio_max": 0.6,
     "static_max_s": 4.0,
     "loudness_lufs_target": -14.0,
-    "loudness_lufs_tolerance": 1.0
+    "loudness_lufs_tolerance": 1.0,
+    "av_sync_tolerance_s": 0.75
   },
   "platform_metadata": {
     "yt_long": { "title_max": 100, "description_max": 5000, "tags_max": 15 },

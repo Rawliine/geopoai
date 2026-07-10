@@ -97,13 +97,14 @@ def test_full_walk_to_publish(episode):
     # every clip rendered once
     assert sorted(calls) == ["e1", "e2", "e3", "e4"]
 
-    # map_region routed into compose media_overlays at episode time. e3 starts
-    # at the VO-derived offset e1(8.4)+e2(7.4)=15.8s; its region window [1,5]
-    # shifts to [16.8, 20.8].
+    # map_region routed into compose media_overlays at episode time. Clip
+    # durations tile the full VO span (timing.derive_clip_durations); e3 starts
+    # at the VO-derived offset e1(8.5)+e2(7.5)=16.0s, so its region window [1,5]
+    # shifts to [17.0, 21.0].
     spec = json.loads((M.episode_dir(repo, ep_id) / "compose.json").read_text())
     overlays = spec.get("media_overlays", [])
     assert len(overlays) == 1
-    assert overlays[0]["start"] == 16.8 and overlays[0]["end"] == 20.8
+    assert overlays[0]["start"] == 17.0 and overlays[0]["end"] == 21.0
     assert overlays[0]["region"] == "top"
 
 
@@ -175,6 +176,19 @@ def test_qc_loudness_and_integrity():
     assert qc.check_loudness(-14.0, -14.0, 1.0) == []
     assert qc.check_loudness(None, -14.0, 1.0) == []
     assert qc.check_clip_integrity({"entries": [{"clip_id": "e1"}]}, [])
+
+
+def test_qc_vo_coverage_flags_truncated_tail():
+    # video shorter than VO → -shortest cuts the voice tail
+    issues = qc.check_vo_coverage(107.46, 104.11, 0.75)
+    assert issues and "shorter" in issues[0] and "voice tail" in issues[0]
+    # video longer than VO → dead air / dropped clip
+    assert qc.check_vo_coverage(100.0, 103.0, 0.75)
+    # within tolerance → clean
+    assert qc.check_vo_coverage(107.46, 107.3, 0.75) == []
+    # unknown VO length or no video → skip
+    assert qc.check_vo_coverage(None, 104.0, 0.75) == []
+    assert qc.check_vo_coverage(107.46, 0.0, 0.75) == []
 
 
 def test_qc_integrity_flags_clip_dropped_from_final_cut():
