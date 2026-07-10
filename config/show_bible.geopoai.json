@@ -33,8 +33,8 @@
   ],
   "component_palette": {
     "preferred_map_actions": ["applyFill", "applyBorder", "drawArrow", "advanceFront", "reserveRegion"],
-    "preferred_manim_components": ["payoff_matrix", "bar_chart", "callout_box", "image_card"],
-    "notes": "Lead with the map for territory/movement; switch to manim for payoff structure and numbers."
+    "preferred_manim_components": [],
+    "notes": "Lead with the map for territory and movement; use manim for structure, data, and any non-map visual — reach across the full component set rather than defaulting to one."
   },
   "caption_policy": { "burn_in": "broll_only", "sidecar": true },
   "voice": {
