@@ -39,9 +39,19 @@ if [[ -z "${HF_TOKEN}" ]]; then
 fi
 export HF_TOKEN HUGGING_FACE_HUB_TOKEN="${HF_TOKEN}"
 
+COMFYUI_VENV="${GEOPOAI_COMFYUI_VENV:-/home/ubuntu/ComfyUI/.venv}"
+if [[ -d "${COMFYUI_VENV}/bin" ]]; then
+  export PATH="${COMFYUI_VENV}/bin:${PATH}"
+fi
+
 if ! command -v hf >/dev/null 2>&1; then
-  python3 -m pip install --user -U "huggingface_hub[cli]"
-  export PATH="${HOME}/.local/bin:${PATH}"
+  if [[ -x "${COMFYUI_VENV}/bin/python" ]]; then
+    "${COMFYUI_VENV}/bin/python" -m pip install -U "huggingface_hub[cli]"
+    export PATH="${COMFYUI_VENV}/bin:${PATH}"
+  else
+    python3 -m pip install --user -U "huggingface_hub[cli]"
+    export PATH="${HOME}/.local/bin:${PATH}"
+  fi
 fi
 
 echo "=============================================="

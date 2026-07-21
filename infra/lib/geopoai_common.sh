@@ -190,6 +190,12 @@ geopoai_rsync_repo_to_vm() {
 
   ssh "${ssh_opts[@]}" "${remote_user}@${ip}" "
     if id -u ubuntu &>/dev/null; then
+      home_dir=\$(dirname '${remote_path}')
+      # root mkdir -p may create /home/ubuntu as root:root before bootstrap runs;
+      # ubuntu must own the home dir to clone ComfyUI alongside GeoPoAI.
+      if [[ \"\${home_dir}\" == /home/ubuntu ]]; then
+        chown ubuntu:ubuntu \"\${home_dir}\"
+      fi
       chown -R ubuntu:ubuntu '${remote_path}'
     fi
   "
