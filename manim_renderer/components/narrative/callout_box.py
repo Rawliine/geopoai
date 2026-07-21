@@ -356,8 +356,17 @@ class CalloutBox(BaseComponent):
         a scene when needed."""
         if effect in ("fade-out", "dissolve"):
             return super().exit(effect, timing, **extra)
-        return self._style_spec.exit(
+        style_anim = self._style_spec.exit(
             self._bubble_mob, self._text_mob, timing, **extra
+        )
+        # Style exits animate only bubble+text; without this the leader
+        # Arrow/Line survives the removal and lingers on screen.
+        if self._leader_mob is None:
+            return style_anim
+        from manim import AnimationGroup, FadeOut
+
+        return AnimationGroup(
+            style_anim, FadeOut(self._leader_mob, run_time=TIMING["fast"])
         )
 
     # --- custom anchors ------------------------------------------------------

@@ -93,8 +93,10 @@ def _default_render_clip(entry: dict, ctx: StageContext) -> dict[str, str]:
     out = asyncio.run(render(scene, clip_id))
     outputs = {"video": str(out)}
     # `regions` is required for the map_region → media_overlays routing in compose.
+    # Manim writes its sidecars under output/manim/, map under output/.
+    side_dir = repo_root / "output" / "manim" if renderer == "manim" else repo_root / "output"
     for kind in ("events", "layout", "regions"):
-        side = repo_root / "output" / f"{clip_id}.{kind}.json"
+        side = side_dir / f"{clip_id}.{kind}.json"
         if side.exists():
             outputs[kind] = str(side)
     return outputs
@@ -118,11 +120,11 @@ def _existing_output(entry: dict, ctx: StageContext) -> dict[str, str] | None:
     if not video.exists():
         return None
     outputs = {"video": str(video)}
-    if renderer == "map":
-        for kind in ("events", "layout", "regions"):
-            side = root / "output" / f"{clip_id}.{kind}.json"
-            if side.exists():
-                outputs[kind] = str(side)
+    side_dir = root / "output" / "manim" if renderer == "manim" else root / "output"
+    for kind in ("events", "layout", "regions"):
+        side = side_dir / f"{clip_id}.{kind}.json"
+        if side.exists():
+            outputs[kind] = str(side)
     return outputs
 
 

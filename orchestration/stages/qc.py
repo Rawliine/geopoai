@@ -195,7 +195,16 @@ def execute(ctx: StageContext) -> None:
         pairs, th.get("callout_overlap_ratio_max", 0.6)
     )
 
-    # pacing: aggregate event times across clips
+    # pacing: aggregate event times across clips. Sidecar events are clip-local —
+    # shift each by its clip's episode offset (from the compose spec) so gaps and
+    # density are measured in episode time, not a pile-up of per-clip t≈0 events.
+    offsets: dict[str, float] = {}
+    compose_json = ctx.ep_dir / "compose.json"
+    if compose_json.exists():
+        spec = json.loads(compose_json.read_text(encoding="utf-8"))
+        offsets = {
+            c.get("clip_id"): float(c.get("offset_s", 0.0)) for c in spec.get("clips", [])
+        }
     times: list[float] = []
     for clip in ctx.manifest.get("clips", []):
         ev = clip.get("outputs", {}).get("events")
@@ -204,7 +213,8 @@ def execute(ctx: StageContext) -> None:
         ep = ev if Path(ev).is_absolute() else ctx.repo_root / ev
         if Path(ep).exists():
             doc = json.loads(Path(ep).read_text(encoding="utf-8"))
-            times += [float(e.get("t", 0)) for e in doc.get("events", [])]
+            base = offsets.get(clip.get("id"), 0.0)
+            times += [base + float(e.get("t", 0)) for e in doc.get("events", [])]
     issues["pacing"] = check_pacing(times, th.get("static_max_s", 4.0))
 
     # caption collisions (skipped when burn-in never) — no ASS yet in dry runs
