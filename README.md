@@ -1,9 +1,11 @@
 # GeoPoAI
 
-Two-engine pipeline for short-form geopolitical / game-theory video clips. Both engines consume scene JSON and produce MP4.
+Multi-engine pipeline for short-form geopolitical / game-theory video clips. Engines consume scene JSON and produce MP4.
 
 - **Mapbox engine** (`pipeline/render_scene.py` → `map_renderer/runner.py`) — Mapbox GL JS in headless Chromium (Playwright). HTML/CSS/JS live under `map_renderer/web/`. Renders maps, country fills, borders, arrows, ripples.
 - **Manim engine** (`pipeline/render_manim.py`) — Manim Community Edition. Renders payoff matrices, game trees, charts, system diagrams. Live: dispatcher, 10 components, 8 named layouts across both formats, 4 auto-cleanup mutations plus role/layout restaging, 3 callout styles (neon default), and a three-tier scene validator. See `manim_renderer/docs/` for the phase roadmap.
+- **Broll engine** - Either AI Generated B ROll or looks up videos throigh B-Roll providers.
+- **Blender engine** - Animation of a 3D character (WIP)
 
 A unified dispatcher (`pipeline/render.py`) routes by the `"renderer"` field on each scene JSON.
 
